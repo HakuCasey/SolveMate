@@ -184,3 +184,9 @@ npm run build
 - 内容更新：更新失败保留旧版，完整保存后才使用新版本；个人记录及内容关联保留。
 - 推荐问题：接入 AI 生成结果，点击后进入当前题目的对话，切题时不混入旧题推荐。
 - 端到端：选择题目、文字询问、连续追问和切换题目满足 `spec.md` 的验收标准。
+
+### 正式构建中的外观切换验证
+
+2026-11-06：修复仅通过 JavaScript 设置 `color-scheme` 时，正式构建中的 `light-dark()` 兼容样式仍跟随系统配色的问题。外观选择同时写入根节点 `data-appearance`，CSS 显式声明 light 和 dark 两种 `color-scheme`，使构建工具生成对应选择器下的兼容变量，做法见 [Lightning CSS 的 light-dark 转换说明](https://lightningcss.dev/transpilation.html#light-dark-color-function)。
+
+在正式构建的 PWA 中验证应用更新提示、更新后昼夜配色切换、夜间选择在刷新后的恢复，以及切回白天模式；57 项网页测试、6 项构建补丁测试、类型、代码、格式检查与生产构建通过。用户指南第 8 章补充完整切换步骤及真实夜间截图。

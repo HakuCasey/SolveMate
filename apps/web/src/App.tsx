@@ -64,8 +64,10 @@ function Workspace({ content }: { content: OfficialContent }) {
   const [noteId, setNoteId] = useState(sampleNotes[0].id);
 
   useEffect(() => {
-    if (data)
+    if (data) {
+      document.documentElement.dataset.appearance = data.settings.appearance;
       document.documentElement.style.colorScheme = data.settings.appearance;
+    }
   }, [data]);
 
   function updateData(change: (previous: AppData) => AppData) {

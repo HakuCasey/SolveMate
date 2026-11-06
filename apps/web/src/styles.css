@@ -17,6 +17,13 @@
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 }
+/* 显式声明手动外观，构建时才能为 light-dark() 生成对应的兼容样式。 */
+:root[data-appearance="light"] {
+  color-scheme: light;
+}
+:root[data-appearance="dark"] {
+  color-scheme: dark;
+}
 * {
   box-sizing: border-box;
 }
