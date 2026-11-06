@@ -11,12 +11,13 @@
     "node": ">=22.13.0"
   },
   "scripts": {
+    "start": "node scripts/start.mjs",
     "dev": "npm run dev --workspace @solvemate/web",
     "build": "npm run licenses:check && npm run build --workspace @solvemate/web",
     "preview": "npm run preview --workspace @solvemate/web",
     "check": "npm run check --workspace @solvemate/web",
-    "test": "node --test packages/deepmerge/test/*.test.cjs && npm run test --workspace @solvemate/web",
-    "format:check": "prettier --check apps/web/src packages/contracts/src apps/web/*.ts apps/web/*.json packages/contracts/package.json package.json eslint.config.js scripts/generate-license-notices.mjs packages/deepmerge/*.cjs packages/deepmerge/*.json packages/deepmerge/test/*.cjs",
+    "test": "node --test scripts/start.test.mjs packages/deepmerge/test/*.test.cjs && npm run test --workspace @solvemate/web",
+    "format:check": "prettier --check apps/web/src packages/contracts/src apps/web/*.ts apps/web/*.json packages/contracts/package.json package.json eslint.config.js scripts/generate-license-notices.mjs scripts/start*.mjs packages/deepmerge/*.cjs packages/deepmerge/*.json packages/deepmerge/test/*.cjs",
     "licenses:generate": "node scripts/generate-license-notices.mjs",
     "licenses:check": "node scripts/generate-license-notices.mjs --check"
   },

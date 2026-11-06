@@ -31,16 +31,7 @@ npm ci
 
 ### 本地启动与访问
 
-在仓库根目录执行：
-
-```bash
-npm run build
-npm run preview
-```
-
-启动后打开 <http://127.0.0.1:4173/>。这会运行构建后的网页，可用于阅读内置内容、安装应用和验证离线使用。
-
-如需下载和更新官方课程，在另一个终端中，从仓库根目录启动内容服务：
+首次使用时，先从仓库根目录安装内容服务的 Python 依赖：
 
 ```bash
 cd apps/server
@@ -48,16 +39,27 @@ python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements.lock
 python -m pip install --no-deps --no-build-isolation -e .
-solvemate-publish
-uvicorn solvemate_server.main:create_app --factory --host 127.0.0.1 --port 8000
+cd ../..
 ```
 
-以上虚拟环境激活命令适用于 macOS 和 Linux；Windows PowerShell 使用 `.venv\Scripts\Activate.ps1`。服务启动后，可在网页中下载课程。后续修改课程内容时，重新执行 `solvemate-publish`。更多配置见[后端说明](apps/server/README.md)。
+以上虚拟环境激活命令适用于 macOS 和 Linux；Windows PowerShell 使用 `.venv\Scripts\Activate.ps1`。
+
+此后在仓库根目录执行一条命令：
+
+```bash
+npm start
+```
+
+脚本依次检查依赖和端口、构建网页、发布课程内容，再同时启动网页和官方内容服务。看到 `SolveMate is ready` 后，打开 <http://127.0.0.1:4173/>。网页支持课程下载、安装应用和离线使用。无需另开终端或手动激活 Python 环境；按一次 `Ctrl+C` 会停止两个服务，任一服务异常退出时也会停止另一个服务。
+
+默认使用网页端口 4173 和内容服务端口 8000。已有服务占用端口时，脚本会报错并保留原进程。可以先在原终端按 `Ctrl+C` 停止旧服务，也可以用 `npm start -- --port 4174` 更换网页端口。
+
+只启动网页时，仍可依次执行 `npm run build`、`npm run preview`。内容服务的单独启动和配置见[后端说明](apps/server/README.md)。
 
 ### 部署到服务器
 
 1. 在仓库根目录执行 `npm run build`，将 `apps/web/dist/` 中的内容部署到提供 HTTPS 的站点根目录。
-2. 如需提供官方课程下载，按上方步骤安装并启动内容服务，保留发布后的课程目录，并将站点的 `/api/v1/` 请求转发到该服务。本机默认服务地址为 `http://127.0.0.1:8000`。
+2. 如需提供官方课程下载，按[后端说明](apps/server/README.md)安装、发布并启动内容服务，保留发布后的课程目录，并将站点的 `/api/v1/` 请求转发到该服务。本机默认服务地址为 `http://127.0.0.1:8000`。
 3. 前后端部署到不同站点时，在 `apps/web/.env.local` 中设置完整内容服务地址，再重新构建网页；后端同时通过 `SOLVEMATE_CORS_ORIGINS` 配置允许访问的网页来源。
 
 跨站点配置示例，使用时替换为自己的内容服务地址：
