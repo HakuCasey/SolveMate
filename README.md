@@ -112,7 +112,7 @@ SolveMate/
 │   └── server/           # 官方内容服务
 ├── packages/             # 共享代码与接口约定
 ├── scripts/              # 项目维护脚本
-├── AGENTS.md             # 协作入口，私有规范保存在工作区
+├── AGENTS.md             # 项目指令文件，私有规范保存在工作区
 ├── PLANS.md              # 项目计划与待办
 └── README.md             # 项目说明
 ```
