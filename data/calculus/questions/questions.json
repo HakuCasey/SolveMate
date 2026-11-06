@@ -1,0 +1,222 @@
+{
+  "course": "高等数学",
+  "description": "原创示例题库，用于内置题目的阅读和文字询问。",
+  "questions": [
+    {
+      "id": "M001",
+      "title": "平方根函数的极限",
+      "topic": "极限与连续",
+      "difficulty": "基础",
+      "question": "求极限：\n\n\\[\n\\lim_{x\\to 0}\\frac{\\sqrt{1+3x}-1}{x}.\n\\]",
+      "answer": "\\(\\frac{3}{2}\\)",
+      "explanation": "分子有理化；也可以利用 \\(\\sqrt{1+u}=1+\\frac{u}{2}+o(u)\\)。"
+    },
+    {
+      "id": "M002",
+      "title": "无穷远处的未定式",
+      "topic": "极限与连续",
+      "difficulty": "基础",
+      "question": "求极限：\n\n\\[\n\\lim_{x\\to +\\infty}x\\left(\\sqrt{x^2+4}-x\\right).\n\\]",
+      "answer": "\\(2\\)",
+      "explanation": "对括号内的差进行有理化，消除“无穷减无穷”型未定式。"
+    },
+    {
+      "id": "M003",
+      "title": "可去间断点",
+      "topic": "极限与连续",
+      "difficulty": "基础",
+      "question": "设\n\n\\[\nf(x)=\n\\begin{cases}\n\\dfrac{e^x-1}{x}, & x\\ne 0,\\\\\na, & x=0.\n\\end{cases}\n\\]\n\n求常数 \\(a\\)，使 \\(f(x)\\) 在 \\(x=0\\) 处连续。",
+      "answer": "\\(a=1\\)",
+      "explanation": "连续要求函数值等于极限；使用基本极限 \\(\\lim_{x\\to0}\\frac{e^x-1}{x}=1\\)。"
+    },
+    {
+      "id": "M004",
+      "title": "三角函数的高阶极限",
+      "topic": "极限与连续",
+      "difficulty": "进阶",
+      "question": "求极限：\n\n\\[\n\\lim_{x\\to0}\\frac{\\sin 2x-2x\\cos x}{x^3}.\n\\]",
+      "answer": "\\(-\\frac{1}{3}\\)",
+      "explanation": "将 \\(\\sin 2x\\) 和 \\(\\cos x\\) 展开到三阶；低阶项会相互抵消。"
+    },
+    {
+      "id": "M005",
+      "title": "幂指函数求导",
+      "topic": "导数与微分",
+      "difficulty": "基础",
+      "question": "设 \\(x>0\\)，求函数\n\n\\[\ny=x^x\n\\]\n\n的导数。",
+      "answer": "\\(y'=x^x(\\ln x+1)\\)",
+      "explanation": "先取对数，将幂指函数转化为乘积，再进行隐式求导。"
+    },
+    {
+      "id": "M006",
+      "title": "隐函数的切线斜率",
+      "topic": "导数与微分",
+      "difficulty": "基础",
+      "question": "曲线\n\n\\[\nx^2+xy+y^2=7\n\\]\n\n经过点 \\((1,2)\\)。求该曲线在此点处的切线斜率。",
+      "answer": "\\(-\\frac{4}{5}\\)",
+      "explanation": "对等式两边关于 \\(x\\) 求导，注意 \\(xy\\) 使用乘积法则，\\(y\\) 是 \\(x\\) 的函数。"
+    },
+    {
+      "id": "M007",
+      "title": "函数的单调性与极值",
+      "topic": "导数与微分",
+      "difficulty": "基础",
+      "question": "讨论函数\n\n\\[\nf(x)=xe^{-x},\\qquad x>0\n\\]\n\n的单调区间，并求最大值。",
+      "answer": "在 \\((0,1)\\) 上递增，在 \\((1,+\\infty)\\) 上递减；最大值为 \\(\\frac{1}{e}\\)。",
+      "explanation": "求一阶导数并判断符号；驻点 \\(x=1\\) 是唯一极大值点。"
+    },
+    {
+      "id": "M008",
+      "title": "抛物线下的最大矩形",
+      "topic": "导数与微分",
+      "difficulty": "进阶",
+      "question": "在抛物线\n\n\\[\ny=4-x^2\n\\]\n\n与 \\(x\\) 轴围成的区域内作一个关于 \\(y\\) 轴对称的矩形，矩形底边在 \\(x\\) 轴上，两个上顶点在抛物线上。求矩形面积的最大值。",
+      "answer": "\\(\\frac{32}{3\\sqrt{3}}\\)",
+      "explanation": "设右上顶点横坐标为 \\(x\\)，面积为 \\(A(x)=2x(4-x^2)\\)，再求极值。"
+    },
+    {
+      "id": "M009",
+      "title": "凑微分积分",
+      "topic": "积分及其应用",
+      "difficulty": "基础",
+      "question": "求不定积分：\n\n\\[\n\\int\\frac{2x+1}{x^2+x+1}\\,dx.\n\\]",
+      "answer": "\\(\\ln(x^2+x+1)+C\\)",
+      "explanation": "分子正好是分母的导数。"
+    },
+    {
+      "id": "M010",
+      "title": "含对数函数的定积分",
+      "topic": "积分及其应用",
+      "difficulty": "进阶",
+      "question": "计算：\n\n\\[\n\\int_0^1 x\\ln(1+x^2)\\,dx.\n\\]",
+      "answer": "\\(\\ln 2-\\frac{1}{2}\\)",
+      "explanation": "令 \\(u=1+x^2\\)，将积分化为 \\(\\frac12\\int_1^2\\ln u\\,du\\)。"
+    },
+    {
+      "id": "M011",
+      "title": "两条曲线围成的面积",
+      "topic": "积分及其应用",
+      "difficulty": "基础",
+      "question": "求曲线 \\(y=x\\) 与 \\(y=x^2\\) 所围图形的面积。",
+      "answer": "\\(\\frac{1}{6}\\)",
+      "explanation": "先求交点 \\(x=0,1\\)，再判断区间内哪条曲线位于上方。"
+    },
+    {
+      "id": "M012",
+      "title": "反常积分",
+      "topic": "积分及其应用",
+      "difficulty": "进阶",
+      "question": "判断反常积分是否收敛，并计算其值：\n\n\\[\n\\int_1^{+\\infty}\\frac{1}{x(x+1)}\\,dx.\n\\]",
+      "answer": "收敛，值为 \\(\\ln 2\\)。",
+      "explanation": "使用部分分式 \\(\\frac1{x(x+1)}=\\frac1x-\\frac1{x+1}\\)，再对上限取极限。"
+    },
+    {
+      "id": "M013",
+      "title": "正项级数判敛",
+      "topic": "无穷级数",
+      "difficulty": "基础",
+      "question": "判断级数\n\n\\[\n\\sum_{n=1}^{\\infty}\\frac{n}{n^3+1}\n\\]\n\n是否收敛。",
+      "answer": "收敛。",
+      "explanation": "通项与 \\(\\frac1{n^2}\\) 同阶，可使用极限比较判别法。"
+    },
+    {
+      "id": "M014",
+      "title": "幂级数求和",
+      "topic": "无穷级数",
+      "difficulty": "进阶",
+      "question": "求幂级数\n\n\\[\n\\sum_{n=1}^{\\infty}n x^n\n\\]\n\n的收敛区间及其和函数。",
+      "answer": "收敛区间为 \\((-1,1)\\)，和函数为 \\(\\frac{x}{(1-x)^2}\\)。",
+      "explanation": "从几何级数 \\(\\sum_{n=0}^{\\infty}x^n=\\frac1{1-x}\\) 出发，逐项求导后乘以 \\(x\\)。"
+    },
+    {
+      "id": "M015",
+      "title": "泰勒展开",
+      "topic": "无穷级数",
+      "difficulty": "基础",
+      "question": "写出 \\(\\ln(1+x)\\) 在 \\(x=0\\) 处到四次项的泰勒展开。",
+      "answer": "\\[\n\\ln(1+x)=x-\\frac{x^2}{2}+\\frac{x^3}{3}-\\frac{x^4}{4}+O(x^5).\n\\]",
+      "explanation": "使用常见麦克劳林展开，注意正负号交替。"
+    },
+    {
+      "id": "M016",
+      "title": "交错级数的敛散性",
+      "topic": "无穷级数",
+      "difficulty": "基础",
+      "question": "判断级数\n\n\\[\n\\sum_{n=1}^{\\infty}\\frac{(-1)^{n-1}}{n}\n\\]\n\n是绝对收敛、条件收敛还是发散。",
+      "answer": "条件收敛。",
+      "explanation": "交错级数满足莱布尼茨判别法，但其绝对值级数是调和级数，发散。"
+    },
+    {
+      "id": "M017",
+      "title": "偏导数",
+      "topic": "多元函数微积分",
+      "difficulty": "基础",
+      "question": "设\n\n\\[\nz=x^2y+e^{xy}.\n\\]\n\n求 \\(z_x(0,1)\\) 和 \\(z_y(0,1)\\)。",
+      "answer": "\\(z_x(0,1)=1\\)，\\(z_y(0,1)=0\\)。",
+      "explanation": "对一个变量求偏导时，将另一个变量视为常数。"
+    },
+    {
+      "id": "M018",
+      "title": "方向导数",
+      "topic": "多元函数微积分",
+      "difficulty": "基础",
+      "question": "设 \\(f(x,y)=x^2+y^2\\)。求函数在点 \\((1,2)\\) 处沿着从 \\((1,2)\\) 指向 \\((4,6)\\) 的方向导数。",
+      "answer": "\\(\\frac{22}{5}\\)",
+      "explanation": "先将方向向量 \\((3,4)\\) 单位化，再与梯度 \\((2,4)\\) 作点积。"
+    },
+    {
+      "id": "M019",
+      "title": "条件极值",
+      "topic": "多元函数微积分",
+      "difficulty": "基础",
+      "question": "在约束 \\(x+y=2\\) 下，求函数\n\n\\[\nf(x,y)=x^2+y^2\n\\]\n\n的最小值。",
+      "answer": "在 \\((1,1)\\) 处取得最小值 \\(2\\)。",
+      "explanation": "可使用拉格朗日乘数法，也可以消元后化为一元二次函数。"
+    },
+    {
+      "id": "M020",
+      "title": "极坐标下的二重积分",
+      "topic": "多元函数微积分",
+      "difficulty": "进阶",
+      "question": "设 \\(D=\\{(x,y)\\mid x^2+y^2\\le 1\\}\\)，计算：\n\n\\[\n\\iint_D(x^2+y^2)\\,dx\\,dy.\n\\]",
+      "answer": "\\(\\frac{\\pi}{2}\\)",
+      "explanation": "使用极坐标，注意面积元为 \\(r\\,dr\\,d\\theta\\)。"
+    },
+    {
+      "id": "M021",
+      "title": "一阶线性微分方程",
+      "topic": "常微分方程",
+      "difficulty": "基础",
+      "question": "求初值问题：\n\n\\[\ny'+2y=e^{-x},\\qquad y(0)=0.\n\\]",
+      "answer": "\\(y=e^{-x}-e^{-2x}\\)",
+      "explanation": "使用积分因子 \\(e^{2x}\\)。"
+    },
+    {
+      "id": "M022",
+      "title": "二阶常系数齐次方程",
+      "topic": "常微分方程",
+      "difficulty": "基础",
+      "question": "求初值问题：\n\n\\[\ny''-3y'+2y=0,\\qquad y(0)=1,\\quad y'(0)=0.\n\\]",
+      "answer": "\\(y=2e^x-e^{2x}\\)",
+      "explanation": "特征方程为 \\(r^2-3r+2=0\\)，再利用两个初值确定常数。"
+    },
+    {
+      "id": "M023",
+      "title": "Logistic 方程",
+      "topic": "常微分方程",
+      "difficulty": "进阶",
+      "question": "求初值问题：\n\n\\[\ny'=y(1-y),\\qquad y(0)=\\frac12.\n\\]",
+      "answer": "\\(y=\\frac{1}{1+e^{-x}}\\)",
+      "explanation": "分离变量并作部分分式分解；初值决定积分常数。"
+    },
+    {
+      "id": "M024",
+      "title": "平衡解与稳定性",
+      "topic": "常微分方程",
+      "difficulty": "进阶",
+      "question": "对微分方程\n\n\\[\ny'=y(y-2)\n\\]\n\n求所有平衡解，并判断其稳定性。",
+      "answer": "平衡解为 \\(y=0\\) 和 \\(y=2\\)；\\(y=0\\) 稳定，\\(y=2\\) 不稳定。",
+      "explanation": "根据 \\(y(y-2)\\) 在区间 \\(( -\\infty,0)\\)、\\((0,2)\\) 和 \\((2,+\\infty)\\) 上的符号绘制相线。"
+    }
+  ]
+}

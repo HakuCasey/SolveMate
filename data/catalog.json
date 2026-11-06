@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "courses": [
+    {
+      "id": "calculus",
+      "title": "高等数学",
+      "description": "原创高等数学示例教材、24 道题目及配套课程记忆。",
+      "release": "example-1",
+      "files": [
+        { "id": "B001", "kind": "textbook", "path": "textbooks/primer.md" },
+        {
+          "id": "calculus-questions",
+          "kind": "questions",
+          "path": "questions/questions.json"
+        },
+        {
+          "id": "calculus-learning-points",
+          "kind": "learning-points",
+          "path": "memory/learning-points.json"
+        },
+        {
+          "id": "calculus-discussion-points",
+          "kind": "discussion-points",
+          "path": "memory/discussion-points.json"
+        }
+      ]
+    },
+    {
+      "id": "c-language",
+      "title": "C 语言",
+      "description": "原创 C11 示例教材、12 道程序阅读题及配套课程记忆。",
+      "release": "example-1",
+      "files": [
+        { "id": "CB001", "kind": "textbook", "path": "textbooks/primer.md" },
+        {
+          "id": "c-language-questions",
+          "kind": "questions",
+          "path": "questions/questions.json"
+        },
+        {
+          "id": "c-language-learning-points",
+          "kind": "learning-points",
+          "path": "memory/learning-points.json"
+        },
+        {
+          "id": "c-language-discussion-points",
+          "kind": "discussion-points",
+          "path": "memory/discussion-points.json"
+        }
+      ]
+    }
+  ]
+}

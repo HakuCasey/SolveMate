@@ -1,0 +1,246 @@
+.chat {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border-left: 1px solid var(--sm-line);
+}
+.heading {
+  min-height: 64px;
+  padding: 15px 25px;
+  border-bottom: 1px solid var(--sm-line);
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+.avatar {
+  background: var(--sm-active);
+  color: var(--sm-accent);
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+}
+.heading select {
+  max-width: 100%;
+  min-width: 0;
+  height: 30px;
+  padding: 2px 6px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: var(--sm-paper);
+  font-size: 14px;
+  font-weight: 500;
+}
+.heading select:hover {
+  border-color: var(--sm-line);
+}
+.connection {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--sm-soft);
+  white-space: nowrap;
+}
+.main {
+  padding: 24px 25px 12px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+.history {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: auto;
+  overflow-wrap: anywhere;
+  scrollbar-gutter: stable;
+}
+.welcome {
+  padding: 8px 0 16px;
+}
+.welcome h3 {
+  font-size: 19px;
+  font-weight: 500;
+  margin: 0 0 9px;
+  letter-spacing: -0.4px;
+}
+.welcome p {
+  font-size: 13px;
+  color: var(--sm-soft);
+  margin: 0;
+  max-width: 30em;
+}
+.example {
+  color: var(--sm-soft);
+  font-size: 11px;
+  margin: 0;
+}
+.userMessage,
+.assistantMessage {
+  max-width: 100%;
+  min-width: 0;
+  font-size: 13px;
+  flex-shrink: 0;
+  overflow-wrap: anywhere;
+}
+.userMessage {
+  padding: 11px 15px;
+  border-radius: 13px 13px 3px 13px;
+  background: var(--sm-ground);
+  align-self: flex-end;
+}
+.assistantMessage {
+  padding: 0 0 3px;
+}
+.author {
+  font-size: 11px;
+  color: var(--sm-soft);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 7px;
+}
+.author svg {
+  width: 14px;
+  height: 14px;
+}
+.recommendations {
+  margin-top: 20px;
+}
+.recommendations > p {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--sm-soft);
+  margin: 0 0 10px;
+}
+.recommendations > p > span {
+  margin-left: auto;
+}
+.suggestion {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 10px 12px;
+  margin-top: 7px;
+  border: 1px solid var(--sm-line);
+  border-radius: 8px;
+  font-size: 12px;
+  text-align: left;
+}
+.suggestion span {
+  flex: 1;
+}
+.suggestion:hover {
+  border-color: var(--sm-accent);
+  background: var(--sm-active);
+}
+.suggestion svg {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+}
+.compose {
+  border: 1px solid var(--sm-line);
+  border-radius: 13px;
+  padding: 11px 12px 9px;
+  margin: 16px 0 0;
+}
+.compose:focus-within {
+  border-color: var(--sm-accent);
+}
+.compose textarea {
+  resize: vertical;
+  border: 0;
+  min-height: 52px;
+  max-height: 160px;
+  width: 100%;
+  padding: 2px 3px;
+  font-size: 13px;
+  background: transparent;
+}
+.compose textarea:focus-visible {
+  outline: 0;
+}
+.composeBottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.context {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  font-size: 11px;
+  background: var(--sm-ground);
+  color: var(--sm-soft);
+  padding: 3px 6px;
+  border-radius: 4px;
+  overflow-wrap: anywhere;
+}
+.context svg {
+  flex-shrink: 0;
+  width: 12px;
+  height: 12px;
+}
+.send {
+  margin-left: auto;
+  display: grid;
+  place-items: center;
+  background: var(--sm-accent);
+  color: var(--sm-on);
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+.send:disabled {
+  opacity: 0.4;
+}
+.notice,
+.voice {
+  font-size: 11px;
+  color: var(--sm-soft);
+  text-align: center;
+  margin: 7px 0 0;
+}
+.voice {
+  margin-top: 2px;
+}
+.voice span {
+  opacity: 0.8;
+}
+@media (max-width: 800px) {
+  .chat {
+    min-height: 650px;
+    height: 650px;
+    border-left: 0;
+    border-top: 1px solid var(--sm-line);
+  }
+}
+@media (max-width: 480px) {
+  .heading {
+    padding: 14px 12px;
+    flex-wrap: wrap;
+  }
+  .connection {
+    font-size: 10px;
+  }
+  .main {
+    padding: 20px 12px 12px;
+  }
+  .compose textarea {
+    font-size: 16px;
+  }
+}

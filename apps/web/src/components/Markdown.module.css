@@ -1,0 +1,129 @@
+.content {
+  min-width: 0;
+  max-width: 100%;
+  font-size: inherit;
+  line-height: 1.95;
+  overflow-wrap: anywhere;
+}
+
+.content p {
+  margin: 0 0 14px;
+}
+
+.content p:last-child {
+  margin-bottom: 0;
+}
+
+.content h1,
+.content h2,
+.content h3,
+.content h4 {
+  margin: 24px 0 12px;
+  font-size: 1.12em;
+  font-weight: 500;
+  line-height: 1.6;
+}
+
+.content ul,
+.content ol {
+  margin: 12px 0;
+  padding-left: 1.5em;
+}
+
+.content li {
+  margin: 5px 0;
+}
+
+.content blockquote {
+  margin: 14px 0;
+  padding-left: 14px;
+  border-left: 2px solid var(--sm-line);
+  color: var(--sm-soft);
+}
+
+.content code {
+  padding: 2px 4px;
+  border-radius: 4px;
+  background: var(--sm-ground);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.92em;
+}
+
+.content pre {
+  min-width: 0;
+  max-width: 100%;
+  margin: 14px 0;
+  padding: 14px 16px;
+  overflow: auto;
+  border: 1px solid var(--sm-line);
+  border-radius: 9px;
+  background: var(--sm-ground);
+  line-height: 1.8;
+  white-space: pre;
+  overflow-wrap: normal;
+}
+
+.content pre code {
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  font-size: 0.92em;
+  white-space: pre;
+}
+
+.content :global(.katex) {
+  display: inline-block;
+  max-width: 100%;
+  padding-block: 2px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  vertical-align: middle;
+  font-size: 1.1em;
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
+
+.content :global(.katex-display) {
+  display: block;
+  max-width: 100%;
+  margin: 16px 0;
+  padding: 12px 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overflow-wrap: normal;
+}
+
+.content :global(.katex-display > .katex) {
+  display: block;
+  width: max-content;
+  min-width: 100%;
+  max-width: none;
+  overflow: visible;
+  text-align: center;
+}
+
+.content a {
+  color: var(--sm-accent);
+  text-underline-offset: 3px;
+}
+
+.content img {
+  max-width: 100%;
+  height: auto;
+}
+
+.content table {
+  display: block;
+  max-width: 100%;
+  margin: 14px 0;
+  overflow-x: auto;
+  border-collapse: collapse;
+  font-size: 0.92em;
+}
+
+.content th,
+.content td {
+  padding: 8px 12px;
+  border: 1px solid var(--sm-line);
+  text-align: left;
+}

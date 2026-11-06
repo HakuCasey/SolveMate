@@ -1,0 +1,162 @@
+{
+  "course": "高等数学",
+  "origin": "AI 根据本仓库的原创示例教材与题库提炼的样例内容，不代表真实用户的学习记录。",
+  "points": [
+    {
+      "id": "K001",
+      "title": "有理化与趋近方向",
+      "content": "含根式的差可乘共轭式消除抵消。M001 的极限为 3/2；M002 在正无穷方向的极限为 2。出现 \\(\\sqrt{x^2}\\) 时先写成 \\(|x|\\)，再依据趋近方向处理符号。",
+      "common_mistake": "不能忽略正负无穷的方向差异。",
+      "source": {
+        "textbook": "../textbooks/primer.md#limits",
+        "question_ids": [
+          "M001",
+          "M002"
+        ]
+      }
+    },
+    {
+      "id": "K002",
+      "title": "连续条件与高阶抵消",
+      "content": "连续要求点的函数值等于该点极限；M003 应补值 1。计算相减形式的极限时，需要把展开保留到首个未被抵消的阶数；M004 的分子首个有效项为 \\(-x^3/3\\)。",
+      "common_mistake": "极限不等于函数在该点的值；相减时不能随意替换首阶等价量。",
+      "source": {
+        "textbook": "../textbooks/primer.md#limits",
+        "question_ids": [
+          "M003",
+          "M004"
+        ]
+      }
+    },
+    {
+      "id": "K003",
+      "title": "辨认函数结构后求导",
+      "content": "\\(x^x\\) 的指数含变量，适合取对数后求导。隐函数求导把 \\(y\\) 看成 \\(x\\) 的函数，乘积 \\(xy\\) 的导数为 \\(y+xy'\\)。隐函数导数表达式还需要检查分母非零。",
+      "common_mistake": "不能把变量指数当成常数，也不能漏掉链式法则因子。",
+      "source": {
+        "textbook": "../textbooks/primer.md#derivatives",
+        "question_ids": [
+          "M005",
+          "M006"
+        ]
+      }
+    },
+    {
+      "id": "K004",
+      "title": "驻点与全局最值",
+      "content": "导数符号控制单调性。驻点只提供最值候选；M007 由导数变号确定最大值 \\(1/e\\)。M008 的面积函数为 \\(2x(4-x^2)\\)，在 \\([0,2]\\) 内还需比较端点与内部驻点。",
+      "common_mistake": "导数为零本身不能证明是最大值。",
+      "source": {
+        "textbook": "../textbooks/primer.md#derivatives",
+        "question_ids": [
+          "M007",
+          "M008"
+        ]
+      }
+    },
+    {
+      "id": "K005",
+      "title": "凑微分和换元上下限",
+      "content": "识别复合结构中的内层导数能简化积分。\\(\\int g'/g\\,dx=\\ln|g|+C\\) 在 \\(g\\ne0\\) 的区间成立；M009 分母恒正。M010 令 \\(u=1+x^2\\) 后，上下限应变成 1 和 2。",
+      "common_mistake": "不定积分保留常数 C；定积分换元后不能混用旧上下限。",
+      "source": {
+        "textbook": "../textbooks/primer.md#integrals",
+        "question_ids": [
+          "M009",
+          "M010"
+        ]
+      }
+    },
+    {
+      "id": "K006",
+      "title": "面积与反常积分的定义",
+      "content": "面积积分先确定交点和上下位置。M011 在 \\([0,1]\\) 上积 \\(x-x^2\\)，得 \\(1/6\\)。M012 应先在共同上限 b 下积分，再令 b 趋于无穷，得 \\(\\ln2\\)。",
+      "common_mistake": "不能分别计算两个发散积分后再用无穷大相减。",
+      "source": {
+        "textbook": "../textbooks/primer.md#integrals",
+        "question_ids": [
+          "M011",
+          "M012"
+        ]
+      }
+    },
+    {
+      "id": "K007",
+      "title": "比较判别与幂级数端点",
+      "content": "M013 与收敛级数 \\(\\sum1/n^2\\) 的通项比值趋于 1，因此收敛。幂级数可在收敛半径内逐项求导；M014 的和为 \\(x/(1-x)^2\\)，端点 -1 与 1 必须单独检验。",
+      "common_mistake": "不能把区间内部的和函数公式直接推广到端点。",
+      "source": {
+        "textbook": "../textbooks/primer.md#series",
+        "question_ids": [
+          "M013",
+          "M014"
+        ]
+      }
+    },
+    {
+      "id": "K008",
+      "title": "局部展开与条件收敛",
+      "content": "M015 是 x 趋于零时的展开，必须保留误差阶数。交错级数收敛还需检查正数项最终单调趋于零；交错调和级数收敛但绝对值级数发散，因此条件收敛。",
+      "common_mistake": "通项趋于零只是级数收敛的必要条件。",
+      "source": {
+        "textbook": "../textbooks/primer.md#series",
+        "question_ids": [
+          "M015",
+          "M016"
+        ]
+      }
+    },
+    {
+      "id": "K009",
+      "title": "偏导与单位方向",
+      "content": "偏导时固定其他自变量，并保留复合函数的链式法则因子。可微函数沿单位向量 u 的方向导数为梯度与 u 的点积；M018 先把 (3,4) 变成 (3/5,4/5)，得到 22/5。",
+      "common_mistake": "方向向量必须单位化；方向长度不应改变变化率。",
+      "source": {
+        "textbook": "../textbooks/primer.md#multivariable",
+        "question_ids": [
+          "M017",
+          "M018"
+        ]
+      }
+    },
+    {
+      "id": "K010",
+      "title": "约束和变量变换",
+      "content": "M019 用约束消元可写成 \\(2(x-1)^2+2\\)，直接证明全局最小值为 2。M020 的极坐标面积元是 \\(r\\,dr\\,d\\theta\\)，被积函数与面积元一起变换后得到 \\(\\pi/2\\)。",
+      "common_mistake": "约束驻点需要检验；极坐标面积元不能漏掉 r。",
+      "source": {
+        "textbook": "../textbooks/primer.md#multivariable",
+        "question_ids": [
+          "M019",
+          "M020"
+        ]
+      }
+    },
+    {
+      "id": "K011",
+      "title": "通解、初值与代回检验",
+      "content": "一阶线性方程的积分因子把左侧化成乘积的导数；M021 得 \\(e^{-x}-e^{-2x}\\)。二阶常系数方程先解特征根，再用两个初值定常数；M022 得 \\(2e^x-e^{2x}\\)。",
+      "common_mistake": "方程成立与初值成立需要分别检验。",
+      "source": {
+        "textbook": "../textbooks/primer.md#odes",
+        "question_ids": [
+          "M021",
+          "M022"
+        ]
+      }
+    },
+    {
+      "id": "K012",
+      "title": "平衡解与局部稳定性",
+      "content": "分离变量前先检查被除因子的零点，避免漏掉平衡解。M023 的初值选中非平衡分支。M024 中 0 两侧的相线箭头都指向 0，故局部渐近稳定；2 两侧箭头远离 2，故不稳定。",
+      "common_mistake": "稳定性看邻近解在时间增大时的行为，不是平衡解自身是否不变。",
+      "source": {
+        "textbook": "../textbooks/primer.md#odes",
+        "question_ids": [
+          "M023",
+          "M024"
+        ]
+      }
+    }
+  ]
+}

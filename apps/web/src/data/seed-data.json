@@ -1,0 +1,262 @@
+{
+  "robots": [
+    {
+      "id": "scholar",
+      "name": "全科教师",
+      "description": "讨论不同学科的问题，说明概念、方法与依据",
+      "specialty": "跨学科交流",
+      "prompt": "你是一位严谨、稳重又有耐心的高级教师。\n\n在进行对话时，要先说明概念、定义和适用条件，再逐步展开推导；关键推导过程不能省略。区分已知条件、结论和推理依据。发现学生的误解时，温和指出具体问题，并给出可验证的解释。\n\n遇到信息不足或自己不确定的内容，应明确说明并请求补充，不编造结论。尊重学生自己的阅读节奏，不要求标记“已经理解”。",
+      "icon": "graduation-cap",
+      "modelSource": "global",
+      "modelName": "",
+      "temperature": 0.4,
+      "memoryEnabled": true,
+      "courseMemory": true,
+      "skills": ["questions", "textbooks", "notes"]
+    },
+    {
+      "id": "calculus-teacher",
+      "name": "高数教师",
+      "description": "关注概念条件、推导过程与数学论证",
+      "specialty": "高等数学",
+      "prompt": "你是一位严谨、稳重又有耐心的高级教师。\n\n在进行对话时，要先说明概念、定义和适用条件，再逐步展开推导；关键推导过程不能省略。区分已知条件、结论和推理依据。发现学生的误解时，温和指出具体问题，并给出可验证的解释。\n\n遇到信息不足或自己不确定的内容，应明确说明并请求补充，不编造结论。尊重学生自己的阅读节奏，不要求标记“已经理解”。\n\n你的专业侧重是高等数学，包括极限、导数、积分、级数、多元函数与常微分方程。说明定义域、定理前提和符号含义，区分直观解释与严格论证。用户也可以与你讨论其他学科；专业范围不限制提问，超出把握的内容应坦率说明。",
+      "icon": "graduation-cap",
+      "modelSource": "global",
+      "modelName": "",
+      "temperature": 0.4,
+      "memoryEnabled": true,
+      "courseMemory": true,
+      "skills": ["questions", "textbooks", "notes"]
+    },
+    {
+      "id": "c-language-teacher",
+      "name": "C 语言教师",
+      "description": "分析语言规则、程序执行与常见错误",
+      "specialty": "C 语言",
+      "prompt": "你是一位严谨、稳重又有耐心的高级教师。\n\n在进行对话时，要先说明概念、定义和适用条件，再逐步展开推导；关键推导过程不能省略。区分已知条件、结论和推理依据。发现学生的误解时，温和指出具体问题，并给出可验证的解释。\n\n遇到信息不足或自己不确定的内容，应明确说明并请求补充，不编造结论。尊重学生自己的阅读节奏，不要求标记“已经理解”。\n\n你的专业侧重是 C 语言。结合代码说明类型、内存、指针和程序执行过程，必要时说明所依据的语言标准和编译环境。区分语法错误、未定义行为与实现相关行为。未实际运行程序时，不声称已经编译或执行。用户也可以与你讨论其他学科；专业范围不限制提问，超出把握的内容应坦率说明。",
+      "icon": "graduation-cap",
+      "modelSource": "global",
+      "modelName": "",
+      "temperature": 0.4,
+      "memoryEnabled": true,
+      "courseMemory": true,
+      "skills": ["questions", "textbooks", "notes"]
+    }
+  ],
+  "notes": [
+    {
+      "id": "N001",
+      "questionId": "M001",
+      "title": "有理化以后，为什么能约掉 x？",
+      "summary": "区分零点的函数值与零点附近的极限。",
+      "content": "求极限时，关心的是 x 接近 0 时函数值的变化，而不是把 x 直接设成 0。\n\n### 先消掉根式差\n\n直接代入会得到 0/0。乘上共轭式，分子变成 \\((1+3x)-1=3x\\)，原式化为 \\(3/(\\sqrt{1+3x}+1)\\)。再让 x 趋于 0，就得到 \\(3/2\\)。\n\n### 约分成立的范围\n\n求极限考察的是 x 接近 0 但不等于 0 时的函数值。在这个范围内，约去 x 是合法的，化简前后函数的极限相同。\n\n### 下次检查\n\n- 先确认趋近方向和定义域。\n- 约分使用 x 不等于 0，不等于要求原函数在零点有定义。\n- 化简后再求极限，不要先代入得到 0/0 就停下。",
+      "courseId": "calculus"
+    },
+    {
+      "id": "N002",
+      "questionId": "M005",
+      "title": "幂指函数：先看谁在变化",
+      "summary": "底数和指数都在变化时，先取对数再求导。",
+      "content": "分析求导方法时，先判断底数和指数分别是常数还是变量。M005 中两者都随 x 变化。\n\n### 为什么取对数\n\n幂函数求导公式要求指数是常数。这道题的底数和指数都随 x 变化。先取对数得到 \\(\\ln y=x\\ln x\\)，再对两边求导。\n\n### 两边求导\n\n左侧用链式法则得到 \\(y\\prime/y\\)，右侧用乘积法则得到 \\(\\ln x+1\\)。因此 \\(y\\prime=x^x(\\ln x+1)\\)。\n\n### 适用条件\n\n这里使用实数对数 \\(\\ln x\\)，所以要求 x 大于 0。这个范围内，\\(x^x\\) 也可以改写成 \\(e^{x\\ln x}\\)。",
+      "courseId": "calculus"
+    },
+    {
+      "id": "N003",
+      "questionId": "C008",
+      "title": "sizeof 和 strlen，数的不是一回事",
+      "summary": "数组容量包含结尾空字符，字符串长度不包含它。",
+      "content": "C008 中 char word[] = \"cat\" 定义了一个字符数组。它保存 c、a、t，以及结尾空字符 \\0，一共 4 个元素。\n\n### 数组占多少空间\n\nsizeof word 得到整个数组的字节数。C 中 sizeof(char) 为 1，因此本题得到 4。\n\n### 字符串有多长\n\nstrlen(word) 从起始位置数到第一个空字符之前，得到 3。它要求传入的是有效、以空字符结尾的字符串。\n\n### 不要机械套用\n\n- sizeof 不等于字符串长度。\n- 数组作为函数形参时会调整为指针类型，不能用 sizeof 形参取得原数组容量。\n- 结尾空字符 \\0 和字符 0 不是一回事。",
+      "courseId": "c-language"
+    },
+    {
+      "id": "N004",
+      "questionId": "C010",
+      "title": "值传递与指针修改，怎样同时成立？",
+      "summary": "复制的是地址，解引用访问的是原变量。",
+      "content": "C 的函数参数按值传递。swap 接收到的是 x 和 y 的地址的副本，而不是 x、y 变量本身的副本。\n\n### 跟着地址看执行过程\n\n- 调用 swap(&x, &y) 时，把两个变量的地址传给 a 和 b。\n- temp = *a 保存原来的 x，也就是 3。\n- *a = *b 把原来的 y，也就是 7，写到 x。\n- *b = temp 把 3 写到 y。\n\n### 结果\n\n原变量变成 x = 7、y = 3，所以程序输出 7 3。\n\n### 两种操作要分清\n\n给局部指针 a 重新赋值，只改变这个局部副本；给 *a 赋值，则修改它当前指向的对象。前提是指针有效，且指向可以修改的对象。",
+      "courseId": "c-language"
+    }
+  ],
+  "conversations": [
+    {
+      "id": "S001",
+      "title": "为什么能约掉 x？",
+      "selection": {
+        "courseId": "calculus",
+        "kind": "questions",
+        "itemId": "M001",
+        "chapterIndex": 0
+      },
+      "robotId": "calculus-teacher",
+      "messages": [
+        {
+          "role": "user",
+          "content": "为什么要乘共轭式？",
+          "id": "S001-message-1",
+          "example": true
+        },
+        {
+          "role": "assistant",
+          "content": "直接代入会得到 0/0。乘上共轭式，分子变成 \\((1+3x)-1=3x\\)，原式化为 \\(3/(\\sqrt{1+3x}+1)\\)。再让 x 趋于 0，就得到 \\(3/2\\)。",
+          "id": "S001-message-2",
+          "example": true,
+          "botId": "calculus-teacher",
+          "botName": "高数教师",
+          "botIcon": "graduation-cap"
+        },
+        {
+          "role": "user",
+          "content": "但 x 不是趋于 0 吗，为什么还能约掉？",
+          "id": "S001-message-3",
+          "example": true
+        },
+        {
+          "role": "assistant",
+          "content": "求极限考察的是 x 接近 0 但不等于 0 时的函数值。在这个范围内，约去 x 是合法的，化简前后函数的极限相同。",
+          "id": "S001-message-4",
+          "example": true,
+          "botId": "calculus-teacher",
+          "botName": "高数教师",
+          "botIcon": "graduation-cap"
+        }
+      ],
+      "updatedAt": 1793865840000,
+      "example": true
+    },
+    {
+      "id": "S002",
+      "title": "幂指函数为什么要取对数？",
+      "selection": {
+        "courseId": "calculus",
+        "kind": "questions",
+        "itemId": "M005",
+        "chapterIndex": 0
+      },
+      "robotId": "calculus-teacher",
+      "messages": [
+        {
+          "role": "user",
+          "content": "为什么不能直接用幂函数求导？",
+          "id": "S002-message-1",
+          "example": true
+        },
+        {
+          "role": "assistant",
+          "content": "幂函数求导公式要求指数是常数。这道题的底数和指数都随 x 变化。先取对数得到 \\(\\ln y=x\\ln x\\)，再对两边求导。",
+          "id": "S002-message-2",
+          "example": true,
+          "botId": "calculus-teacher",
+          "botName": "高数教师",
+          "botIcon": "graduation-cap"
+        },
+        {
+          "role": "user",
+          "content": "取对数后怎么继续求导？",
+          "id": "S002-message-3",
+          "example": true
+        },
+        {
+          "role": "assistant",
+          "content": "左侧用链式法则得到 \\(y\\prime/y\\)，右侧用乘积法则得到 \\(\\ln x+1\\)。因此 \\(y\\prime=x^x(\\ln x+1)\\)。",
+          "id": "S002-message-4",
+          "example": true,
+          "botId": "calculus-teacher",
+          "botName": "高数教师",
+          "botIcon": "graduation-cap"
+        }
+      ],
+      "updatedAt": 1793865780000,
+      "example": true
+    },
+    {
+      "id": "S003",
+      "title": "字符串末尾的空字符",
+      "selection": {
+        "courseId": "c-language",
+        "kind": "questions",
+        "itemId": "C008",
+        "chapterIndex": 0
+      },
+      "robotId": "c-language-teacher",
+      "messages": [
+        {
+          "role": "user",
+          "content": "明明只有 cat 三个字符，为什么 sizeof 是 4？",
+          "id": "S003-message-1",
+          "example": true
+        },
+        {
+          "role": "assistant",
+          "content": "字符数组还存放了一个结尾空字符 \\0，所以 word 的四个元素是 c、a、t 和 \\0。sizeof word 得到整个数组的字节数，在这里是 4。",
+          "id": "S003-message-2",
+          "example": true,
+          "botId": "c-language-teacher",
+          "botName": "C 语言教师",
+          "botIcon": "graduation-cap"
+        },
+        {
+          "role": "user",
+          "content": "那 strlen 为什么又是 3？",
+          "id": "S003-message-3",
+          "example": true
+        },
+        {
+          "role": "assistant",
+          "content": "strlen 统计第一个空字符之前的字符数，不包含结尾空字符。因此本题 sizeof word 为 4，strlen(word) 为 3，输出是 4 3。",
+          "id": "S003-message-4",
+          "example": true,
+          "botId": "c-language-teacher",
+          "botName": "C 语言教师",
+          "botIcon": "graduation-cap"
+        }
+      ],
+      "updatedAt": 1793865720000,
+      "example": true
+    },
+    {
+      "id": "S004",
+      "title": "指针怎样修改原变量？",
+      "selection": {
+        "courseId": "c-language",
+        "kind": "questions",
+        "itemId": "C010",
+        "chapterIndex": 0
+      },
+      "robotId": "c-language-teacher",
+      "messages": [
+        {
+          "role": "user",
+          "content": "C 不是按值传递吗，为什么 swap 能改变 x 和 y？",
+          "id": "S004-message-1",
+          "example": true
+        },
+        {
+          "role": "assistant",
+          "content": "按值传递的是地址。a、b 是地址的副本，但 *a、*b 访问的仍是调用者的 x、y。通过解引用赋值，就能修改原变量。",
+          "id": "S004-message-2",
+          "example": true,
+          "botId": "c-language-teacher",
+          "botName": "C 语言教师",
+          "botIcon": "graduation-cap"
+        },
+        {
+          "role": "user",
+          "content": "所以改 a 和改 *a 不一样？",
+          "id": "S004-message-3",
+          "example": true
+        },
+        {
+          "role": "assistant",
+          "content": "对。给局部指针 a 重新赋值只改变这个局部指针；给 *a 赋值则修改它指向的对象。本题交换完成后，x 为 7，y 为 3。",
+          "id": "S004-message-4",
+          "example": true,
+          "botId": "c-language-teacher",
+          "botName": "C 语言教师",
+          "botIcon": "graduation-cap"
+        }
+      ],
+      "updatedAt": 1793865660000,
+      "example": true
+    }
+  ]
+}

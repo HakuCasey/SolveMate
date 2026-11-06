@@ -1,0 +1,114 @@
+{
+  "course": "C 语言",
+  "description": "原创 C11 示例题库，用于阅读程序、询问语法与理解执行过程。",
+  "questions": [
+    {
+      "id": "C001",
+      "title": "表达式与输出",
+      "topic": "程序结构与类型",
+      "difficulty": "基础",
+      "question": "阅读下面的程序，写出输出结果，并解释关键步骤。\n\n```c\n#include <stdio.h>\nint main(void) {\n    int a = 2, b = 5;\n    printf(\"%d\\n\", a + b);\n    return 0;\n}\n```",
+      "answer": "```text\n7\n```",
+      "explanation": "a 和 b 都是 int，a + b 得到整数 7；%d 用于输出 int，\\n 表示换行。"
+    },
+    {
+      "id": "C002",
+      "title": "整数除法与浮点除法",
+      "topic": "程序结构与类型",
+      "difficulty": "基础",
+      "question": "阅读下面的程序，写出输出结果，并解释关键步骤。\n\n```c\n#include <stdio.h>\nint main(void) {\n    printf(\"%d %.1f\\n\", 5 / 2, 5.0 / 2);\n    return 0;\n}\n```",
+      "answer": "```text\n2 2.5\n```",
+      "explanation": "5 / 2 的两个操作数都是整数，结果为 2；5.0 / 2 中的 5.0 是 double，结果为 2.5。"
+    },
+    {
+      "id": "C003",
+      "title": "循环累加",
+      "topic": "分支与循环",
+      "difficulty": "基础",
+      "question": "阅读下面的程序，写出输出结果，并解释关键步骤。\n\n```c\n#include <stdio.h>\nint main(void) {\n    int sum = 0;\n    for (int i = 1; i <= 5; ++i) {\n        sum += i;\n    }\n    printf(\"%d\\n\", sum);\n    return 0;\n}\n```",
+      "answer": "```text\n15\n```",
+      "explanation": "i 依次取 1、2、3、4、5，sum 依次变成 1、3、6、10、15。"
+    },
+    {
+      "id": "C004",
+      "title": "条件选择与取模",
+      "topic": "分支与循环",
+      "difficulty": "基础",
+      "question": "阅读下面的程序，写出输出结果，并解释关键步骤。\n\n```c\n#include <stdio.h>\nint main(void) {\n    int n = 8;\n    if (n % 2 == 0) {\n        puts(\"even\");\n    } else {\n        puts(\"odd\");\n    }\n    return 0;\n}\n```",
+      "answer": "```text\neven\n```",
+      "explanation": "8 % 2 的余数为 0，因此条件为真，执行第一个分支；puts 会在字符串之后追加换行。"
+    },
+    {
+      "id": "C005",
+      "title": "函数参数按值传递",
+      "topic": "函数",
+      "difficulty": "基础",
+      "question": "阅读下面的程序，写出输出结果，并解释关键步骤。\n\n```c\n#include <stdio.h>\nint add_ten(int value) {\n    value += 10;\n    return value;\n}\nint main(void) {\n    int n = 3;\n    int result = add_ten(n);\n    printf(\"%d %d\\n\", n, result);\n    return 0;\n}\n```",
+      "answer": "```text\n3 13\n```",
+      "explanation": "形参 value 是 n 的值的副本，修改 value 不改变 n；返回值为 13，赋给 result。"
+    },
+    {
+      "id": "C006",
+      "title": "递归与终止条件",
+      "topic": "函数",
+      "difficulty": "基础",
+      "question": "阅读下面的程序，写出输出结果，并解释关键步骤。\n\n```c\n#include <stdio.h>\nunsigned int factorial(unsigned int n) {\n    if (n <= 1) {\n        return 1;\n    }\n    return n * factorial(n - 1);\n}\nint main(void) {\n    printf(\"%u\\n\", factorial(5));\n    return 0;\n}\n```",
+      "answer": "```text\n120\n```",
+      "explanation": "递归逐次调用 factorial(4)、factorial(3)、factorial(2)、factorial(1)，再返回并相乘得到 120。"
+    },
+    {
+      "id": "C007",
+      "title": "数组的部分初始化",
+      "topic": "数组与字符串",
+      "difficulty": "基础",
+      "question": "阅读下面的程序，写出输出结果，并解释关键步骤。\n\n```c\n#include <stdio.h>\nint main(void) {\n    int values[4] = {1, 2};\n    printf(\"%d %d %d %d\\n\",\n           values[0], values[1], values[2], values[3]);\n    return 0;\n}\n```",
+      "answer": "```text\n1 2 0 0\n```",
+      "explanation": "初始化器只提供前两个元素，数组中其余元素按规则初始化为 0。有效下标为 0 到 3。"
+    },
+    {
+      "id": "C008",
+      "title": "字符串长度与存储大小",
+      "topic": "数组与字符串",
+      "difficulty": "基础",
+      "question": "阅读下面的程序，写出输出结果，并解释关键步骤。\n\n```c\n#include <stdio.h>\n#include <string.h>\nint main(void) {\n    char word[] = \"cat\";\n    printf(\"%zu %zu\\n\", sizeof word, strlen(word));\n    return 0;\n}\n```",
+      "answer": "```text\n4 3\n```",
+      "explanation": "word 数组存放 c、a、t 和结尾的空字符，共 4 个 char；strlen 返回空字符之前的字符数 3。"
+    },
+    {
+      "id": "C009",
+      "title": "指针与数组元素",
+      "topic": "指针",
+      "difficulty": "基础",
+      "question": "阅读下面的程序，写出输出结果，并解释关键步骤。\n\n```c\n#include <stdio.h>\nint main(void) {\n    int values[] = {10, 20, 30};\n    int *p = values;\n    printf(\"%d %d\\n\", *p, *(p + 2));\n    return 0;\n}\n```",
+      "answer": "```text\n10 30\n```",
+      "explanation": "p 指向第一个 int 元素，*p 为 10；p + 2 指向第三个元素，解引用得到 30。"
+    },
+    {
+      "id": "C010",
+      "title": "通过指针交换变量",
+      "topic": "指针",
+      "difficulty": "基础",
+      "question": "阅读下面的程序，写出输出结果，并解释关键步骤。\n\n```c\n#include <stdio.h>\nvoid swap(int *a, int *b) {\n    int temp = *a;\n    *a = *b;\n    *b = temp;\n}\nint main(void) {\n    int x = 3, y = 7;\n    swap(&x, &y);\n    printf(\"%d %d\\n\", x, y);\n    return 0;\n}\n```",
+      "answer": "```text\n7 3\n```",
+      "explanation": "调用时传入 x 和 y 的地址；swap 内的指针本身仍按值传递，但解引用操作访问并修改了原变量。"
+    },
+    {
+      "id": "C011",
+      "title": "结构体的值复制",
+      "topic": "结构体与文件",
+      "difficulty": "基础",
+      "question": "阅读下面的程序，写出输出结果，并解释关键步骤。\n\n```c\n#include <stdio.h>\nstruct Student {\n    int id;\n    double score;\n};\nint main(void) {\n    struct Student first = {7, 92.5};\n    struct Student second = first;\n    second.score = 80.0;\n    printf(\"%.1f %.1f\\n\", first.score, second.score);\n    return 0;\n}\n```",
+      "answer": "```text\n92.5 80.0\n```",
+      "explanation": "结构体赋值复制各成员的值。本题成员不含指针，修改 second.score 不会影响 first.score。"
+    },
+    {
+      "id": "C012",
+      "title": "文件位置与读取",
+      "topic": "结构体与文件",
+      "difficulty": "基础",
+      "question": "阅读下面的程序，写出输出结果，并解释关键步骤。\n\n```c\n#include <stdio.h>\nint main(void) {\n    FILE *file = tmpfile();\n    if (file == NULL) {\n        return 1;\n    }\n    fputs(\"C language\\n\", file);\n    rewind(file);\n    char buffer[32];\n    if (fgets(buffer, sizeof buffer, file) == NULL) {\n        fclose(file);\n        return 1;\n    }\n    printf(\"%s\", buffer);\n    fclose(file);\n    return 0;\n}\n```",
+      "answer": "```text\nC language\n```",
+      "explanation": "写入后调用 rewind 将文件位置移回开头，再由 fgets 读取。fgets 保留读到的换行符，所以 printf 不需要额外添加换行。"
+    }
+  ]
+}

@@ -1,0 +1,108 @@
+{
+  "course": "C 语言",
+  "origin": "AI 根据示例教材生成的候选讨论点，不代表真实用户对话。",
+  "points": [
+    {
+      "id": "CD001",
+      "title": "整除和输出格式为什么由类型决定",
+      "prompts": [
+        "5 / 2 和 5.0 / 2 为什么不同？",
+        "先算 5 / 2 再赋给 double 会变成 2.5 吗？",
+        "printf 中 %d 和 %f 可以随意互换吗？"
+      ],
+      "guidance": "区分运算时的操作数类型、赋值转换和可变参数格式匹配；整数运算丢失的小数不会在后续赋值时恢复。",
+      "source": {
+        "textbook": "../textbooks/primer.md#types-and-io",
+        "question_ids": [
+          "C001",
+          "C002"
+        ]
+      }
+    },
+    {
+      "id": "CD002",
+      "title": "如何逐步跟踪分支和循环",
+      "prompts": [
+        "循环到底执行了几次？",
+        "条件 i <= 5 改成 i < 5 后会怎样？",
+        "比较符号 == 和赋值符号 = 有什么区别？"
+      ],
+      "guidance": "用迭代表记录 i 与 sum，逐次检查边界；条件是否包含终点会影响累加结果。",
+      "source": {
+        "textbook": "../textbooks/primer.md#control-flow",
+        "question_ids": [
+          "C003",
+          "C004"
+        ]
+      }
+    },
+    {
+      "id": "CD003",
+      "title": "函数调用怎样影响外部变量",
+      "prompts": [
+        "修改普通形参为什么不改变 n？",
+        "递归如何到达终止条件？",
+        "为什么计算更大的阶乘需要考虑整数范围？"
+      ],
+      "guidance": "说明按值传递、返回值、调用过程和回退过程，指出有限整数范围带来的限制。",
+      "source": {
+        "textbook": "../textbooks/primer.md#functions",
+        "question_ids": [
+          "C005",
+          "C006"
+        ]
+      }
+    },
+    {
+      "id": "CD004",
+      "title": "数组容量和字符串长度有什么不同",
+      "prompts": [
+        "部分初始化的数组剩余元素是什么？",
+        "字符串结尾的空字符占不占空间？",
+        "对指针使用 sizeof 能得到字符串长度吗？"
+      ],
+      "guidance": "结合数组的初始化规则、有效下标、空字符和 sizeof 的操作对象进行解释。",
+      "source": {
+        "textbook": "../textbooks/primer.md#arrays-and-strings",
+        "question_ids": [
+          "C007",
+          "C008"
+        ]
+      }
+    },
+    {
+      "id": "CD005",
+      "title": "指针值和所指对象如何区分",
+      "prompts": [
+        "p + 2 移动的是两个字节吗？",
+        "swap 的指针参数也是按值传递吗？",
+        "尾后指针能否解引用？"
+      ],
+      "guidance": "区分地址副本与原对象；按元素理解指针运算，并明确数组边界与解引用条件。",
+      "source": {
+        "textbook": "../textbooks/primer.md#pointers",
+        "question_ids": [
+          "C009",
+          "C010"
+        ]
+      }
+    },
+    {
+      "id": "CD006",
+      "title": "结构体复制和文件位置为什么重要",
+      "prompts": [
+        "复制结构体后修改成员会影响原对象吗？",
+        "有指针成员时是否会自动深复制？",
+        "文件写完后为什么需要 rewind 才从开头读？"
+      ],
+      "guidance": "先解释本例的值成员复制，再讨论指针成员的共享指向；用文件位置说明写入后如何开始读取。",
+      "source": {
+        "textbook": "../textbooks/primer.md#structs-and-files",
+        "question_ids": [
+          "C011",
+          "C012"
+        ]
+      }
+    }
+  ]
+}

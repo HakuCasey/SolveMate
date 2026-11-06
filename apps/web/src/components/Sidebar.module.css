@@ -1,0 +1,422 @@
+.sidebar {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  padding: 20px 10px 14px;
+  background: var(--sm-ground);
+  border-right: 1px solid var(--sm-line);
+}
+
+.sidebar button,
+.popover button,
+.popover input,
+.popover select {
+  font-family: inherit;
+  line-height: inherit;
+}
+.sidebar button,
+.popover button {
+  cursor: pointer;
+}
+.sidebar button:disabled,
+.popover button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+.sidebar svg,
+.popover svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+.avatarButton {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  margin: 0 0 24px 6px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  color: var(--sm-accent);
+  background: var(--sm-active);
+}
+.avatarButton,
+.accountAvatar {
+  position: relative;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #fff;
+}
+.avatarImage {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.avatarButton:hover,
+.avatarButton[data-state="open"] {
+  box-shadow: 0 0 0 3px var(--sm-line);
+}
+.primaryButton {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  height: 42px;
+  min-height: 42px;
+  padding: 9px 12px;
+  border: 1px solid var(--sm-line);
+  border-radius: 10px;
+  background: var(--sm-paper);
+  color: var(--sm-soft);
+  font-size: 13px;
+  text-align: left;
+}
+.primaryButton:hover {
+  color: var(--sm-ink);
+  border-color: var(--sm-accent);
+}
+.primaryButton[aria-pressed="true"],
+.settings .primaryButton[data-state="open"] {
+  background: var(--sm-active);
+  color: var(--sm-accent);
+  border-color: var(--sm-accent);
+}
+.chevron {
+  margin-left: auto;
+  width: 13px !important;
+}
+.chevron[data-open="false"] {
+  transform: rotate(-90deg);
+}
+.subjects {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.subjects > .primaryButton {
+  flex-shrink: 0;
+}
+.subjectTree {
+  padding-top: 4px;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.subjectBranch {
+  margin: 4px 0 8px;
+  padding-left: 7px;
+  border-left: 1px solid var(--sm-line);
+}
+.subjectButton {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 38px;
+  padding: 8px 5px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--sm-soft);
+  text-align: left;
+  font-size: 12px;
+}
+.subjectButton:hover {
+  color: var(--sm-ink);
+  background: var(--sm-paper);
+}
+.subjectLeaves {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding-left: 5px;
+  margin: 4px 0 0 12px;
+  border-left: 1px solid var(--sm-line);
+}
+.contentButton {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 36px;
+  padding: 8px;
+  border: 0;
+  border-radius: 8px;
+  color: var(--sm-soft);
+  background: transparent;
+  text-align: left;
+  font-size: 12px;
+}
+.contentButton:hover {
+  color: var(--sm-ink);
+  background: var(--sm-paper);
+}
+.contentButton[aria-pressed="true"] {
+  color: var(--sm-accent);
+  background: var(--sm-active);
+}
+.settings {
+  margin-top: auto;
+  width: 100%;
+}
+.popover {
+  z-index: 50;
+  box-sizing: border-box;
+  color: var(--sm-ink);
+  border: 1px solid var(--sm-line);
+  border-radius: 16px;
+  background: var(--sm-paper);
+  box-shadow:
+    0 4px 10px light-dark(#20253909, #00000022),
+    0 18px 48px light-dark(#20253924, #00000066);
+  max-width: calc(100vw - 24px);
+  animation: bubbleIn 140ms ease-out;
+}
+.arrow {
+  fill: var(--sm-paper);
+}
+.accountMenu {
+  width: 256px;
+  padding: 7px;
+}
+.accountName {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 15px 12px 17px;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.2px;
+}
+.accountAvatar {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  color: var(--sm-accent);
+}
+.accountGroup {
+  padding: 6px 0;
+  margin: 0 6px;
+  border-top: 1px solid var(--sm-line);
+}
+.accountItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 52px;
+  padding: 11px 8px;
+  border: 0;
+  border-radius: 11px;
+  font-size: 13px;
+  background: transparent;
+  color: var(--sm-ink);
+  text-align: left;
+}
+.accountItem:hover,
+.accountItem:focus-visible {
+  background: var(--sm-active);
+  color: var(--sm-accent);
+}
+.accountIcon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border: 1px solid var(--sm-line);
+  border-radius: 10px;
+  color: var(--sm-soft);
+  background: var(--sm-ground);
+}
+.accountItem:hover .accountIcon {
+  background: var(--sm-paper);
+  border-color: var(--sm-accent);
+  color: var(--sm-accent);
+}
+.accountCopy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.accountTitle {
+  font-weight: 500;
+  line-height: 1.6;
+}
+.accountDescription {
+  color: var(--sm-soft);
+  font-size: 11px;
+  line-height: 1.6;
+}
+.accountMessage {
+  padding: 10px 12px;
+  margin: 0 6px 4px;
+  border-top: 1px solid var(--sm-line);
+  color: var(--sm-soft);
+  font-size: 12px;
+  line-height: 1.8;
+}
+.settingsMenu {
+  width: 190px;
+  padding: 7px;
+}
+.settingsItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 42px;
+  padding: 11px 10px;
+  border: 0;
+  border-radius: 10px;
+  font-size: 13px;
+  color: var(--sm-ink);
+  background: transparent;
+  text-align: left;
+}
+.settingsItem svg {
+  color: var(--sm-soft);
+}
+.settingsItem:hover,
+.settingsItem[data-state="open"] {
+  background: var(--sm-active);
+  color: var(--sm-accent);
+}
+.settingsPanel {
+  width: 236px;
+  padding: 19px;
+}
+.settingsPanel h3 {
+  margin: 0 0 18px;
+  font-size: 14px;
+  font-weight: 500;
+}
+.settingLabel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+  color: var(--sm-soft);
+  font-size: 12px;
+}
+.settingLabel output {
+  color: var(--sm-ink);
+  font-variant-numeric: tabular-nums;
+}
+.settingsPanel input[type="range"] {
+  width: 100%;
+  margin: 3px 0 0;
+  accent-color: var(--sm-accent);
+}
+.appearance {
+  border: 0;
+  padding: 0;
+  margin: 20px 0 0;
+  min-width: 0;
+}
+.appearance legend {
+  margin-bottom: 10px;
+  padding: 0;
+  color: var(--sm-soft);
+  font-size: 12px;
+}
+.appearanceOptions {
+  display: flex;
+  gap: 7px;
+}
+.appearanceButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+  padding: 9px 7px;
+  border: 1px solid var(--sm-line);
+  border-radius: 9px;
+  background: var(--sm-ground);
+  color: var(--sm-soft);
+  font-size: 12px;
+}
+.appearanceButton svg {
+  width: 14px;
+  height: 14px;
+}
+.appearanceButton:hover,
+.appearanceButton[aria-pressed="true"] {
+  border-color: var(--sm-accent);
+  color: var(--sm-accent);
+}
+.appearanceButton[aria-pressed="true"] {
+  background: var(--sm-active);
+}
+.modelSelect {
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--sm-line);
+  border-radius: 8px;
+  background: var(--sm-ground);
+  color: var(--sm-soft);
+  font-size: 12px;
+}
+.settingNote {
+  margin: 13px 0 0;
+  color: var(--sm-soft);
+  font-size: 11px;
+  line-height: 1.8;
+}
+@keyframes bubbleIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .popover {
+    animation: none;
+  }
+}
+@media (max-width: 740px) {
+  .sidebar {
+    padding: 16px 8px 12px;
+  }
+}
+@media (max-width: 420px) {
+  .sidebar {
+    padding: 16px 5px 12px;
+  }
+  .primaryButton {
+    padding: 8px;
+    gap: 7px;
+    font-size: 12px;
+  }
+  .subjectBranch {
+    padding-left: 0;
+  }
+  .subjectButton {
+    padding: 8px 2px;
+    gap: 4px;
+  }
+  .subjectLeaves {
+    margin-left: 7px;
+    padding-left: 3px;
+  }
+  .contentButton {
+    padding: 8px 4px;
+    gap: 5px;
+  }
+}

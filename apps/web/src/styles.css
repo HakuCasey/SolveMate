@@ -1,0 +1,66 @@
+:root {
+  color-scheme: light dark;
+  --sm-paper: light-dark(#ffffff, #1d2029);
+  --sm-ground: light-dark(#f5f6fa, #171922);
+  --sm-ink: light-dark(#202539, #e8eaf2);
+  --sm-soft: light-dark(#747b8e, #a2a9bc);
+  --sm-line: light-dark(#e5e7ee, #343949);
+  --sm-accent: light-dark(#5551da, #b4b0ff);
+  --sm-active: light-dark(#eeedff, #32304c);
+  --sm-on: light-dark(#ffffff, #23203e);
+  font-family:
+    "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--sm-ink);
+  background: var(--sm-ground);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  min-width: 320px;
+}
+button,
+input,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+}
+button {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+button:disabled {
+  cursor: default;
+}
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--sm-accent);
+  outline-offset: 3px;
+}
+svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+[hidden] {
+  display: none !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -1,0 +1,602 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "SolveMate Content API",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/healthz": {
+      "get": {
+        "summary": "Health",
+        "operationId": "health_healthz_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/courses": {
+      "get": {
+        "summary": "Courses",
+        "operationId": "courses_api_v1_courses_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/courses/{course_id}": {
+      "get": {
+        "summary": "Course",
+        "operationId": "course_api_v1_courses__course_id__get",
+        "parameters": [
+          {
+            "name": "course_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+              "title": "Course Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseSummary"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/courses/{course_id}/versions": {
+      "get": {
+        "summary": "Versions",
+        "operationId": "versions_api_v1_courses__course_id__versions_get",
+        "parameters": [
+          {
+            "name": "course_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+              "title": "Course Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VersionsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/courses/{course_id}/updates": {
+      "get": {
+        "summary": "Updates",
+        "operationId": "updates_api_v1_courses__course_id__updates_get",
+        "parameters": [
+          {
+            "name": "course_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+              "title": "Course Id"
+            }
+          },
+          {
+            "name": "current_version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Current Version"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/courses/{course_id}/versions/{version}": {
+      "get": {
+        "summary": "Manifest",
+        "operationId": "manifest_api_v1_courses__course_id__versions__version__get",
+        "parameters": [
+          {
+            "name": "course_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+              "title": "Course Id"
+            }
+          },
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^(latest|[a-f0-9]{64})$",
+              "title": "Version"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReleaseManifest"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/courses/{course_id}/versions/{version}/download": {
+      "get": {
+        "summary": "Download",
+        "operationId": "download_api_v1_courses__course_id__versions__version__download_get",
+        "parameters": [
+          {
+            "name": "course_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+              "title": "Course Id"
+            }
+          },
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^(latest|[a-f0-9]{64})$",
+              "title": "Version"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/zip": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CatalogResponse": {
+        "properties": {
+          "schema_version": {
+            "type": "integer",
+            "const": 1,
+            "title": "Schema Version",
+            "default": 1
+          },
+          "courses": {
+            "items": {
+              "$ref": "#/components/schemas/CourseSummary"
+            },
+            "type": "array",
+            "title": "Courses"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["courses"],
+        "title": "CatalogResponse"
+      },
+      "ContentFile": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Id"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "textbook",
+              "questions",
+              "learning-points",
+              "discussion-points"
+            ],
+            "title": "Kind"
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Path"
+          },
+          "media_type": {
+            "type": "string",
+            "title": "Media Type"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Size Bytes"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Sha256"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "path",
+          "media_type",
+          "size_bytes",
+          "sha256"
+        ],
+        "title": "ContentFile"
+      },
+      "CourseInfo": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Title"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Description"
+          },
+          "release": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Release"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["id", "title", "description", "release"],
+        "title": "CourseInfo"
+      },
+      "CourseSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Title"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Description"
+          },
+          "release": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Release"
+          },
+          "latest_version": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Latest Version"
+          },
+          "manifest_url": {
+            "type": "string",
+            "title": "Manifest Url"
+          },
+          "download_url": {
+            "type": "string",
+            "title": "Download Url"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "description",
+          "release",
+          "latest_version",
+          "manifest_url",
+          "download_url"
+        ],
+        "title": "CourseSummary"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "ReleaseManifest": {
+        "properties": {
+          "schema_version": {
+            "type": "integer",
+            "const": 1,
+            "title": "Schema Version",
+            "default": 1
+          },
+          "course": {
+            "$ref": "#/components/schemas/CourseInfo"
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Version"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Sha256"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Size Bytes"
+          },
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/ContentFile"
+            },
+            "type": "array",
+            "title": "Files"
+          },
+          "download_url": {
+            "type": "string",
+            "title": "Download Url"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "course",
+          "version",
+          "sha256",
+          "size_bytes",
+          "files",
+          "download_url"
+        ],
+        "title": "ReleaseManifest"
+      },
+      "UpdateResponse": {
+        "properties": {
+          "course_id": {
+            "type": "string",
+            "title": "Course Id"
+          },
+          "current_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Version"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "not_installed",
+              "up_to_date",
+              "update_available",
+              "unknown_version"
+            ],
+            "title": "Status"
+          },
+          "update_available": {
+            "type": "boolean",
+            "title": "Update Available"
+          },
+          "latest": {
+            "$ref": "#/components/schemas/ReleaseManifest"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "course_id",
+          "current_version",
+          "status",
+          "update_available",
+          "latest"
+        ],
+        "title": "UpdateResponse"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": ["loc", "msg", "type"],
+        "title": "ValidationError"
+      },
+      "VersionsResponse": {
+        "properties": {
+          "course_id": {
+            "type": "string",
+            "title": "Course Id"
+          },
+          "latest_version": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Latest Version"
+          },
+          "versions": {
+            "items": {
+              "$ref": "#/components/schemas/ReleaseManifest"
+            },
+            "type": "array",
+            "title": "Versions"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["course_id", "latest_version", "versions"],
+        "title": "VersionsResponse"
+      }
+    }
+  }
+}
