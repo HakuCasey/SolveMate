@@ -16,5 +16,4 @@ apps/server/.content/
 apps/server/build/
 
 # 私有 AI 协作文件保存在仓库外的工作区。
-/AGENTS.md
 /.codex/
