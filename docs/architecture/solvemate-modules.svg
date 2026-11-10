@@ -1,0 +1,107 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="866" viewBox="0 0 1600 866" role="img" aria-labelledby="diagram-title diagram-description"><title id="diagram-title">SolveMate 整体架构</title><desc id="diagram-description">图中模块承载主要功能；功能由全局管理的特性逐步实现，一个特性可以支撑多个模块的功能。资料阅读负责内容呈现、阅读导航、位置恢复、内容选择和原文定位；AI 管理负责会话、机器人及提问与回复；知识维护负责内容维护与发布更新。三个业务模块共同使用数据管理的资料功能及记录存取功能。API、harness 和内容来源标在相应模块中，具体路径与存储技术留在技术文档。绿色已实现，黄色部分实现，灰色待开发。</desc><rect width="100%" height="100%" fill="white"/><text id="title" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="32" fill="#26364B" font-weight="600" text-anchor="start"><tspan x="40" y="46" dominant-baseline="central">SolveMate 整体架构</tspan></text>
+<text id="date" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="18" fill="#667180" font-weight="400" text-anchor="end"><tspan x="1560" y="50" dominant-baseline="central">2026-11-10</tspan></text>
+<rect id="ui-label-bg" x="40" y="86" width="116" height="90" rx="6" fill="#E0E8F4" stroke="#B5C4DB" stroke-width="1.2"></rect>
+<text id="ui-label" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="22" fill="#334C70" font-weight="600" text-anchor="middle"><tspan x="98" y="131" dominant-baseline="central">交互界面</tspan></text>
+<rect id="ui-band" x="176" y="86" width="1384" height="90" rx="6" fill="#F5F7FA" stroke="#BEC8D6" stroke-width="1.2" stroke-dasharray="6 4"></rect>
+<rect id="ui-0" x="194" y="106" width="210" height="50" rx="5" fill="#DDF0E6" stroke="#8DBCA5" stroke-width="1.2"><title>学科导航：已实现</title></rect>
+<text id="ui-0-label" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="20" fill="#254E3C" font-weight="400" text-anchor="middle"><tspan x="299" y="131" dominant-baseline="central">学科导航</tspan></text>
+<rect id="ui-1" x="420" y="106" width="210" height="50" rx="5" fill="#FFF0CC" stroke="#D6BA76" stroke-width="1.2"><title>阅读界面：部分实现</title></rect>
+<text id="ui-1-label" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="20" fill="#78551D" font-weight="400" text-anchor="middle"><tspan x="525" y="131" dominant-baseline="central">阅读界面</tspan></text>
+<rect id="ui-2" x="646" y="106" width="210" height="50" rx="5" fill="#FFF0CC" stroke="#D6BA76" stroke-width="1.2"><title>对话界面：部分实现</title></rect>
+<text id="ui-2-label" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="20" fill="#78551D" font-weight="400" text-anchor="middle"><tspan x="751" y="131" dominant-baseline="central">对话界面</tspan></text>
+<rect id="ui-3" x="872" y="106" width="210" height="50" rx="5" fill="#FFF0CC" stroke="#D6BA76" stroke-width="1.2"><title>笔记界面：部分实现</title></rect>
+<text id="ui-3-label" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="20" fill="#78551D" font-weight="400" text-anchor="middle"><tspan x="977" y="131" dominant-baseline="central">笔记界面</tspan></text>
+<rect id="ui-4" x="1098" y="106" width="210" height="50" rx="5" fill="#DDF0E6" stroke="#8DBCA5" stroke-width="1.2"><title>机器人配置：已实现</title></rect>
+<text id="ui-4-label" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="20" fill="#254E3C" font-weight="400" text-anchor="middle"><tspan x="1203" y="131" dominant-baseline="central">机器人配置</tspan></text>
+<rect id="ui-5" x="1324" y="106" width="210" height="50" rx="5" fill="#FFF0CC" stroke="#D6BA76" stroke-width="1.2"><title>内容与设置：部分实现</title></rect>
+<text id="ui-5-label" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="20" fill="#78551D" font-weight="400" text-anchor="middle"><tspan x="1429" y="131" dominant-baseline="central">内容与设置</tspan></text>
+<rect id="business-label-bg" x="40" y="196" width="116" height="360" rx="6" fill="#E0E8F4" stroke="#B5C4DB" stroke-width="1.2"></rect>
+<text id="business-label" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="22" fill="#334C70" font-weight="600" text-anchor="middle"><tspan x="98" y="361.15" dominant-baseline="central">业务模块</tspan><tspan x="98" y="390.84999999999997" dominant-baseline="central">（主要功能）</tspan></text>
+<rect id="reading" x="176" y="196" width="448" height="360" rx="6" fill="#F5F7FA" stroke="#BEC8D6" stroke-width="1.2" stroke-dasharray="6 4"></rect>
+<text id="reading-title" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="24" fill="#26364B" font-weight="600" text-anchor="middle"><tspan x="400" y="225" dominant-baseline="central">资料阅读</tspan></text>
+<text id="reading-context" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="16" fill="#667180" font-weight="400" text-anchor="middle"><tspan x="400" y="258" dominant-baseline="central">阅读对象：内置内容、下载内容与用户资料</tspan></text>
+<rect id="reading-0" x="194" y="280" width="198" height="46" rx="5" fill="#DDF0E6" stroke="#8DBCA5" stroke-width="1.2"><title>教材与题目阅读：已实现</title></rect>
+<text id="reading-0-label" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="18" fill="#254E3C" font-weight="400" text-anchor="middle"><tspan x="293" y="303" dominant-baseline="central">教材与题目阅读</tspan></text>
+<rect id="reading-1" x="408" y="280" width="198" height="46" rx="5" fill="#E9EDF2" stroke="#C1C9D4" stroke-width="1.2"><title>用户文件阅读：待开发</title></rect>
+<text id="reading-1-label" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="18" fill="#667180" font-weight="400" text-anchor="middle"><tspan x="507" y="303" dominant-baseline="central">用户文件阅读</tspan></text>
+<rect id="reading-2" x="194" y="338" width="198" height="46" rx="5" fill="#FFF0CC" stroke="#D6BA76" stroke-width="1.2"><title>阅读导航：部分实现</title></rect>
+<text id="reading-2-label" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="18" fill="#78551D" font-weight="400" text-anchor="middle"><tspan x="293" y="361" dominant-baseline="central">阅读导航</tspan></text>
+<rect id="reading-3" x="408" y="338" width="198" height="46" rx="5" fill="#FFF0CC" stroke="#D6BA76" stroke-width="1.2"><title>阅读位置恢复：部分实现</title></rect>
+<text id="reading-3-label" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="18" fill="#78551D" font-weight="400" text-anchor="middle"><tspan x="507" y="361" dominant-baseline="central">阅读位置恢复</tspan></text>
+<rect id="reading-4" x="194" y="396" width="198" height="46" rx="5" fill="#E9EDF2" stroke="#C1C9D4" stroke-width="1.2"><title>内容选择：待开发</title></rect>
+<text id="reading-4-label" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="18" fill="#667180" font-weight="400" text-anchor="middle"><tspan x="293" y="419" dominant-baseline="central">内容选择</tspan></text>
+<rect id="reading-5" x="408" y="396" width="198" height="46" rx="5" fill="#E9EDF2" stroke="#C1C9D4" stroke-width="1.2"><title>原文定位：待开发</title></rect>
+<text id="reading-5-label" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="18" fill="#667180" font-weight="400" text-anchor="middle"><tspan x="507" y="419" dominant-baseline="central">原文定位</tspan></text>
+<rect id="reading-usage-bg" x="177" y="516" width="446" height="39" rx="0" fill="#E7EDF6" stroke="#E7EDF6" stroke-width="1.2"></rect>
+<text id="reading-usage" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="17" fill="#415875" font-weight="400" text-anchor="middle"><tspan x="400" y="534" dominant-baseline="central">读取资料 · 保存与恢复阅读位置</tspan></text>
+<text id="reading-dependency" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="28" fill="#75849A" font-weight="400" text-anchor="middle"><tspan x="400" y="576" dominant-baseline="central">↓</tspan></text>
+<rect id="ai" x="644" y="196" width="448" height="360" rx="6" fill="#F5F7FA" stroke="#BEC8D6" stroke-width="1.2" stroke-dasharray="6 4"></rect>
+<text id="ai-title" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="24" fill="#26364B" font-weight="600" text-anchor="middle"><tspan x="868" y="225" dominant-baseline="central">AI 管理</tspan></text>
+<text id="ai-context" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="16" fill="#667180" font-weight="400" text-anchor="middle"><tspan x="868" y="258" dominant-baseline="central">接入对象：用户配置的 API / harness</tspan></text>
+<rect id="ai-0" x="662" y="280" width="198" height="46" rx="5" fill="#FFF0CC" stroke="#D6BA76" stroke-width="1.2"><title>会话管理：部分实现</title></rect>
+<text id="ai-0-label" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="18" fill="#78551D" font-weight="400" text-anchor="middle"><tspan x="761" y="303" dominant-baseline="central">会话管理</tspan></text>
+<rect id="ai-1" x="876" y="280" width="198" height="46" rx="5" fill="#DDF0E6" stroke="#8DBCA5" stroke-width="1.2"><title>机器人配置管理：已实现</title></rect>
+<text id="ai-1-label" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="18" fill="#254E3C" font-weight="400" text-anchor="middle"><tspan x="975" y="303" dominant-baseline="central">机器人配置管理</tspan></text>
+<rect id="ai-2" x="662" y="338" width="198" height="46" rx="5" fill="#E9EDF2" stroke="#C1C9D4" stroke-width="1.2"><title>提问内容组织：待开发</title></rect>
+<text id="ai-2-label" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="18" fill="#667180" font-weight="400" text-anchor="middle"><tspan x="761" y="361" dominant-baseline="central">提问内容组织</tspan></text>
+<rect id="ai-3" x="876" y="338" width="198" height="46" rx="5" fill="#E9EDF2" stroke="#C1C9D4" stroke-width="1.2"><title>AI 服务接入：待开发</title></rect>
+<text id="ai-3-label" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="18" fill="#667180" font-weight="400" text-anchor="middle"><tspan x="975" y="361" dominant-baseline="central">AI 服务接入</tspan></text>
+<rect id="ai-4" x="662" y="396" width="198" height="46" rx="5" fill="#E9EDF2" stroke="#C1C9D4" stroke-width="1.2"><title>回复接收与请求控制：待开发</title></rect>
+<text id="ai-4-label" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="18" fill="#667180" font-weight="400" text-anchor="middle"><tspan x="761" y="419" dominant-baseline="central">回复接收与请求控制</tspan></text>
+<rect id="ai-5" x="876" y="396" width="198" height="46" rx="5" fill="#E9EDF2" stroke="#C1C9D4" stroke-width="1.2"><title>学习记忆管理：待开发</title></rect>
+<text id="ai-5-label" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="18" fill="#667180" font-weight="400" text-anchor="middle"><tspan x="975" y="419" dominant-baseline="central">学习记忆管理</tspan></text>
+<rect id="ai-6" x="662" y="454" width="198" height="46" rx="5" fill="#E9EDF2" stroke="#C1C9D4" stroke-width="1.2"><title>Skill 调用：待开发</title></rect>
+<text id="ai-6-label" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="18" fill="#667180" font-weight="400" text-anchor="middle"><tspan x="761" y="477" dominant-baseline="central">Skill 调用</tspan></text>
+<rect id="ai-7" x="876" y="454" width="198" height="46" rx="5" fill="#E9EDF2" stroke="#C1C9D4" stroke-width="1.2"><title>RAG 检索：待开发</title></rect>
+<text id="ai-7-label" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="18" fill="#667180" font-weight="400" text-anchor="middle"><tspan x="975" y="477" dominant-baseline="central">RAG 检索</tspan></text>
+<rect id="ai-usage-bg" x="645" y="516" width="446" height="39" rx="0" fill="#E7EDF6" stroke="#E7EDF6" stroke-width="1.2"></rect>
+<text id="ai-usage" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="17" fill="#415875" font-weight="400" text-anchor="middle"><tspan x="868" y="534" dominant-baseline="central">读取引用内容 · 保存会话与配置</tspan></text>
+<text id="ai-dependency" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="28" fill="#75849A" font-weight="400" text-anchor="middle"><tspan x="868" y="576" dominant-baseline="central">↓</tspan></text>
+<rect id="knowledge" x="1112" y="196" width="448" height="360" rx="6" fill="#F5F7FA" stroke="#BEC8D6" stroke-width="1.2" stroke-dasharray="6 4"></rect>
+<text id="knowledge-title" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="24" fill="#26364B" font-weight="600" text-anchor="middle"><tspan x="1336" y="225" dominant-baseline="central">知识维护</tspan></text>
+<text id="knowledge-context" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="16" fill="#667180" font-weight="400" text-anchor="middle"><tspan x="1336" y="258" dominant-baseline="central">内容来源：官方内容服务与开源资料</tspan></text>
+<rect id="knowledge-0" x="1130" y="280" width="198" height="46" rx="5" fill="#FFF0CC" stroke="#D6BA76" stroke-width="1.2"><title>官方资料维护：部分实现</title></rect>
+<text id="knowledge-0-label" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="18" fill="#78551D" font-weight="400" text-anchor="middle"><tspan x="1229" y="303" dominant-baseline="central">官方资料维护</tspan></text>
+<rect id="knowledge-1" x="1344" y="280" width="198" height="46" rx="5" fill="#E9EDF2" stroke="#C1C9D4" stroke-width="1.2"><title>开源资料维护：待开发</title></rect>
+<text id="knowledge-1-label" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="18" fill="#667180" font-weight="400" text-anchor="middle"><tspan x="1443" y="303" dominant-baseline="central">开源资料维护</tspan></text>
+<rect id="knowledge-2" x="1130" y="338" width="198" height="46" rx="5" fill="#FFF0CC" stroke="#D6BA76" stroke-width="1.2"><title>内容发布：部分实现</title></rect>
+<text id="knowledge-2-label" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="18" fill="#78551D" font-weight="400" text-anchor="middle"><tspan x="1229" y="361" dominant-baseline="central">内容发布</tspan></text>
+<rect id="knowledge-3" x="1344" y="338" width="198" height="46" rx="5" fill="#FFF0CC" stroke="#D6BA76" stroke-width="1.2"><title>内容下载与更新：部分实现</title></rect>
+<text id="knowledge-3-label" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="18" fill="#78551D" font-weight="400" text-anchor="middle"><tspan x="1443" y="361" dominant-baseline="central">内容下载与更新</tspan></text>
+<rect id="knowledge-4" x="1130" y="396" width="198" height="46" rx="5" fill="#E9EDF2" stroke="#C1C9D4" stroke-width="1.2"><title>机器人模板维护：待开发</title></rect>
+<text id="knowledge-4-label" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="18" fill="#667180" font-weight="400" text-anchor="middle"><tspan x="1229" y="419" dominant-baseline="central">机器人模板维护</tspan></text>
+<rect id="knowledge-5" x="1344" y="396" width="198" height="46" rx="5" fill="#E9EDF2" stroke="#C1C9D4" stroke-width="1.2"><title>RAG 资源维护：待开发</title></rect>
+<text id="knowledge-5-label" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="18" fill="#667180" font-weight="400" text-anchor="middle"><tspan x="1443" y="419" dominant-baseline="central">RAG 资源维护</tspan></text>
+<rect id="knowledge-usage-bg" x="1113" y="516" width="446" height="39" rx="0" fill="#E7EDF6" stroke="#E7EDF6" stroke-width="1.2"></rect>
+<text id="knowledge-usage" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="17" fill="#415875" font-weight="400" text-anchor="middle"><tspan x="1336" y="534" dominant-baseline="central">安装内容 · 登记来源与版本</tspan></text>
+<text id="knowledge-dependency" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="28" fill="#75849A" font-weight="400" text-anchor="middle"><tspan x="1336" y="576" dominant-baseline="central">↓</tspan></text>
+<rect id="data-label-bg" x="40" y="596" width="116" height="186" rx="6" fill="#E0E8F4" stroke="#B5C4DB" stroke-width="1.2"></rect>
+<text id="data-label" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="22" fill="#334C70" font-weight="600" text-anchor="middle"><tspan x="98" y="689" dominant-baseline="central">数据管理</tspan></text>
+<rect id="data-band" x="176" y="596" width="1384" height="186" rx="6" fill="#F5F7FA" stroke="#BEC8D6" stroke-width="1.2" stroke-dasharray="6 4"></rect>
+<text id="data-shared" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="19" fill="#415875" font-weight="600" text-anchor="middle"><tspan x="868" y="619" dominant-baseline="central">供资料阅读、AI 管理和知识维护共同使用</tspan></text>
+<rect id="files" x="194" y="643" width="788" height="120" rx="6" fill="#FDFEFF" stroke="#CAD3DF" stroke-width="1.2"></rect>
+<text id="files-title" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="18" fill="#26364B" font-weight="600" text-anchor="middle"><tspan x="588" y="661.5" dominant-baseline="central">资料管理功能</tspan></text>
+<rect id="files-0" x="210" y="687" width="138" height="52" rx="5" fill="#E9EDF2" stroke="#C1C9D4" stroke-width="1.2"><title>资料导入：待开发</title></rect>
+<text id="files-0-label" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="17" fill="#667180" font-weight="400" text-anchor="middle"><tspan x="279" y="713" dominant-baseline="central">资料导入</tspan></text>
+<rect id="files-1" x="362" y="687" width="138" height="52" rx="5" fill="#E9EDF2" stroke="#C1C9D4" stroke-width="1.2"><title>内容解析：待开发</title></rect>
+<text id="files-1-label" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="17" fill="#667180" font-weight="400" text-anchor="middle"><tspan x="431" y="713" dominant-baseline="central">内容解析</tspan></text>
+<rect id="files-2" x="514" y="687" width="138" height="52" rx="5" fill="#FFF0CC" stroke="#D6BA76" stroke-width="1.2"><title>资料查询与读取：部分实现</title></rect>
+<text id="files-2-label" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="17" fill="#78551D" font-weight="400" text-anchor="middle"><tspan x="583" y="713" dominant-baseline="central">资料查询与读取</tspan></text>
+<rect id="files-3" x="666" y="687" width="138" height="52" rx="5" fill="#FFF0CC" stroke="#D6BA76" stroke-width="1.2"><title>来源与版本管理：部分实现</title></rect>
+<text id="files-3-label" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="17" fill="#78551D" font-weight="400" text-anchor="middle"><tspan x="735" y="713" dominant-baseline="central">来源与版本管理</tspan></text>
+<rect id="files-4" x="818" y="687" width="138" height="52" rx="5" fill="#E9EDF2" stroke="#C1C9D4" stroke-width="1.2"><title>资料引用解析：待开发</title></rect>
+<text id="files-4-label" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="17" fill="#667180" font-weight="400" text-anchor="middle"><tspan x="887" y="713" dominant-baseline="central">资料引用解析</tspan></text>
+<rect id="records" x="1004" y="643" width="538" height="120" rx="6" fill="#FDFEFF" stroke="#CAD3DF" stroke-width="1.2"></rect>
+<text id="records-title" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="18" fill="#26364B" font-weight="600" text-anchor="middle"><tspan x="1273" y="661.5" dominant-baseline="central">个人记录存取功能</tspan></text>
+<rect id="records-0" x="1020" y="687" width="156" height="52" rx="5" fill="#FFF0CC" stroke="#D6BA76" stroke-width="1.2"><title>会话与消息存取：部分实现</title></rect>
+<text id="records-0-label" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="17" fill="#78551D" font-weight="400" text-anchor="middle"><tspan x="1098" y="713" dominant-baseline="central">会话与消息存取</tspan></text>
+<rect id="records-1" x="1192" y="687" width="156" height="52" rx="5" fill="#DDF0E6" stroke="#8DBCA5" stroke-width="1.2"><title>机器人配置存取：已实现</title></rect>
+<text id="records-1-label" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="17" fill="#254E3C" font-weight="400" text-anchor="middle"><tspan x="1270" y="713" dominant-baseline="central">机器人配置存取</tspan></text>
+<rect id="records-2" x="1364" y="687" width="156" height="52" rx="5" fill="#FFF0CC" stroke="#D6BA76" stroke-width="1.2"><title>阅读记录存取：部分实现</title></rect>
+<text id="records-2-label" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="17" fill="#78551D" font-weight="400" text-anchor="middle"><tspan x="1442" y="713" dominant-baseline="central">阅读记录存取</tspan></text>
+<rect id="legend-done" x="438" y="815" width="20" height="20" rx="2" fill="#DDF0E6" stroke="#8DBCA5" stroke-width="1.2"></rect>
+<text id="legend-done-label" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="18" fill="#526175" font-weight="400" text-anchor="start"><tspan x="468" y="825" dominant-baseline="central">绿色：已实现</tspan></text>
+<rect id="legend-partial" x="688" y="815" width="20" height="20" rx="2" fill="#FFF0CC" stroke="#D6BA76" stroke-width="1.2"></rect>
+<text id="legend-partial-label" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="18" fill="#526175" font-weight="400" text-anchor="start"><tspan x="718" y="825" dominant-baseline="central">黄色：部分实现</tspan></text>
+<rect id="legend-planned" x="938" y="815" width="20" height="20" rx="2" fill="#E9EDF2" stroke="#C1C9D4" stroke-width="1.2"></rect>
+<text id="legend-planned-label" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="18" fill="#526175" font-weight="400" text-anchor="start"><tspan x="968" y="825" dominant-baseline="central">灰色：待开发</tspan></text></svg>
