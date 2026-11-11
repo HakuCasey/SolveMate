@@ -420,3 +420,13 @@
     gap: 5px;
   }
 }
+
+.modelPanel {
+  width: min(430px, calc(100vw - 32px));
+  max-height: min(
+    720px,
+    calc(100dvh - 32px),
+    var(--radix-popover-content-available-height)
+  );
+  overflow-y: auto;
+}

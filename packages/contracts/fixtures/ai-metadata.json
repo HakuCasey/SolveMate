@@ -1,0 +1,197 @@
+[
+  {
+    "name": "ModelSelection",
+    "value": {
+      "kind": "connection-default"
+    },
+    "valid": true
+  },
+  {
+    "name": "ModelSelection",
+    "value": {
+      "kind": "model",
+      "connectionId": "codex-local",
+      "modelId": "native-模型"
+    },
+    "valid": true
+  },
+  {
+    "name": "ModelSelection",
+    "value": {
+      "kind": "model",
+      "connectionId": null,
+      "modelId": "legacy-模型"
+    },
+    "valid": true
+  },
+  {
+    "name": "ModelSelection",
+    "value": {
+      "kind": "model",
+      "modelId": "native-model"
+    },
+    "valid": false
+  },
+  {
+    "name": "ModelSelection",
+    "value": {
+      "kind": "connection-default",
+      "modelId": "unused"
+    },
+    "valid": false
+  },
+  {
+    "name": "AiConfig",
+    "value": {
+      "provider": "hermes",
+      "executablePath": "C:\\中文 空格\\hermes.exe",
+      "model": "opaque:模型",
+      "reasoningEffort": ""
+    },
+    "valid": true
+  },
+  {
+    "name": "AiConfig",
+    "value": {
+      "provider": "unregistered",
+      "executablePath": "",
+      "model": "a",
+      "reasoningEffort": ""
+    },
+    "valid": false
+  },
+  {
+    "name": "AiConfig",
+    "value": {
+      "provider": "hermes",
+      "executablePath": "",
+      "model": "a",
+      "reasoningEffort": "",
+      "apiKey": "should-not-exist"
+    },
+    "valid": false
+  },
+  {
+    "name": "SessionBinding",
+    "value": {
+      "conversationId": "chat",
+      "connectionId": "codex-local",
+      "protocol": "codex-app-server",
+      "externalSessionId": "native",
+      "state": "bound",
+      "revision": 2
+    },
+    "valid": true
+  },
+  {
+    "name": "SessionBinding",
+    "value": {
+      "conversationId": "chat",
+      "connectionId": "codex-local",
+      "protocol": "codex-app-server",
+      "externalSessionId": null,
+      "state": "uncertain",
+      "revision": 1
+    },
+    "valid": true
+  },
+  {
+    "name": "SessionBinding",
+    "value": {
+      "conversationId": "chat",
+      "connectionId": "codex-local",
+      "protocol": "codex-app-server",
+      "externalSessionId": "native",
+      "state": "bound",
+      "revision": 0
+    },
+    "valid": false
+  },
+  {
+    "name": "RobotAiDefaults",
+    "value": null,
+    "valid": true
+  },
+  {
+    "name": "RobotAiDefaults",
+    "value": {
+      "connectionId": "hermes-local",
+      "modelId": "custom-model"
+    },
+    "valid": true
+  },
+  {
+    "name": "RobotAiDefaults",
+    "value": {
+      "connection": {
+        "kind": "global-default"
+      },
+      "model": {
+        "kind": "connection-default"
+      }
+    },
+    "valid": false
+  },
+  {
+    "name": "AiSelection",
+    "value": {
+      "connectionId": "deepseek-local",
+      "modelId": ""
+    },
+    "valid": false
+  },
+  {
+    "name": "ConnectionCheck",
+    "value": {
+      "status": "error",
+      "checkedAt": 100,
+      "error": "Program missing."
+    },
+    "valid": true
+  },
+  {
+    "name": "ConnectionCheck",
+    "value": {
+      "status": "ready",
+      "error": null
+    },
+    "valid": false
+  },
+  {
+    "name": "ConversationMetadata",
+    "value": {
+      "schemaVersion": 3,
+      "revision": 1,
+      "id": "contract-chat",
+      "title": "学习讨论",
+      "titleSource": "manual",
+      "label": null,
+      "status": "active",
+      "createdAt": 100,
+      "updatedAt": 100,
+      "lastActivityAt": null,
+      "archivedAt": null,
+      "deletedAt": null,
+      "origin": "local",
+      "creationReason": "new",
+      "sourceConversationId": null,
+      "createdWith": {
+        "appVersion": "0.1.0",
+        "buildId": null,
+        "clientKind": "web"
+      },
+      "robotId": "teacher",
+      "robotIdentity": {
+        "id": "teacher",
+        "name": "C 语言教师",
+        "icon": "bot"
+      },
+      "selection": null,
+      "aiConfig": {
+        "connectionId": "deepseek-local",
+        "modelId": "opaque-model-a"
+      }
+    },
+    "valid": true
+  }
+]

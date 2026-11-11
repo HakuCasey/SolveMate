@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Popover } from "radix-ui";
 import {
   BookOpen,
@@ -24,7 +24,12 @@ import type {
   CourseId,
   ReadingSelection,
   Settings,
+  Robot,
 } from "@solvemate/contracts";
+import type { AiService } from "../ai/useAiService";
+import { RobotAiConfiguration } from "./RobotAiConfiguration";
+import type { RobotAiConfig } from "../ai/robot-config";
+import { AiSettings } from "./AiSettings";
 import userAvatar from "../assets/user-avatar.png";
 import styles from "./Sidebar.module.css";
 
@@ -42,6 +47,12 @@ interface SidebarProps {
   ) => void;
   onSettingsChange: (settings: Settings) => void;
   disabled?: boolean;
+  ai: AiService;
+  robot: Robot | undefined;
+  robotAiConfig: RobotAiConfig;
+  onRobotAiSave: (config: RobotAiConfig) => Promise<void>;
+  aiSettingsSource: "chat" | "sidebar" | null;
+  onAiSettingsSourceChange: (source: "chat" | "sidebar" | null) => void;
 }
 
 const accountActions = [
@@ -62,7 +73,7 @@ const accountActions = [
     description: "使用说明与常见问题",
     icon: CircleHelp,
     message:
-      "从学科中选择教材或题目即可开始阅读。学习记录保存在当前浏览器中。AI 服务尚未接入。",
+      "从学科中选择教材或题目即可开始阅读。学习记录保存在当前浏览器中。AI 连接可在“设置 → AI 配置”中配置。",
   },
   {
     name: "退出登录",
@@ -81,7 +92,22 @@ export function Sidebar({
   onSelectContent,
   onSettingsChange,
   disabled = false,
+  ai,
+  robot,
+  onRobotAiSave,
+  robotAiConfig,
+  aiSettingsSource,
+  onAiSettingsSourceChange,
 }: SidebarProps) {
+  const [compactSettings, setCompactSettings] = useState(
+    () => window.matchMedia("(max-width: 900px)").matches,
+  );
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 900px)");
+    const changed = () => setCompactSettings(media.matches);
+    media.addEventListener("change", changed);
+    return () => media.removeEventListener("change", changed);
+  }, []);
   const [subjectsOpen, setSubjectsOpen] = useState(true);
   const [expandedSubjects, setExpandedSubjects] = useState<
     Record<CourseId, boolean>
@@ -89,9 +115,34 @@ export function Sidebar({
   const [accountOpen, setAccountOpen] = useState(false);
   const [accountMessage, setAccountMessage] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [settingsPanel, setSettingsPanel] = useState<
-    "display" | "model" | null
-  >(null);
+  const modelSettingsOpen = aiSettingsSource !== null;
+  const [settingsPanel, setSettingsPanel] = useState<"display" | null>(null);
+
+  const modelTrigger = useRef<HTMLButtonElement>(null);
+  const modelReturnFocus = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => {
+    if (aiSettingsSource)
+      modelReturnFocus.current =
+        aiSettingsSource === "sidebar"
+          ? modelTrigger.current
+          : document.querySelector<HTMLButtonElement>(
+              '[aria-label="打开 AI 配置"]',
+            );
+  }, [aiSettingsSource]);
+  // 窄屏在视口顶部显示；桌面端从聊天栏打开时，以可见入口定位。
+  const modelAnchor = useMemo(
+    () => ({
+      getBoundingClientRect: () => {
+        if (compactSettings) return new DOMRect(window.innerWidth / 2, 0, 0, 0);
+        const element =
+          aiSettingsSource === "sidebar"
+            ? modelTrigger.current
+            : document.querySelector('[aria-label="打开 AI 配置"]');
+        return element?.getBoundingClientRect() ?? new DOMRect(12, 12, 0, 0);
+      },
+    }),
+    [aiSettingsSource, compactSettings],
+  );
 
   function toggleSubjects() {
     // 收起总入口时同时收起课程，避免再次展开时恢复旧的子树状态。
@@ -105,6 +156,8 @@ export function Sidebar({
   function navigate(nextView: View) {
     setAccountOpen(false);
     setSettingsOpen(false);
+    setSettingsPanel(null);
+    onAiSettingsSourceChange(null);
     onNavigate(nextView);
   }
 
@@ -300,7 +353,11 @@ export function Sidebar({
           open={settingsOpen}
           onOpenChange={(open) => {
             setSettingsOpen(open);
-            if (!open) setSettingsPanel(null);
+            if (!open) {
+              setSettingsPanel(null);
+              if (aiSettingsSource === "sidebar")
+                onAiSettingsSourceChange(null);
+            }
           }}
         >
           <Popover.Trigger
@@ -318,6 +375,20 @@ export function Sidebar({
             sideOffset={12}
             collisionPadding={12}
             aria-label="设置选项"
+            onOpenAutoFocus={(event) => {
+              if (modelSettingsOpen) event.preventDefault();
+            }}
+            onInteractOutside={(event) => {
+              // 二级气泡通过 Portal 显示，一级菜单不应把其中的交互当成外部点击。
+              if (
+                modelSettingsOpen &&
+                event.target instanceof Element &&
+                event.target.closest(
+                  '[aria-labelledby="ai-settings-heading"], [data-settings-select]',
+                )
+              )
+                event.preventDefault();
+            }}
           >
             <button
               className={styles.settingsItem}
@@ -328,7 +399,10 @@ export function Sidebar({
             </button>
             <Popover.Root
               open={settingsPanel === "display"}
-              onOpenChange={(open) => setSettingsPanel(open ? "display" : null)}
+              onOpenChange={(open) => {
+                setSettingsPanel(open ? "display" : null);
+                if (open) onAiSettingsSourceChange(null);
+              }}
             >
               <Popover.Trigger className={styles.settingsItem}>
                 <SlidersHorizontal aria-hidden="true" />
@@ -394,41 +468,103 @@ export function Sidebar({
                 <Popover.Arrow className={styles.arrow} width={12} height={6} />
               </Popover.Content>
             </Popover.Root>
-            <Popover.Root
-              open={settingsPanel === "model"}
-              onOpenChange={(open) => setSettingsPanel(open ? "model" : null)}
+            <button
+              ref={modelTrigger}
+              className={styles.settingsItem}
+              aria-haspopup="dialog"
+              aria-expanded={aiSettingsSource === "sidebar"}
+              aria-controls={
+                aiSettingsSource === "sidebar"
+                  ? "ai-settings-popover"
+                  : undefined
+              }
+              onClick={() => {
+                setSettingsPanel(null);
+                onAiSettingsSourceChange(
+                  aiSettingsSource === "sidebar" ? null : "sidebar",
+                );
+              }}
             >
-              <Popover.Trigger className={styles.settingsItem}>
-                <Cpu aria-hidden="true" />
-                <span>模型设置</span>
-              </Popover.Trigger>
-              <Popover.Content
-                className={`${styles.popover} ${styles.settingsPanel}`}
-                side="right"
-                align="end"
-                sideOffset={12}
-                collisionPadding={12}
-                aria-labelledby="model-settings-heading"
-              >
-                <h3 id="model-settings-heading">模型设置</h3>
-                <label className={styles.settingLabel} htmlFor="global-model">
-                  当前模型
-                </label>
-                <select
-                  id="global-model"
-                  disabled
-                  className={styles.modelSelect}
-                >
-                  <option>尚未接入模型</option>
-                </select>
-                <p className={styles.settingNote}>
-                  AI 服务接入后，可在这里选择全局模型。
-                </p>
-                <Popover.Arrow className={styles.arrow} width={12} height={6} />
-              </Popover.Content>
-            </Popover.Root>
+              <Cpu aria-hidden="true" />
+              <span>AI 配置</span>
+            </button>
             <Popover.Arrow className={styles.arrow} width={12} height={6} />
           </Popover.Content>
+        </Popover.Root>
+        {/* AI 气泡独立于设置菜单，聊天栏入口无需展开一级菜单。 */}
+        <Popover.Root
+          open={modelSettingsOpen}
+          onOpenChange={(open) => {
+            if (!open) onAiSettingsSourceChange(null);
+          }}
+        >
+          <Popover.Anchor virtualRef={{ current: modelAnchor }} />
+          <Popover.Portal>
+            <Popover.Content
+              className={`${styles.popover} ${styles.settingsPanel} ${styles.modelPanel}`}
+              side={compactSettings ? "bottom" : "right"}
+              align={compactSettings ? "center" : "end"}
+              sticky="always"
+              id="ai-settings-popover"
+              onOpenAutoFocus={() => {
+                modelReturnFocus.current =
+                  aiSettingsSource === "sidebar"
+                    ? modelTrigger.current
+                    : document.querySelector<HTMLButtonElement>(
+                        '[aria-label="打开 AI 配置"]',
+                      );
+              }}
+              onCloseAutoFocus={(event) => {
+                event.preventDefault();
+                const target = modelReturnFocus.current;
+                if (target?.isConnected) target.focus({ preventScroll: true });
+                else if (target)
+                  document
+                    .querySelector<HTMLButtonElement>('[aria-label="设置"]')
+                    ?.focus({ preventScroll: true });
+              }}
+              sideOffset={12}
+              collisionPadding={12}
+              aria-labelledby="ai-settings-heading"
+              onInteractOutside={(event) => {
+                // 下拉选项和删除确认框位于独立 Portal，交互时保留 AI 配置气泡。
+                if (
+                  event.target instanceof Element &&
+                  (event.target.closest("[data-settings-select]") ||
+                    event.target.closest("[data-connection-delete-dialog]") ||
+                    event.target.closest('[aria-label="打开 AI 配置"]') ||
+                    modelTrigger.current?.contains(event.target))
+                )
+                  event.preventDefault();
+                else modelReturnFocus.current = null;
+              }}
+            >
+              {aiSettingsSource === "chat" ? (
+                robot ? (
+                  <RobotAiConfiguration
+                    key={robot.id}
+                    robot={robot}
+                    saved={robotAiConfig}
+                    settings={ai.settings}
+                    onSave={onRobotAiSave}
+                  />
+                ) : (
+                  <p>请选择机器人。</p>
+                )
+              ) : (
+                <AiSettings
+                  key={ai.settings ? "ready" : "loading"}
+                  settings={ai.settings}
+                  serviceError={ai.error}
+                  onRefresh={ai.refresh}
+                  onSaved={(next) => {
+                    ai.setSettings(next);
+                  }}
+                />
+              )}
+              <Popover.Arrow className={styles.arrow} width={12} height={6} />
+            </Popover.Content>
+          </Popover.Portal>
         </Popover.Root>
       </div>
     </nav>

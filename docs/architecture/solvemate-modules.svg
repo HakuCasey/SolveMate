@@ -42,12 +42,12 @@
 <text id="ai-0-label" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="18" fill="#78551D" font-weight="400" text-anchor="middle"><tspan x="761" y="303" dominant-baseline="central">会话管理</tspan></text>
 <rect id="ai-1" x="876" y="280" width="198" height="46" rx="5" fill="#DDF0E6" stroke="#8DBCA5" stroke-width="1.2"><title>机器人配置管理：已实现</title></rect>
 <text id="ai-1-label" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="18" fill="#254E3C" font-weight="400" text-anchor="middle"><tspan x="975" y="303" dominant-baseline="central">机器人配置管理</tspan></text>
-<rect id="ai-2" x="662" y="338" width="198" height="46" rx="5" fill="#E9EDF2" stroke="#C1C9D4" stroke-width="1.2"><title>提问内容组织：待开发</title></rect>
-<text id="ai-2-label" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="18" fill="#667180" font-weight="400" text-anchor="middle"><tspan x="761" y="361" dominant-baseline="central">提问内容组织</tspan></text>
-<rect id="ai-3" x="876" y="338" width="198" height="46" rx="5" fill="#E9EDF2" stroke="#C1C9D4" stroke-width="1.2"><title>AI 服务接入：待开发</title></rect>
-<text id="ai-3-label" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="18" fill="#667180" font-weight="400" text-anchor="middle"><tspan x="975" y="361" dominant-baseline="central">AI 服务接入</tspan></text>
-<rect id="ai-4" x="662" y="396" width="198" height="46" rx="5" fill="#E9EDF2" stroke="#C1C9D4" stroke-width="1.2"><title>回复接收与请求控制：待开发</title></rect>
-<text id="ai-4-label" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="18" fill="#667180" font-weight="400" text-anchor="middle"><tspan x="761" y="419" dominant-baseline="central">回复接收与请求控制</tspan></text>
+<rect id="ai-2" x="662" y="338" width="198" height="46" rx="5" fill="#FFF0CC" stroke="#D6BA76" stroke-width="1.2"><title>提问内容组织：部分实现</title></rect>
+<text id="ai-2-label" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="18" fill="#78551D" font-weight="400" text-anchor="middle"><tspan x="761" y="361" dominant-baseline="central">提问内容组织</tspan></text>
+<rect id="ai-3" x="876" y="338" width="198" height="46" rx="5" fill="#FFF0CC" stroke="#D6BA76" stroke-width="1.2"><title>AI 服务接入：部分实现</title></rect>
+<text id="ai-3-label" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="18" fill="#78551D" font-weight="400" text-anchor="middle"><tspan x="975" y="361" dominant-baseline="central">AI 服务接入</tspan></text>
+<rect id="ai-4" x="662" y="396" width="198" height="46" rx="5" fill="#FFF0CC" stroke="#D6BA76" stroke-width="1.2"><title>回复接收与请求控制：部分实现</title></rect>
+<text id="ai-4-label" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="18" fill="#78551D" font-weight="400" text-anchor="middle"><tspan x="761" y="419" dominant-baseline="central">回复接收与请求控制</tspan></text>
 <rect id="ai-5" x="876" y="396" width="198" height="46" rx="5" fill="#E9EDF2" stroke="#C1C9D4" stroke-width="1.2"><title>学习记忆管理：待开发</title></rect>
 <text id="ai-5-label" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="18" fill="#667180" font-weight="400" text-anchor="middle"><tspan x="975" y="419" dominant-baseline="central">学习记忆管理</tspan></text>
 <rect id="ai-6" x="662" y="454" width="198" height="46" rx="5" fill="#E9EDF2" stroke="#C1C9D4" stroke-width="1.2"><title>Skill 调用：待开发</title></rect>
@@ -89,8 +89,8 @@
 <text id="files-2-label" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="17" fill="#78551D" font-weight="400" text-anchor="middle"><tspan x="583" y="713" dominant-baseline="central">资料查询与读取</tspan></text>
 <rect id="files-3" x="666" y="687" width="138" height="52" rx="5" fill="#FFF0CC" stroke="#D6BA76" stroke-width="1.2"><title>来源与版本管理：部分实现</title></rect>
 <text id="files-3-label" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="17" fill="#78551D" font-weight="400" text-anchor="middle"><tspan x="735" y="713" dominant-baseline="central">来源与版本管理</tspan></text>
-<rect id="files-4" x="818" y="687" width="138" height="52" rx="5" fill="#E9EDF2" stroke="#C1C9D4" stroke-width="1.2"><title>资料引用解析：待开发</title></rect>
-<text id="files-4-label" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="17" fill="#667180" font-weight="400" text-anchor="middle"><tspan x="887" y="713" dominant-baseline="central">资料引用解析</tspan></text>
+<rect id="files-4" x="818" y="687" width="138" height="52" rx="5" fill="#FFF0CC" stroke="#D6BA76" stroke-width="1.2"><title>资料引用解析：部分实现</title></rect>
+<text id="files-4-label" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="17" fill="#78551D" font-weight="400" text-anchor="middle"><tspan x="887" y="713" dominant-baseline="central">资料引用解析</tspan></text>
 <rect id="records" x="1004" y="643" width="538" height="120" rx="6" fill="#FDFEFF" stroke="#CAD3DF" stroke-width="1.2"></rect>
 <text id="records-title" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="18" fill="#26364B" font-weight="600" text-anchor="middle"><tspan x="1273" y="661.5" dominant-baseline="central">个人记录存取功能</tspan></text>
 <rect id="records-0" x="1020" y="687" width="156" height="52" rx="5" fill="#FFF0CC" stroke="#D6BA76" stroke-width="1.2"><title>会话与消息存取：部分实现</title></rect>

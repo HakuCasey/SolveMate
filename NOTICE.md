@@ -10,12 +10,12 @@ SolveMate 是面向学生的学习客户端。项目采用 [MIT 许可证](LICEN
 
 ## 当前产品状态
 
-当前版本支持本地阅读、会话管理、机器人配置、PWA 离线使用和官方内容下载更新。真实 AI、个人长期记忆、Skill 安装、RAG 检索、账号与跨设备同步尚未接入。示例回复、推荐问题、笔记和学习统计用于展示交互，不代表真实生成结果、用户记录或学习效果。
+当前版本支持本地阅读、会话管理、机器人配置、PWA 离线使用和官方内容下载更新。真实 AI 通过用户本机的 DeepSeek Harness、Hermes 或 Codex 提供；个人长期记忆、Skill 安装、RAG 检索、账号与跨设备同步尚未接入。示例回复、推荐问题、笔记和学习统计用于展示交互，不代表真实生成结果、用户记录或学习效果。
 
 项目开发使用了 AI 辅助工具。当前示例教材、题目与课程记忆含 AI 辅助生成的内容，不对应某一本商业教材。内容可作为演示和学习讨论材料；发现错误时，欢迎通过仓库 Issue 或 Pull Request 提交具体位置和修改建议。
 
 ## 参考项目
 
-交互和会话配置设计参考了 Codex、OpenCode、OpenClaw、Hermes 等工具，具体参考链接见特性设计文档。参考不表示已接入这些工具，也不表示得到其作者的认可或支持。相关名称归各自权利人所有。
+交互和会话配置设计参考了 Codex、OpenCode、OpenClaw、Hermes 等工具，具体参考链接见特性设计文档。DeepSeek Harness、Hermes 与 Codex 已接入，其他参考工具尚未接入。设计参考和服务接入不表示得到其作者的认可或支持。相关名称归各自权利人所有。
 
 本项目采用与 [OpenCode](https://github.com/anomalyco/opencode/blob/dev/LICENSE)、[OpenClaw](https://github.com/openclaw/openclaw/blob/main/LICENSE) 相同的 MIT 许可类型；版权署名与代码归属分别维护。

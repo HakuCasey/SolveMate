@@ -1,13 +1,5 @@
 export type CourseId = string;
 
-export interface ReadingSelection {
-  version?: string;
-  courseId: CourseId;
-  kind: "questions" | "textbooks";
-  itemId: string;
-  chapterIndex: number;
-}
-
 export interface Question {
   id: string;
   title: string;
@@ -63,68 +55,39 @@ export interface Course {
   };
 }
 
-export interface Robot {
-  id: string;
-  name: string;
-  // 专业范围用于说明教师的侧重，不限制用户选择或跨学科提问。
-  specialty?: string;
-  description: string;
-  icon: "graduation-cap" | "sparkles" | "bot";
-  prompt: string;
-  modelSource: "global" | "custom";
-  modelName: string;
-  temperature: number;
-  memoryEnabled: boolean;
-  courseMemory: boolean;
-  skills: ("questions" | "textbooks" | "notes")[];
-}
+export type * from "./ai-metadata.generated";
+export {
+  assertMetadata,
+  assertLegacyMetadataV2,
+  aiMetadataSchema,
+} from "./metadata";
+import type {
+  ReadingSelection,
+  Robot,
+  ConversationMetadata,
+  SessionBinding,
+  SessionTurn,
+} from "./ai-metadata.generated";
 
 export interface Message {
-  createdAt?: number;
-  turnId?: string;
-  externalItemId?: string;
   id: string;
   role: "user" | "assistant";
   content: string;
+  createdAt?: number;
+  turnId?: string;
+  externalItemId?: string;
   botId?: string | null;
   botName?: string;
   botIcon?: Robot["icon"];
   example?: boolean;
+  reference?: { title: string; content: string; selection: ReadingSelection };
+  model?: string;
 }
 
-export interface SessionBinding {
-  // 连接配置只保存引用；凭据不放进会话记录。
-  connectionId: string;
-  protocol: "codex-app-server" | "opencode" | "openclaw" | "hermes" | "api";
-  externalSessionId: string;
-}
-
-export interface SessionTurn {
-  // 一轮实际执行独立于列表中的“进行中／已归档”分类。
-  id: string;
-  connectionId: string;
-  externalTurnId?: string;
-  status: "running" | "completed" | "failed" | "cancelled";
-  startedAt: number;
-  completedAt?: number;
-}
-
-export interface Conversation {
-  // Conversation 是 SolveMate 的本地 session，id 不随机器人或外部连接改变。
-  createdAt?: number;
-  archivedAt?: number;
-  deletedAt?: number;
-  bindings?: SessionBinding[];
-  turns?: SessionTurn[];
-  label?: string;
-  archived?: boolean;
-  id: string;
-  title: string;
-  // 普通对话不关联阅读内容，显式保存为 null。
-  selection: ReadingSelection | null;
-  robotId: string | null;
+export interface Conversation extends ConversationMetadata {
+  binding: SessionBinding | null;
+  turns: SessionTurn[];
   messages: Message[];
-  updatedAt: number;
   example: boolean;
 }
 
@@ -141,10 +104,11 @@ export interface Settings {
   fontSize: number;
   appearance: "light" | "dark";
   globalModel: string;
+  readingPaneRatio?: number;
 }
 
 export interface AppData {
-  schemaVersion: 1;
+  schemaVersion: 3;
   robotCatalogVersion?: 1;
   robots: Robot[];
   defaultRobotId: string | null;
@@ -164,3 +128,5 @@ export interface CurrentContent {
   answer: string;
   explanation: string;
 }
+
+export { conversationMetadata } from "./conversation";

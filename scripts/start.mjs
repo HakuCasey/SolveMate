@@ -99,12 +99,11 @@ export class ProcessManager {
       for (const entry of this.processes) {
         if (this.isRunning(entry)) await this.signal(entry, "SIGTERM");
       }
-      const deadline = Date.now() + 3000;
-      while (
-        this.processes.some((entry) => this.isRunning(entry)) &&
-        Date.now() < deadline
-      ) {
+      const deadline = Date.now() + 10000;
+      while (Date.now() < deadline) {
+        // 先接收退出事件，再检查进程组，避免 macOS 在退出间隙返回 EPERM。
         await delay(50);
+        if (!this.processes.some((entry) => this.isRunning(entry))) break;
       }
       for (const entry of this.processes) {
         if (this.isRunning(entry)) await this.signal(entry, "SIGKILL");
@@ -153,7 +152,7 @@ async function main() {
   });
   if (values.help) {
     console.log(
-      "Usage: npm start [-- --port <web-port>]\nDefault ports: web 4173, content service 8000.",
+      "Usage: npm start [-- --port <web-port>]\nDefault ports: web 4173, content service 8000, local AI service 8765.",
     );
     return;
   }
@@ -163,10 +162,11 @@ async function main() {
     !Number.isInteger(port) ||
     port < 1 ||
     port > 65535 ||
-    port === 8000
+    port === 8000 ||
+    port === 8765
   ) {
     throw new Error(
-      "Web port must be an integer from 1 to 65535 and must differ from content port 8000.",
+      "Web port must be an integer from 1 to 65535 and must differ from content port 8000 and local AI port 8765.",
     );
   }
   const serverDirectory = join(root, "apps/server");
@@ -184,7 +184,7 @@ async function main() {
     python,
     "Python environment is missing. Follow apps/server/README.md to install the backend dependencies.",
   );
-  for (const candidate of [port, 8000]) {
+  for (const candidate of [port, 8000, 8765]) {
     try {
       await ensurePortAvailable(candidate);
     } catch (error) {
@@ -207,7 +207,7 @@ async function main() {
   try {
     await manager.run("Checking backend dependencies", python, [
       "-c",
-      "import fastapi, uvicorn, solvemate_server",
+      "import fastapi, uvicorn, solvemate_server, yaml",
     ]);
     const npmCli = process.env.npm_execpath;
     await manager.run(
@@ -236,6 +236,28 @@ async function main() {
       ],
       { cwd: serverDirectory },
     );
+    const local = manager.start(
+      "Local AI service",
+      python,
+      [
+        "-m",
+        "uvicorn",
+        "solvemate_local.main:create_app",
+        "--factory",
+        "--app-dir",
+        join(root, "apps/local/src"),
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "8765",
+      ],
+      {
+        env: {
+          ...process.env,
+          SOLVEMATE_LOCAL_ORIGINS: `http://127.0.0.1:${port},http://localhost:${port}`,
+        },
+      },
+    );
     const web = manager.start(
       "Web service",
       process.execPath,
@@ -250,20 +272,24 @@ async function main() {
       ],
       { cwd: join(root, "apps/web") },
     );
-    const serviceExit = Promise.race([api.done, web.done]).then((result) => {
-      throw failure(result);
-    });
+    const serviceExit = Promise.race([api.done, local.done, web.done]).then(
+      (result) => {
+        throw failure(result);
+      },
+    );
     await Promise.race([
       Promise.all([
         waitForHttp(`http://127.0.0.1:${port}/`, manager),
         waitForHttp("http://127.0.0.1:8000/healthz", manager),
+        waitForHttp("http://127.0.0.1:8765/healthz", manager),
       ]),
       serviceExit,
     ]);
     if (!manager.stopping) {
       console.log(`\n[start] SolveMate is ready: http://127.0.0.1:${port}/`);
       console.log("[start] Official content API: http://127.0.0.1:8000/docs");
-      console.log("[start] Press Ctrl+C to stop both services.\n");
+      console.log("[start] Local AI service: http://127.0.0.1:8765/healthz");
+      console.log("[start] Press Ctrl+C to stop all services.\n");
     }
     await serviceExit;
   } catch (error) {

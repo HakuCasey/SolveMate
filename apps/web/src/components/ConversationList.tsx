@@ -8,9 +8,11 @@ import {
   Tag,
   Trash2,
   Check,
+  Pencil,
 } from "lucide-react";
 import { ContextMenu, Popover } from "radix-ui";
 import type { Course, Conversation, Robot } from "@solvemate/contracts";
+import type { ConversationChange } from "../state/conversations";
 import styles from "./ConversationList.module.css";
 
 interface Props {
@@ -22,9 +24,10 @@ interface Props {
   onNew: () => void;
   onUpdate: (
     id: string,
-    change: Pick<Conversation, "label" | "archived">,
-  ) => void;
-  onDelete: (id: string) => void;
+    change: ConversationChange,
+    revision?: number,
+  ) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
 }
 
 const presetLabels = ["重要", "一般", "无标签"];
@@ -45,6 +48,9 @@ export function ConversationList({
   const [customLabel, setCustomLabel] = useState("");
   const [customOpen, setCustomOpen] = useState(false);
   const [labelError, setLabelError] = useState("");
+  const [renameTarget, setRenameTarget] = useState<string | null>(null);
+  const [renameTitle, setRenameTitle] = useState("");
+  const [renameError, setRenameError] = useState("");
   const customLabels = [
     ...new Set(
       conversations
@@ -55,9 +61,17 @@ export function ConversationList({
     ),
   ];
 
-  function setLabel(id: string, label: string) {
-    onUpdate(id, { label });
-    setLabelTarget(null);
+  async function setLabel(id: string, label: string) {
+    try {
+      await onUpdate(
+        id,
+        { label },
+        conversations.find((item) => item.id === id)?.revision,
+      );
+      setLabelTarget(null);
+    } catch (error) {
+      setLabelError(error instanceof Error ? error.message : "标签未能保存。");
+    }
   }
 
   function renderItem(conversation: Conversation) {
@@ -69,12 +83,16 @@ export function ConversationList({
     );
     const robot = robots.find((item) => item.id === conversation.robotId);
     const label = conversation.label || "无标签";
+    const renaming = renameTarget === conversation.id;
     return (
       <Popover.Root
         key={conversation.id}
-        open={labelTarget === conversation.id}
+        open={labelTarget === conversation.id || renaming}
         onOpenChange={(open) => {
-          if (!open) setLabelTarget(null);
+          if (!open) {
+            setLabelTarget(null);
+            setRenameTarget(null);
+          }
         }}
       >
         <ContextMenu.Root>
@@ -103,7 +121,10 @@ export function ConversationList({
                     {conversation.selection
                       ? `${course?.title} · ${conversation.selection.itemId}`
                       : "普通对话"}{" "}
-                    · {robot?.name ?? "未选择机器人"}
+                    ·{" "}
+                    {robot?.name ??
+                      conversation.robotIdentity?.name ??
+                      "教师不可用"}
                   </small>
                   <span className={styles.preview}>
                     {conversation.messages
@@ -122,6 +143,19 @@ export function ConversationList({
               <ContextMenu.Item
                 className={styles.menuItem}
                 onSelect={() => {
+                  setLabelTarget(null);
+                  setRenameTitle(conversation.title);
+                  setRenameError("");
+                  setRenameTarget(conversation.id);
+                }}
+              >
+                <Pencil aria-hidden="true" />
+                重命名
+              </ContextMenu.Item>
+              <ContextMenu.Item
+                className={styles.menuItem}
+                onSelect={() => {
+                  setRenameTarget(null);
                   setCustomLabel(presetLabels.includes(label) ? "" : label);
                   setCustomOpen(false);
                   setLabelError("");
@@ -133,23 +167,34 @@ export function ConversationList({
               </ContextMenu.Item>
               <ContextMenu.Item
                 className={styles.menuItem}
-                onSelect={() =>
-                  onUpdate(conversation.id, {
-                    archived: !conversation.archived,
-                  })
-                }
+                onSelect={() => {
+                  void onUpdate(
+                    conversation.id,
+                    {
+                      status:
+                        conversation.status === "archived"
+                          ? "active"
+                          : "archived",
+                    },
+                    conversation.revision,
+                  ).catch((error) => setLabelError(String(error)));
+                }}
               >
-                {conversation.archived ? (
+                {conversation.status === "archived" ? (
                   <ArchiveRestore aria-hidden="true" />
                 ) : (
                   <Archive aria-hidden="true" />
                 )}
-                {conversation.archived ? "移回进行中" : "归档"}
+                {conversation.status === "archived" ? "移回进行中" : "归档"}
               </ContextMenu.Item>
               <ContextMenu.Separator className={styles.separator} />
               <ContextMenu.Item
                 className={`${styles.menuItem} ${styles.delete}`}
-                onSelect={() => onDelete(conversation.id)}
+                onSelect={() => {
+                  void onDelete(conversation.id).catch((error) =>
+                    setLabelError(String(error)),
+                  );
+                }}
               >
                 <Trash2 aria-hidden="true" />
                 删除
@@ -159,61 +204,115 @@ export function ConversationList({
         </ContextMenu.Root>
         <Popover.Portal>
           <Popover.Content
-            className={styles.popover}
-            side="right"
+            className={`${styles.popover} ${renaming ? styles.renamePopover : ""}`}
+            side={renaming ? "bottom" : "right"}
             align="start"
             sideOffset={10}
             collisionPadding={12}
-            aria-label="对话标签"
+            aria-label={renaming ? "重命名对话" : "对话标签"}
           >
-            <h3>标签</h3>
-            <div className={styles.labelOptions}>
-              {[...presetLabels, ...customLabels].map((option) => (
-                <button
-                  key={option}
-                  aria-pressed={label === option}
-                  onClick={() => setLabel(conversation.id, option)}
+            {renaming ? (
+              <>
+                <h3>重命名对话</h3>
+                <form
+                  className={styles.renameForm}
+                  onSubmit={async (event) => {
+                    event.preventDefault();
+                    const title = renameTitle.trim();
+                    if (!title) {
+                      setRenameError("请输入对话名称。");
+                      return;
+                    }
+                    try {
+                      await onUpdate(
+                        conversation.id,
+                        { title },
+                        conversation.revision,
+                      );
+                      setRenameTarget(null);
+                    } catch (error) {
+                      setRenameError(
+                        error instanceof Error
+                          ? error.message
+                          : "名称未能保存。",
+                      );
+                    }
+                  }}
                 >
-                  <span>{option}</span>
-                  {label === option && <Check aria-hidden="true" />}
+                  <label>
+                    对话名称
+                    <input
+                      value={renameTitle}
+                      maxLength={100}
+                      onFocus={(event) => event.currentTarget.select()}
+                      onChange={(event) => {
+                        setRenameTitle(event.target.value);
+                        setRenameError("");
+                      }}
+                      aria-invalid={!!renameError}
+                    />
+                  </label>
+                  {renameError && <p role="alert">{renameError}</p>}
+                  <div className={styles.renameActions}>
+                    <button type="button" onClick={() => setRenameTarget(null)}>
+                      取消
+                    </button>
+                    <button type="submit">保存</button>
+                  </div>
+                </form>
+              </>
+            ) : (
+              <>
+                <h3>标签</h3>
+                <div className={styles.labelOptions}>
+                  {[...presetLabels, ...customLabels].map((option) => (
+                    <button
+                      key={option}
+                      aria-pressed={label === option}
+                      onClick={() => setLabel(conversation.id, option)}
+                    >
+                      <span>{option}</span>
+                      {label === option && <Check aria-hidden="true" />}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  className={styles.customTrigger}
+                  aria-expanded={customOpen}
+                  onClick={() => setCustomOpen(!customOpen)}
+                >
+                  自定义标签
                 </button>
-              ))}
-            </div>
-            <button
-              className={styles.customTrigger}
-              aria-expanded={customOpen}
-              onClick={() => setCustomOpen(!customOpen)}
-            >
-              自定义标签
-            </button>
-            {customOpen && (
-              <form
-                className={styles.customForm}
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  const value = customLabel.trim();
-                  if (!value) {
-                    setLabelError("请输入标签名称。");
-                    return;
-                  }
-                  setLabel(conversation.id, value);
-                }}
-              >
-                <label>
-                  标签名称
-                  <input
-                    autoFocus
-                    value={customLabel}
-                    maxLength={24}
-                    onChange={(event) => {
-                      setCustomLabel(event.target.value);
-                      setLabelError("");
+                {customOpen && (
+                  <form
+                    className={styles.customForm}
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      const value = customLabel.trim();
+                      if (!value) {
+                        setLabelError("请输入标签名称。");
+                        return;
+                      }
+                      setLabel(conversation.id, value);
                     }}
-                  />
-                </label>
-                {labelError && <p role="alert">{labelError}</p>}
-                <button type="submit">保存标签</button>
-              </form>
+                  >
+                    <label>
+                      标签名称
+                      <input
+                        autoFocus
+                        value={customLabel}
+                        maxLength={24}
+                        onChange={(event) => {
+                          setCustomLabel(event.target.value);
+                          setLabelError("");
+                        }}
+                      />
+                    </label>
+                    {labelError && <p role="alert">{labelError}</p>}
+                    <button type="submit">保存标签</button>
+                  </form>
+                )}
+              </>
             )}
             <Popover.Arrow className={styles.arrow} />
           </Popover.Content>
@@ -222,14 +321,21 @@ export function ConversationList({
     );
   }
 
-  const active = conversations.filter((item) => !item.archived);
-  const archived = conversations.filter((item) => item.archived);
+  const active = conversations
+    .filter((item) => item.status === "active")
+    .toSorted(
+      (a, b) =>
+        (b.lastActivityAt ?? b.createdAt ?? 0) -
+        (a.lastActivityAt ?? a.createdAt ?? 0),
+    );
+  const archived = conversations.filter((item) => item.status === "archived");
   return (
     <section className={styles.library} aria-label="会话列表">
       <header className={styles.heading}>
         <div>
           <h2>对话</h2>
           <span>{conversations.length} 个会话</span>
+          {labelError && !labelTarget && <p role="alert">{labelError}</p>}
         </div>
         <button
           className={styles.newButton}
@@ -242,7 +348,10 @@ export function ConversationList({
       </header>
       {/* 两组分别滚动，归档入口不会被进行中的条目推到窗口外。 */}
       <div className={styles.groups}>
-        <section className={styles.group} data-open={activeOpen}>
+        <section
+          className={`${styles.group} ${styles.activeGroup}`}
+          data-open={activeOpen}
+        >
           <button
             className={styles.groupHeading}
             aria-expanded={activeOpen}
@@ -265,7 +374,10 @@ export function ConversationList({
             )}
           </div>
         </section>
-        <section className={styles.group} data-open={archivedOpen}>
+        <section
+          className={`${styles.group} ${styles.archivedGroup}`}
+          data-open={archivedOpen}
+        >
           <button
             className={styles.groupHeading}
             aria-expanded={archivedOpen}

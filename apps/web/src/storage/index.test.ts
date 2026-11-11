@@ -48,19 +48,21 @@ describe("local storage", () => {
     const first = createStore(name);
     const saved = createInitialData();
     saved.conversations[0].label = "考前复习";
-    saved.conversations[0].archived = true;
-    saved.conversations[0].bindings = [
-      {
-        connectionId: "test-harness",
-        protocol: "opencode",
-        externalSessionId: "session-test",
-      },
-    ];
+    saved.conversations[0].status = "archived";
+    saved.conversations[0].aiConfig.connectionId = "test-harness";
+    saved.conversations[0].binding = {
+      conversationId: saved.conversations[0].id,
+      state: "bound",
+      revision: 1,
+      connectionId: "test-harness",
+      protocol: "opencode",
+      externalSessionId: "session-test",
+    };
     saved.conversations[1].deletedAt = Date.now();
     await first.save(saved);
     const restored = await createStore(name).load();
     expect(restored).toEqual(saved);
-    expect(restored?.conversations[2].label).toBeUndefined();
+    expect(restored?.conversations[2].label).toBeNull();
   });
   it("reports an empty database without inventing saved data", async () => {
     expect(await createStore().load()).toBeNull();
@@ -72,6 +74,9 @@ describe("local storage", () => {
     const saved = createInitialData();
     saved.settings.fontSize = 21;
     saved.settings.appearance = "dark";
+    saved.settings.readingPaneRatio = 0.63;
+    saved.conversations[0].title = "手动命名的对话";
+    saved.conversations[0].titleSource = "manual";
     saved.selection = {
       courseId: "c-language",
       kind: "questions",
@@ -140,14 +145,14 @@ describe("local storage", () => {
     const name = `solvemate-test-${crypto.randomUUID()}`;
     const raw = new Dexie(name);
     raw.version(1).stores({ state: "id" });
-    const futureData = { ...createInitialData(), schemaVersion: 2 };
+    const futureData = { ...createInitialData(), schemaVersion: 99 };
     await raw.table("state").put({ id: "main", value: futureData });
     vi.spyOn(console, "error").mockImplementation(() => undefined);
 
     await expect(createStore(name).load()).rejects.toThrow(
       "unsupported schema version",
     );
-    expect((await raw.table("state").get("main")).value.schemaVersion).toBe(2);
+    expect((await raw.table("state").get("main")).value.schemaVersion).toBe(99);
     raw.close();
   });
 

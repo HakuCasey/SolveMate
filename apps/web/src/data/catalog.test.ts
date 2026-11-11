@@ -10,6 +10,19 @@ import { parseTextbook } from "./textbooks";
 import { assertAppData } from "./validation";
 
 describe("built-in study content", () => {
+  it("accepts older display settings and rejects invalid pane proportions", () => {
+    const data = createInitialData();
+    expect(() => assertAppData(data)).not.toThrow();
+    for (const ratio of [0, 1, -0.1, 1.1, NaN, Infinity, "0.5"]) {
+      const invalid = {
+        ...data,
+        settings: { ...data.settings, readingPaneRatio: ratio },
+      };
+      expect(() => assertAppData(invalid)).toThrow();
+    }
+    data.settings.readingPaneRatio = 0.65;
+    expect(() => assertAppData(data)).not.toThrow();
+  });
   it("rejects malformed external session metadata rather than coercing it", () => {
     const data = createInitialData();
     const malformed = {

@@ -1,16 +1,18 @@
 # 第三方软件说明
 
-SolveMate 的 MIT 许可证不替代第三方软件的许可证。依赖的准确版本以 `package-lock.json` 和 `apps/server/requirements.lock` 为准。
+SolveMate 的 MIT 许可证不替代第三方软件的许可证。依赖的准确版本以 `package-lock.json` 和 `apps/server/requirements.lock`、`apps/local/requirements.lock` 为准。
 
 | 用途            | 组件                                  | 许可证                                              |
 | --------------- | ------------------------------------- | --------------------------------------------------- |
 | 网页界面        | React、React DOM、Radix UI            | MIT                                                 |
 | 图标            | Lucide                                | ISC，附带上游文件中的其他版权声明                   |
 | 浏览器数据库    | Dexie                                 | Apache-2.0                                          |
+| 共享数据校验    | Ajv、jsonschema                       | MIT                                                 |
 | ZIP 读取        | fflate                                | MIT                                                 |
 | Markdown 与公式 | react-markdown、remark、rehype、KaTeX | MIT；其传递依赖分别保留原许可                       |
 | 公式字体        | KaTeX 随附字体                        | SIL Open Font License 1.1，保留字体原版权与保留名称 |
 | 内容 API        | FastAPI、Pydantic                     | MIT                                                 |
+| DSH 配置读取    | PyYAML                                | MIT                                                 |
 | HTTP 服务       | Uvicorn                               | BSD-3-Clause                                        |
 
 ## 网页发行文件

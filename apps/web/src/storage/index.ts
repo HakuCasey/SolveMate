@@ -1,5 +1,6 @@
 import Dexie, { type Table } from "dexie";
 import type { AppData } from "@solvemate/contracts";
+import { migrateAiMetadata } from "../data/migrate-ai-metadata";
 import { assertAppData } from "../data/validation";
 
 export interface AppStorage {
@@ -11,6 +12,8 @@ interface SavedState {
   id: "main";
   value: AppData;
   revision?: number;
+  legacyBackup?: unknown;
+  metadataBackups?: Record<string, unknown>;
 }
 
 export class LocalDataConflictError extends Error {
@@ -52,14 +55,34 @@ export class DexieStorage implements AppStorage {
     // 读取等待已提交的保存操作，失败的保存不妨碍读取旧数据。
     await this.writeQueue.catch(() => undefined);
     try {
-      const saved = await this.database.state.get("main");
-      if (!saved) {
-        this.loadedRevision = null;
-        return null;
-      }
-      assertAppData(saved.value);
-      this.loadedRevision = getRevision(saved);
-      return saved.value;
+      return await this.database.transaction(
+        "rw",
+        this.database.state,
+        async () => {
+          const saved = await this.database.state.get("main");
+          if (!saved) {
+            this.loadedRevision = null;
+            return null;
+          }
+          const migrated = migrateAiMetadata(saved.value);
+          const revision = getRevision(saved);
+          if (migrated !== saved.value) {
+            // 备份与升级在同一事务内，失败时保留原值，重复打开不会再次迁移。
+            await this.database.state.put({
+              ...saved,
+              legacyBackup: saved.legacyBackup ?? saved.value,
+              metadataBackups: {
+                ...saved.metadataBackups,
+                [saved.value.schemaVersion]: saved.value,
+              },
+              value: migrated,
+              revision: revision + 1,
+            });
+            this.loadedRevision = revision + 1;
+          } else this.loadedRevision = revision;
+          return migrated;
+        },
+      );
     } catch (error) {
       console.error(
         "[storage] Failed to load local data.",
@@ -98,6 +121,12 @@ export class DexieStorage implements AppStorage {
                 id: "main",
                 value: snapshot,
                 revision: nextRevision,
+                ...(saved?.metadataBackups
+                  ? { metadataBackups: saved.metadataBackups }
+                  : {}),
+                ...(saved?.legacyBackup
+                  ? { legacyBackup: saved.legacyBackup }
+                  : {}),
               });
               return nextRevision;
             },

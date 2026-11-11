@@ -1,0 +1,72 @@
+# Hermes 适配与连接、会话的数据设计
+
+## 职责
+
+- `transport.py` 负责 ACP JSON-RPC 收发、请求超时、通知、权限回调及所属子进程的退出。
+- `adapters/dsh.py` 与 `adapters/hermes.py` 分别负责启动入口、配置目录、模型选项与会话加载的协议差异。注册表按服务和稳定连接编号取得适配器。
+- `connections.py` 负责多项连接、各自的 ACP 运行进程、已加载会话和连接检测会话的复用。
+- `service.py` 统一管理提问、绑定、执行状态、正文、停止、权限与 SSE。界面接收同一种执行快照，不处理原生通知的差异。
+
+DSH 保留原有桌面模型补丁处理。Hermes 通过 `hermes acp` 启动，使用 Hermes 自身配置；不导入 Hermes 的 Python 包，不复制其密钥，也不修改其全局模型配置。
+
+## 稳定编号与保存
+
+每种服务当前保存一份本机连接：`deepseek-local`、`hermes-local`。`connections` 表分别保存配置与模型目录；`config` 保留全局默认，兼容既有接口。升级时将原 DSH 配置加入连接表，并给旧绑定补充 `deepseek-local`，原生会话编号保持不变。
+
+`bindings` 按 SolveMate 对话编号保存连接编号、原生会话编号、程序位置、工作目录及 Harness 配置目录。创建原生会话前先保存待确认绑定，获得编号后再补全；结果不明时不自动再次创建。每轮执行保存实际使用的连接、教师与模型。后台拒绝向已有对话提交不同连接或不同教师。
+
+网页的 `Conversation.connectionId` 固定对话连接；`aiModel` 保存该对话最近使用的模型，在教师默认连接改变后仍可显示和使用原服务的模型。原有 `bindings`、`turns` 可用于解析旧记录；没有新模型字段时保留最后一轮记录的模型。教师的 `connectionId` 为空时跟随全局默认；它决定新对话的默认连接，不能改写已有绑定。
+
+网页提问时携带已知的原生会话编号。本机数据丢失或绑定不同会被明确拒绝，避免只凭网页历史新建一个看似恢复的原生会话。
+
+## 协议差异
+
+| 操作     | DSH                          | Hermes                                  |
+| -------- | ---------------------------- | --------------------------------------- |
+| 启动     | 桌面运行时或 `dsh acp`       | `hermes acp`                            |
+| 模型目录 | `configOptions`              | `models.availableModels`                |
+| 切换模型 | `session/set_config_option`  | `session/set_model`                     |
+| 恢复     | `session/resume`             | `session/load`，要求 `loadSession` 能力 |
+| 检测结束 | `session/close` 后关闭客户端 | 关闭 ACP 客户端，保留原生会话           |
+
+选择 Hermes 的严格加载接口，是因为部分旧实现的 `resume` 会在找不到会话时新建。SolveMate 不接受这种替换行为。加载时原生回放发生在新轮次通知映射建立之前，不把历史内容当作本轮回复。
+
+各服务的进度与权限通知按“连接编号 + 原生会话编号”定位，避免编号相同的服务互相干扰。停止只发送给该轮所属进程；关闭 SolveMate 只关闭自身持有的 ACP 客户端，不直接终止用户的 Hermes Gateway。
+
+## 检测会话
+
+`probes` 按连接、实际程序、配置主目录和工作目录的组合保存一个检测会话编号。创建前先写入结果未知的记录，收到编号后立即保存。再次检测严格加载该编号；恢复失败、超时或创建结果未知都不自动另建。用户明确选择“重建检测会话”并确认后才允许重新创建。
+
+Hermes 通过本地 `/title` 命令将新检测会话命名为“SolveMate 连接测试”，不调用模型。DSH 当前 ACP 没有已验证的重命名接口，检测会话可以复用，原生标题同步仍待解决。
+
+## 启动与平台
+
+优先从 PATH 查找原生 `hermes` 命令。找不到时，网页显示程序路径，并尝试一次系统对应的候选位置。macOS 候选为 `~/.local/bin/hermes`；Windows 候选为 Hermes 数据目录下 `bin/hermes.exe`，对应官方源码安装器发布的 CLI 入口；MSIX 使用系统执行别名，其他安装位置可以手动填写。
+
+`HERMES_HOME` 使用本机服务继承的环境变量；未设置时遵循 Hermes 的平台默认：macOS 为 `~/.hermes`，Windows 为 `%LOCALAPPDATA%/hermes`。启动使用参数数组，不经 shell 拼接。Windows `.cmd`、`.bat` 和仅安装于 WSL 的命令需要另外适配。
+
+## 参考
+
+- [Hermes Windows 原生安装说明](https://hermes-agent.nousresearch.com/docs/user-guide/windows-native)
+- [Hermes ACP 官方说明](https://hermes-agent.nousresearch.com/docs/user-guide/features/acp)
+- 本机 Hermes 0.22.5 的 `acp_adapter/gateway_server.py`、`acp_adapter/server.py` 与 `hermes_constants.py`；实际调用按本机返回结果确认。
+
+## 验证记录
+
+2026-11-10，在 macOS 使用本机 Hermes 0.22.5 和 DeepSeek Harness 完成验证。测试数据与正常使用的数据分别保存。
+
+| 项目                            | 结果                                                                                                                        |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Hermes 真实提问、追问、重启恢复 | 三轮完成，使用同一个原生编号；重启后仍能回答前文约定的练习代号                                                              |
+| 网页双服务                      | DSH 实际回答 C 语言除法问题；确认切换后由 Hermes 回答，旧对话仍能恢复和追问                                                 |
+| Hermes 换模型                   | 从 `deepseek-v4.1-flash-1017` 改为 `glm-5.3` 后继续原会话，保留上下文，不弹重开确认                                         |
+| 严格恢复与历史合并              | 重启本机服务后通过 `session/load` 继续 Hermes 会话；回放未重复插入网页消息                                                  |
+| 停止                            | 网页停止后执行记为取消，输入恢复可用；部分回复保留由公共执行逻辑的自动测试覆盖                                              |
+| 切换确认                        | 教师和服务均验证确认与取消；新对话保留阅读关联，不继承旧消息；未提问的新对话不创建原生 session                              |
+| 检测复用                        | 反复检测、保存前复检及重启后，测试存储仍各有一条 DSH、Hermes 检测绑定；Hermes 原生标题为“SolveMate 连接测试”                |
+| 自动检查                        | TypeScript、ESLint、Prettier、Ruff 和发布构建通过；网页 90 项、本机服务 54 项、启动与依赖补丁 11 项测试通过，2 项按环境跳过 |
+| Windows                         | 自动测试覆盖原生启动参数、中文与空格路径、默认 CLI 位置、配置目录及进程管理；没有 Windows 实机调用结果                      |
+
+DSH 的标题、重命名与归档等原生管理接口尚未同步，保留为后续事项；本次会话执行与连接复用的完成不代表这些管理操作已接入。
+
+DSH 与 Hermes 的 ACP 差异由本特性覆盖；公共会话结果、执行事件与 Codex app-server 接口见 [005 设计](../005-codex-harness-adapter/design.md)。

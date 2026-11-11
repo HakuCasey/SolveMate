@@ -1,0 +1,138 @@
+# SolveMate 本机 AI 服务
+
+本服务在用户电脑上连接已安装的 DeepSeek Harness、Hermes 或 Codex，负责 Harness 进程、模型选项、会话绑定、执行记录和权限确认。官方内容服务仍位于 `apps/server/`，个人问题和资料不经过官方内容服务。
+
+## 启动
+
+按仓库 README 准备 `apps/server/.venv`，并在其中安装本目录 `requirements.lock` 的额外依赖后，在仓库根目录执行 `npm start`。脚本同时启动网页、官方内容服务和本机 AI 服务，按 `Ctrl+C` 统一停止。本服务使用该 Python 环境中的 FastAPI、Pydantic、Uvicorn 和 PyYAML，启动时直接加载本目录的源代码。
+
+开发时可在仓库根目录单独启动：
+
+```bash
+apps/server/.venv/bin/python -m uvicorn solvemate_local.main:create_app --factory --app-dir apps/local/src --host 127.0.0.1 --port 8765
+```
+
+Windows PowerShell 使用：
+
+```powershell
+apps\server\.venv\Scripts\python.exe -m uvicorn solvemate_local.main:create_app --factory --app-dir apps/local/src --host 127.0.0.1 --port 8765
+```
+
+网页开发服务与构建预览均将 `/local-api/` 转发到本机端口 8765。健康检查位于 `http://127.0.0.1:8765/healthz`。
+
+## 配置 Harness
+
+先安装要使用的 Harness，并在其中完成账号登录或模型服务配置。
+
+### DeepSeek Harness
+
+先安装 DeepSeek Harness，并在 Harness 中完成账号登录或模型服务配置。桌面窗口不必打开，本服务使用安装包附带的运行时启动独立 ACP 进程。
+
+在 SolveMate 的“设置 → AI 配置”中选择 DeepSeek Harness、检测连接，再选择实际返回的模型和推理强度并保存。正常情况下通过 PATH 查找 `dsh`，页面不显示安装路径；命令缺失时显示路径输入框，填入对应系统的默认安装位置并自动检测一次；默认位置仍找不到程序时再提示用户修改。模型列表不代表每个模型的鉴权和额度均已验证；实际提问失败时会保留问题并显示错误。
+
+- macOS 与 Windows：优先使用 PATH 中的 `dsh` 命令。未注册命令时尝试默认安装位置：macOS 为 `/Applications/DeepSeek Harness.app`；Windows 为系统用户程序目录下的 `DeepSeek Harness`，通常是 `%LOCALAPPDATA%\Programs\DeepSeek Harness`，支持系统目录重定向。默认位置也未找到时，可手动填写实际位置。
+- 手动路径支持 macOS 的 `.app` 或包内命令，以及 Windows 的 `DeepSeek Harness.exe`、安装目录或官方 `dsh.cmd`。不扫描整个磁盘，也不修改系统命令注册；第三方 `.cmd`、`.bat` 暂不支持。
+- 模型标识按运行时返回值保存，不根据显示名称拼接。
+- 连接检测不发起模型推理。真实提问会使用所选模型服务，遵循该服务的用量规则。
+
+### Hermes
+
+通过原生 `hermes acp` 接入，模型列表、会话和工具均由现有 Hermes 提供。先在终端运行 `hermes acp --check` 确认 ACP 依赖可用，再在 SolveMate 选择 Hermes、检测连接、选择模型并保存。检测列表包含 Hermes 已配置提供方的模型；模型编号原样保存。
+
+优先使用 PATH 中的原生 `hermes` 命令。找不到时，macOS 尝试 `~/.local/bin/hermes`，Windows 尝试 `%LOCALAPPDATA%/hermes/bin/hermes.exe`，对应官方源码安装器的 CLI 位置。其他位置可手动填写；Windows MSIX 安装优先使用系统执行别名。不通过 shell 执行 `.cmd`、`.bat`，也不跨 Windows 与 WSL 查找程序。
+
+配置目录取本机服务继承的 `HERMES_HOME`，未设置时遵循 Hermes 平台默认与 `HERMES_DATA_DIR_SUFFIX`。SolveMate 不导入 Hermes 的 Python 包、不复制密钥、不修改其全局默认模型。退出只关闭 SolveMate 持有的 ACP 客户端，不直接停止用户自己的 Gateway。
+
+### Codex
+
+通过 `codex app-server --listen stdio://` 接入，使用 Codex 现有登录与模型配置。先安装 Codex CLI 并完成登录或模型服务配置，再在 SolveMate 选择 Codex、检测连接、选择模型和推理强度并保存。不要求另行申请 API 密钥，不读取或复制凭据文件。
+
+检测读取账号状态、当前模型配置和分页模型目录，不创建 thread 或请求模型。当前配置的自定义模型未在目录列出时，保留该模型，不推测其他模型或其推理选项。目录不代表每个模型的权限和额度都已验证，真实调用结果以执行状态为准。
+
+优先通过 PATH 查找 `codex`。找不到时显示 CLI 路径，默认候选为 `~/.local/bin/codex`，Windows 为 `~/.local/bin/codex.exe`，实际安装位置可以修改。Windows 的官方 npm 命令若是 `.cmd`，只查找对应 npm 包的原生 `codex.exe`，不通过 shell 执行批处理；仅安装在 WSL 内的程序不能由 Windows 本机服务直接调用。
+
+正式对话使用原生 thread，模型与推理强度按轮传入；恢复保留 thread 编号，停止使用该轮的原生 turn 编号。正文按原生增量显示，并以最终消息校正。权限只提供当前操作或当前轮次的决定，不提供会话级授权。无法完整显示的超长权限内容仅提供拒绝，未支持的客户端请求明确返回错误。
+
+### 多服务与对话绑定
+
+各服务的配置分别保存并独立启用或停用。全局默认通过单独操作选择，保存其他连接不改变默认。教师使用全局默认或独立选择已配置且启用的连接与模型。旧对话固定使用原连接；更改全局默认不改写旧对话的绑定。
+
+在对话中切换教师或服务需要确认，确认后开始新对话。原对话、消息和原生 session 保留；新原生 session 在首次实际提问时建立。同一服务内切换模型继续原 session。
+
+连接检测会话按连接、程序、配置目录和工作目录保存并复用；手动检测、保存前复检和重启不反复创建。创建结果不明或恢复失败时明确报错，只有用户确认后才重建检测会话。Hermes 检测会话通过原生命令命名为“SolveMate 连接测试”；DSH 的原生标题同步仍待实现。
+
+## DSH 自定义模型配置
+
+以下桌面配置补丁仅适用于 DSH；Hermes 直接提供自身的模型目录。
+
+本机服务按其继承的 `DSH_HOME` 定位配置，未设置时使用当前用户的 `.dsh`。macOS 和 Windows 使用相同规则；其他进程单独设置的环境变量不会自动传给 SolveMate。
+
+当前复用桌面配置 `profiles/desktop/cordis.patch.yml` 中 `@deepseek-ai/dsh-llm-pi-ai` 的模型提供方设置。ACP 的有效配置通过 DSH 官方 `--dump-config` 获取；保留 ACP 与共享配置中的已有提供方，同名配置以 ACP 的有效值为准。桌面界面插件和其他设置不进入 ACP。
+
+运行时通过官方 `--patch` 加载提供方配置。临时文件位于系统临时目录、以当前用户权限创建，进程关闭后删除；不写入项目、连接数据库或日志。模型配置中的凭据引用交给 Harness 解析，不读取它的凭据库。更改模型提供方后，重新检测并保存连接，以便重启 ACP 加载新配置。
+
+桌面配置不存在时使用 ACP 自身的模型配置。配置无法读取、YAML 损坏或提供方包含动态表达式时明确报错。当前未复用其他自定义模型插件或任意 profile；需要另外适配。会话绑定保留建立时的配置主目录；目录改变后仍由适配器尝试恢复原会话，找到并恢复成功就继续，失败时保留记录并显示原因。
+
+## 数据与配置
+
+默认使用仓库根目录的 `user/ai/state.sqlite3` 保存连接配置、会话绑定与每轮执行结果，`user/ai/workspace/` 作为 Harness 的学习工作目录。既有网页消息和机器人配置继续保存在 IndexedDB，本特性不迁移它们。
+
+模型密钥和账号凭据仍由 Harness 自身管理，不复制进本服务的数据库、网页或日志。Harness 的外部会话由它自己的持久化机制管理；SolveMate 保存外部编号，以便恢复同一会话。
+
+| 环境变量                  | 用途                                                                                    |
+| ------------------------- | --------------------------------------------------------------------------------------- |
+| `SOLVEMATE_LOCAL_DATA`    | 修改本机服务的数据目录，测试时可使用独立位置                                            |
+| `SOLVEMATE_LOCAL_ORIGINS` | 逗号分隔的受信任网页来源；默认允许本机 4173、5173 端口，统一启动时按实际网页端口设置    |
+| `DSH_HOME`                | 可选，由 Harness 自身解析；修改后需要同时保留原有外部会话与配置，否则旧绑定可能无法恢复 |
+
+服务只监听回环地址，写接口检查 Origin、JSON 内容类型及客户端请求头，读接口检查客户端请求头。请勿把本服务的端口或 `/local-api/` 公开到互联网。公网静态网页直接控制本机 Harness 的配对与连接方式尚未实现。
+
+## 已确认的协议边界
+
+DeepSeek Harness `0.2.2-rc.1` 在本机声明 ACP v1、会话创建/恢复/关闭和模型配置能力。未声明图片、音频及嵌入式上下文输入；当前传递题目或教材的实际文字，不承诺 PDF、PPT 原件能够被该入口直接读取。
+
+会话恢复使用 `session/resume`，不回放历史消息。网页历史由 SolveMate 保存；恢复错误会明确显示，不创建空会话替代。请求编号用于去重，同编号不同内容会被拒绝。服务重启时把未结束执行标为中断，已收到的回复继续保留。
+
+程序位置和配置目录变化不直接阻止恢复；删除后重新配置同一服务也使用原生会话编号继续查找。DSH 未找到可恢复会话、原会话被其他连接占用和原生工作目录不匹配分别提示；连接断开、超时和账号错误保留实际原因。Hermes 使用严格的 `session/load`，不使用找不到会话时可能另建会话的恢复入口。
+
+专用连接测试会话丢失时可明确重建该测试会话，不将已有正式对话一并设为不可用。连接本身故障仍记录为检测失败，保留原配置供用户检查。
+
+`GET /local-api/v1/turns/{id}/events` 通过 SSE 发送完整执行快照，保留读接口的客户端请求头校验。状态和正文变化后推送，每 5 秒发送心跳；客户端断线后查询同一请求并重连，旧服务不支持该接口时使用查询。关闭网页连接不会取消模型执行，停止由独立接口处理。
+
+DSH 当前 ACP 发送已提交的消息，不提供原始逐字增量。本机 0.2.2-rc.1 实测长回复在约 24.3 秒后以一个正文块返回；实时推送会立即转发这些实际内容，不生成打字动画。
+
+网页展示 Harness 发起的权限请求，只提供当前操作的一次性允许或拒绝；Harness 自身已经配置的授权规则仍由其管理。温度、个人长期记忆、Skill 安装和 RAG 配置没有在本特性中接入，既有偏好不会被清除。
+
+## 检查
+
+在仓库根目录执行：
+
+```bash
+apps/server/.venv/bin/ruff check apps/local
+apps/server/.venv/bin/ruff format --check apps/local
+apps/server/.venv/bin/python -m pytest apps/local/tests -c apps/local/pyproject.toml
+```
+
+普通测试不调用模型。需要真实 Harness 验证时，显式设置程序和模型后执行 `tests/test_live_acp.py`；测试会产生真实模型请求，使用临时工作目录和新会话，并验证提问、追问、进程重启后的恢复。
+
+```bash
+SOLVEMATE_LIVE_DSH='/Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh' \
+SOLVEMATE_LIVE_MODEL='["deepseek-account","deepseek-flash"]' \
+apps/server/.venv/bin/python -m pytest apps/local/tests/test_live_acp.py -c apps/local/pyproject.toml
+```
+
+模型值仅为本机已验证的示例，应使用自己连接检测返回的实际值。Windows 可使用 PowerShell 的 `$env:SOLVEMATE_LIVE_DSH` 和 `$env:SOLVEMATE_LIVE_MODEL` 设置，再通过虚拟环境的 `python.exe` 运行相同测试。
+
+macOS 实际验证与 Windows 启动适配测试分别记录在 [003 设计](../../docs/features/003-ai-harness-connection/design.md)。Windows 的真实账号调用与安装运行仍需在实机验收。
+
+Hermes 与多服务数据结构、兼容方式和验证结果见 [004 设计](../../docs/features/004-hermes-harness-adapter/design.md)。Hermes 的真实调用已在 macOS 验证；Windows 原生启动参数、候选路径和进程管理通过自动测试，实机调用仍待验收。
+
+Codex 的接口映射、适配边界及验证结果见 [005 设计](../../docs/features/005-codex-harness-adapter/design.md)。Codex 已在 macOS 完成真实提问、换模型、停止和恢复；Windows 仍待实机验收。
+
+## AI 配置与对话数据
+
+共享定义位于 `packages/contracts/ai-metadata.schema.json`，TypeScript 类型和本机服务打包的 Schema 由 `npm run contracts:generate` 生成。请求、返回与保存数据使用相同字段定义；`npm run contracts:check` 检查生成文件是否同步。
+
+左下角管理外部连接、启用状态及检测结果；全局默认独立引用一项连接。教师与对话只选择已配置且启用的连接与模型，不处理安装与检测。教师未单独配置时使用全局默认，新对话保存明确的服务与模型。每轮执行独立保存请求快照、提交信息与结果版本；没有取得原生实际模型时保留为空。配置更新携带期望版本，发生冲突返回 HTTP 409，客户端重新读取配置。
+
+SQLite 首次打开旧数据库时，在同一事务中备份旧记录并迁移至格式 3，原生会话编号保持不变。浏览器个人数据库也通过事务迁移并保留旧格式备份，课程内容数据库保持原格式。具体约束与验证见 [006 设计](../../docs/features/006-ai-conversation-metadata/design.md)。

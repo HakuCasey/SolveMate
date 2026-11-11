@@ -16,7 +16,7 @@ import cLearning from "../../../../data/c-language/memory/learning-points.json";
 import cDiscussion from "../../../../data/c-language/memory/discussion-points.json";
 import seedData from "./seed-data.json";
 import { parseTextbook } from "./textbooks";
-import { assertAppData } from "./validation";
+import { migrateAiMetadata } from "./migrate-ai-metadata";
 
 // 数据随首版应用一起构建，应用缓存完成后不再依赖内容服务器读取这些示例。
 export const courses: Course[] = [
@@ -85,8 +85,7 @@ export function createInitialData(): AppData {
       chapterIndex: 0,
     },
   };
-  assertAppData(data);
-  const initial = structuredClone(data);
+  const initial = migrateAiMetadata(data);
   initial.selection.version = "example-1";
   initial.conversations.forEach((session) => {
     if (session.selection) session.selection.version = "example-1";

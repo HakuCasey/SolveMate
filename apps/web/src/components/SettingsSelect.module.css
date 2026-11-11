@@ -1,0 +1,111 @@
+.field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  font-size: 12px;
+}
+.trigger {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--sm-line);
+  border-radius: 7px;
+  background: var(--sm-paper);
+  color: var(--sm-ink);
+  font-size: 13px;
+  text-align: left;
+}
+.trigger > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.trigger:hover,
+.trigger[data-state="open"] {
+  border-color: var(--sm-accent);
+}
+.trigger:disabled {
+  opacity: 0.5;
+}
+.trigger[data-placeholder],
+.chevron {
+  color: var(--sm-soft);
+}
+.chevron {
+  display: flex;
+  flex-shrink: 0;
+}
+.menu {
+  z-index: 80;
+  min-width: var(--radix-select-trigger-width);
+  max-width: calc(100vw - 24px);
+  max-height: min(320px, var(--radix-select-content-available-height));
+  overflow: hidden;
+  border: 1px solid var(--sm-line);
+  border-radius: 10px;
+  color: var(--sm-ink);
+  background: var(--sm-paper);
+  box-shadow: 0 10px 32px light-dark(#20253924, #00000066);
+  font-family: inherit;
+  font-size: 13px;
+}
+.viewport {
+  padding: 5px;
+}
+.item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 7px 32px 7px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  user-select: none;
+  overflow-wrap: anywhere;
+  outline: none;
+}
+.item[data-state="checked"] {
+  color: var(--sm-accent);
+  background: var(--sm-active);
+}
+.item[data-highlighted] {
+  color: var(--sm-accent);
+  background: var(--sm-active);
+  box-shadow: inset 0 0 0 1px var(--sm-accent);
+}
+.indicator {
+  position: absolute;
+  right: 9px;
+  display: flex;
+}
+.groupLabel {
+  padding: 8px 10px 4px;
+  color: var(--sm-soft);
+  font-size: 11px;
+}
+.scrollButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+  color: var(--sm-soft);
+  background: var(--sm-paper);
+}
+@media (max-width: 480px) {
+  .trigger,
+  .menu {
+    font-size: 16px;
+  }
+}
+
+@media (pointer: coarse) {
+  .trigger,
+  .item {
+    min-height: 44px;
+    font-size: 16px;
+  }
+}

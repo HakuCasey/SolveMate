@@ -52,8 +52,17 @@
   flex: 0 0 auto;
   min-height: 0;
 }
-.group[data-open="true"] {
-  flex: 1 1 0;
+.activeGroup {
+  flex: 0 1 auto;
+  /* 条目少或收起时保留半栏；条目增多后才把归档标题向下推。 */
+  min-height: calc((100% - 8px) / 2);
+}
+.activeGroup .list {
+  flex: 0 1 auto;
+}
+.archivedGroup {
+  flex: 1 1 auto;
+  min-height: 42px;
 }
 .groupHeading {
   display: flex;
@@ -264,6 +273,49 @@
 }
 .arrow {
   fill: var(--sm-paper);
+}
+.renamePopover {
+  width: 280px;
+}
+.renameForm {
+  padding: 8px;
+  font-size: 12px;
+}
+.renameForm label {
+  display: grid;
+  gap: 8px;
+}
+.renameForm input {
+  min-width: 0;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--sm-line);
+  border-radius: 7px;
+  background: var(--sm-ground);
+}
+.renameForm input:focus-visible {
+  outline: 2px solid var(--sm-accent);
+  outline-offset: 2px;
+}
+.renameForm p {
+  margin: 10px 0 0;
+  color: light-dark(#b43c4d, #f49aa6);
+}
+.renameActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+.renameActions button {
+  border: 1px solid var(--sm-line);
+  border-radius: 7px;
+  padding: 6px 12px;
+}
+.renameActions button[type="submit"] {
+  border-color: var(--sm-accent);
+  background: var(--sm-accent);
+  color: var(--sm-on);
 }
 @media (max-width: 800px) {
   .library {

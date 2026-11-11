@@ -20,7 +20,7 @@ uvicorn solvemate_server.main:create_app --factory --host 127.0.0.1 --port 8000
 
 `requirements.lock` 锁定本次验证的运行、测试与构建依赖。修改依赖时在独立虚拟环境中安装 `-e ".[dev]"`，验证后重新生成锁定文件。`.venv` 是自动生成的本地依赖目录，不提交 Git。
 
-完成依赖安装后，本地体验完整应用也可在仓库根目录执行 `npm start`，由脚本构建网页、发布内容并同时启动两个服务；按 `Ctrl+C` 会一起停止。此时无需另外执行上面的发布和 Uvicorn 命令。
+体验完整应用前，在该虚拟环境中执行 `python -m pip install -r ../local/requirements.lock` 安装本机 AI 服务的额外依赖。随后也可在仓库根目录执行 `npm start`，由脚本构建网页、发布内容并同时启动网页、官方内容和本机 AI 三个服务；按 `Ctrl+C` 会一起停止。此时无需另外执行上面的发布和 Uvicorn 命令。
 
 默认 API 地址为 `http://127.0.0.1:8000`，交互接口文档为 `/docs`，OpenAPI 为 `/openapi.json`。首次启动前必须执行发布命令；没有发布目录或内容损坏时，启动校验会报错，不提供空的成功结果。
 

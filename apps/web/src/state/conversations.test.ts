@@ -9,6 +9,51 @@ import {
 } from "./conversations";
 
 describe("conversation and robot changes", () => {
+  it("renames active and archived sessions without changing their history or external binding", () => {
+    for (const archived of [false, true]) {
+      const data = createInitialData();
+      const original = data.conversations[0];
+      original.status = archived ? "archived" : "active";
+      original.binding = {
+        conversationId: original.id,
+        state: "bound",
+        revision: 1,
+        connectionId: "deepseek-local",
+        protocol: "acp",
+        externalSessionId: "existing-session",
+      };
+      const renamed = updateConversation(data, original.id, {
+        title: "  指针与数组讨论  ",
+      });
+      const changed = renamed.conversations[0];
+      expect(changed.title).toBe("指针与数组讨论");
+      expect(changed.titleSource).toBe("manual");
+      expect(changed.id).toBe(original.id);
+      expect(changed.messages).toBe(original.messages);
+      expect(changed.binding).toBe(original.binding);
+      expect(changed.selection).toBe(original.selection);
+      expect(changed.status).toBe(archived ? "archived" : "active");
+      expect(changed.lastActivityAt).toBe(original.lastActivityAt);
+      expect(changed.revision).toBe(original.revision + 1);
+      expect(renamed.conversations[1]).toBe(data.conversations[1]);
+      expect(original.titleSource).toBe("unknown");
+    }
+  });
+
+  it("rejects empty or overlong names and leaves deleted sessions unchanged", () => {
+    const data = createInitialData();
+    const original = data.conversations[0];
+    for (const title of ["", "  ", "x".repeat(101)])
+      expect(() => updateConversation(data, original.id, { title })).toThrow();
+    const deleted = deleteConversation(data, original.id);
+    const renamed = updateConversation(deleted, original.id, {
+      title: "已改名",
+    });
+    expect(renamed.conversations[0]).toBe(deleted.conversations[0]);
+    const manual = updateConversation(data, original.id, { title: "新对话" });
+    expect(manual.conversations[0].titleSource).toBe("manual");
+  });
+
   it("creates an ordinary session without inheriting the last reading selection", () => {
     const data = createInitialData();
     const session = createConversation(data, null, "calculus-teacher");
@@ -30,26 +75,27 @@ describe("conversation and robot changes", () => {
   it("archives and labels a session without changing its identity, binding or messages", () => {
     const data = createInitialData();
     const session = data.conversations[0];
-    session.bindings = [
-      {
-        connectionId: "local-harness",
-        protocol: "opencode",
-        externalSessionId: "external-session",
-      },
-    ];
+    session.binding = {
+      conversationId: session.id,
+      state: "bound",
+      revision: 1,
+      connectionId: "local-harness",
+      protocol: "opencode",
+      externalSessionId: "external-session",
+    };
     const next = updateConversation(data, session.id, {
       label: "重要",
-      archived: true,
+      status: "archived",
     });
     const changed = next.conversations[0];
     expect(changed.id).toBe(session.id);
     expect(changed.messages).toBe(session.messages);
-    expect(changed.bindings).toBe(session.bindings);
+    expect(changed.binding).toBe(session.binding);
     expect(changed.archivedAt).toBeTypeOf("number");
-    const restored = updateConversation(next, session.id, { archived: false });
-    expect(restored.conversations[0].archivedAt).toBeUndefined();
+    const restored = updateConversation(next, session.id, { status: "active" });
+    expect(restored.conversations[0].archivedAt).toBeNull();
     expect(restored.conversations[0].label).toBe("重要");
-    expect(data.conversations[0].archived).toBeUndefined();
+    expect(data.conversations[0].status).toBe("active");
   });
 
   it("marks a deleted session without deleting its external binding or affecting other sessions", () => {
@@ -83,9 +129,10 @@ describe("conversation and robot changes", () => {
     const next = replaceRobots(data, [], null);
     expect(next.robots).toEqual([]);
     expect(next.defaultRobotId).toBeNull();
-    expect(next.conversations.every((item) => item.robotId === null)).toBe(
-      true,
+    expect(next.conversations.map((item) => item.robotId)).toEqual(
+      data.conversations.map((item) => item.robotId),
     );
+    expect(next.conversations[0].robotIdentity?.name).toBe("高数教师");
     expect(
       next.conversations[0].messages
         .filter((item) => item.role === "assistant")

@@ -1,5 +1,6 @@
 import type { AppData, Robot } from "@solvemate/contracts";
 import { createInitialData } from "../data/catalog";
+import { upgradeRobot } from "../data/migrate-ai-metadata";
 import legacyRobots from "../data/legacy-robots.json";
 
 export function createRobot(id: string = crypto.randomUUID()): Robot {
@@ -11,8 +12,9 @@ export function createRobot(id: string = crypto.randomUUID()): Robot {
     icon: "bot",
     prompt:
       "你是一位耐心的学习伙伴。请用清晰、准确的语言回答问题，说明必要的步骤。遇到不确定的内容时明确说明。",
-    modelSource: "global",
-    modelName: "",
+    schemaVersion: 3,
+    revision: 1,
+    aiDefaults: null,
     temperature: 0.4,
     memoryEnabled: true,
     courseMemory: true,
@@ -25,7 +27,9 @@ export function restoreRobotDefaults(robot: Robot): Robot {
     (item) => item.id === robot.id,
   );
   // 预置角色恢复原始配置；自建或复制的角色保留已保存的名称，恢复通用配置。
-  return preset ?? { ...createRobot(robot.id), name: robot.name };
+  return preset
+    ? { ...preset, revision: robot.revision }
+    : { ...createRobot(robot.id), name: robot.name, revision: robot.revision };
 }
 
 export function isRobotModified(saved: Robot, draft?: Robot): boolean {
@@ -35,14 +39,13 @@ export function isRobotModified(saved: Robot, draft?: Robot): boolean {
     "description",
     "icon",
     "prompt",
-    "modelSource",
-    "modelName",
     "temperature",
     "memoryEnabled",
     "courseMemory",
   ] as const;
   return (
     fields.some((key) => saved[key] !== draft[key]) ||
+    JSON.stringify(saved.aiDefaults) !== JSON.stringify(draft.aiDefaults) ||
     saved.skills.length !== draft.skills.length ||
     saved.skills.some((skill) => !draft.skills.includes(skill)) ||
     (saved.specialty ?? "") !== (draft.specialty ?? "")
@@ -56,7 +59,8 @@ export function upgradeRobotCatalog(data: AppData): AppData {
   const unchanged = new Set(
     data.robots
       .filter((robot) => {
-        const old = legacyRobots.find((item) => item.id === robot.id);
+        const source = legacyRobots.find((item) => item.id === robot.id);
+        const old = source ? upgradeRobot(source) : undefined;
         // 与旧版初始配置逐字段比较，用户改过的配置不会被预置升级覆盖。
         return (
           old &&
@@ -66,7 +70,9 @@ export function upgradeRobotCatalog(data: AppData): AppData {
               ? Array.isArray(actual) &&
                   value.length === actual.length &&
                   value.every((entry) => actual.some((item) => item === entry))
-              : actual === value;
+              : typeof value === "object" && value !== null
+                ? JSON.stringify(actual) === JSON.stringify(value)
+                : actual === value;
           }) &&
           !robot.specialty
         );
@@ -102,12 +108,8 @@ export function upgradeRobotCatalog(data: AppData): AppData {
           session.robotId === "hero"
             ? {
                 ...session,
-                robotId:
-                  session.selection === null
-                    ? defaultRobotId
-                    : session.selection.courseId === "calculus"
-                      ? "calculus-teacher"
-                      : "c-language-teacher",
+                // 旧预置身份保留；目录升级不能切换已建立对话的教师。
+                robotId: session.robotId,
               }
             : session,
         )

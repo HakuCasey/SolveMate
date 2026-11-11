@@ -19,7 +19,7 @@ export class AiNotConnectedError extends Error {
   }
 }
 
-/** 首版仅保留连接接口；未接入时不能把固定示例当作生成结果。 */
+/** 未配置连接时返回明确错误，不能把固定示例当作生成结果。 */
 export const unavailableAiConnection: AiConnection = {
   available: false,
   send() {

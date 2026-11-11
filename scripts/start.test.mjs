@@ -51,7 +51,7 @@ test("reports a process that cannot be started and can still clean up", async ()
 
 test(
   "stops both managed services and a descendant that ignores SIGTERM",
-  { timeout: 12000 },
+  { timeout: 20000 },
   async (t) => {
     const directory = await mkdtemp(join(tmpdir(), "solvemate-start-"));
     const marker = join(directory, "descendant.pid");

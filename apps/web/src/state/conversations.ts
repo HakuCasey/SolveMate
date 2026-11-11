@@ -3,7 +3,12 @@ import type {
   Conversation,
   ReadingSelection,
   Robot,
+  AiSettings,
+  RobotAiDefaults,
 } from "@solvemate/contracts";
+import { clientRuntime } from "../version";
+import { initialConversationAi, resolveDefaults } from "../ai/robot-config";
+import { isRobotModified } from "./robots";
 
 export function sameContent(
   a: ReadingSelection | null,
@@ -23,93 +28,205 @@ export function createConversation(
   data: AppData,
   selection: ReadingSelection | null = null,
   robotId = data.defaultRobotId,
+  settings: AiSettings | null = null,
+  reason: Conversation["creationReason"] = "new",
+  sourceId: string | null = null,
 ): Conversation {
+  const robot = data.robots.find((item) => item.id === robotId),
+    now = Date.now();
   return {
+    schemaVersion: 3,
+    revision: 1,
     id: crypto.randomUUID(),
     title: "新对话",
-    label: "无标签",
-    archived: false,
-    createdAt: Date.now(),
-    bindings: [],
+    titleSource: "default",
+    label: null,
+    status: "active",
+    createdAt: now,
+    updatedAt: now,
+    lastActivityAt: null,
+    archivedAt: null,
+    deletedAt: null,
+    origin: "local",
+    creationReason: reason,
+    sourceConversationId: sourceId,
+    createdWith: clientRuntime(),
+    robotId: robot?.id ?? null,
+    robotIdentity: robot
+      ? { id: robot.id, name: robot.name, icon: robot.icon }
+      : null,
+    selection: selection ? structuredClone(selection) : null,
+    aiConfig: initialConversationAi(robot, settings),
+    binding: null,
     turns: [],
-    selection: selection ? { ...selection } : null,
-    robotId: data.robots.some((robot) => robot.id === robotId)
-      ? robotId
-      : data.defaultRobotId,
     messages: [],
-    updatedAt: Date.now(),
     example: false,
   };
 }
-
-/** 管理操作只改变本地 session 的信息，不重建消息或外部 session。 */
+export type ConversationChange = Partial<
+  Pick<Conversation, "title" | "label" | "status">
+>;
 export function updateConversation(
   data: AppData,
   id: string,
-  change: Pick<Conversation, "label" | "archived">,
+  change: ConversationChange,
+  expectedRevision?: number,
 ): AppData {
-  const label = change.label?.trim();
+  const title = change.title?.trim(),
+    label = change.label?.trim();
+  if (title !== undefined && (!title || title.length > 100))
+    throw new Error("请输入 1–100 字的对话名称。");
   if (label !== undefined && (!label || label.length > 24))
-    throw new Error("Conversation label must contain 1 to 24 characters.");
+    throw new Error("标签名称不能超过 24 字。");
   return {
     ...data,
     conversations: data.conversations.map((item) => {
-      if (item.id !== id || item.deletedAt !== undefined) return item;
+      if (item.id !== id || item.status === "deleted") return item;
+      if (expectedRevision !== undefined && item.revision !== expectedRevision)
+        throw new Error("对话已更新，请重新打开后再修改。");
+      if (change.status === "deleted") throw new Error("请使用删除对话操作。");
       return {
         ...item,
         ...change,
-        ...(label === undefined ? {} : { label }),
-        ...(change.archived === undefined
+        revision: item.revision + 1,
+        updatedAt: Date.now(),
+        ...(title === undefined
           ? {}
-          : { archivedAt: change.archived ? Date.now() : undefined }),
+          : { title, titleSource: "manual" as const }),
+        ...(change.label === undefined
+          ? {}
+          : { label: label && label !== "无标签" ? label : null }),
+        ...(change.status === undefined
+          ? {}
+          : { archivedAt: change.status === "archived" ? Date.now() : null }),
       };
     }),
   };
 }
-
 export function deleteConversation(data: AppData, id: string): AppData {
-  // 保留删除时间，避免以后重新连接 harness 时把删除过的会话再次导入。
   return {
     ...data,
     conversations: data.conversations.map((item) =>
-      item.id === id && item.deletedAt === undefined
-        ? { ...item, deletedAt: Date.now() }
+      item.id === id && item.status !== "deleted"
+        ? {
+            ...item,
+            status: "deleted",
+            deletedAt: Date.now(),
+            updatedAt: Date.now(),
+            revision: item.revision + 1,
+          }
         : item,
     ),
   };
 }
 
+/** 教师默认与同一服务的会话模型在一次数据提交中更新，历史执行不变。 */
+export function applyRobotAi(
+  data: AppData,
+  robotId: string,
+  config: RobotAiDefaults,
+  settings: AiSettings | null,
+  expectedRevision?: number,
+): AppData {
+  const robot = data.robots.find((item) => item.id === robotId);
+  if (!robot) throw new Error("此教师已删除，请重新选择。");
+  if (expectedRevision !== undefined && robot.revision !== expectedRevision)
+    throw new Error("教师配置已更新，请重新打开后再保存。");
+  const effective = resolveDefaults(config, settings);
+  if (effective.error) throw new Error(effective.error);
+  return {
+    ...data,
+    robots: data.robots.map((item) =>
+      item.id === robotId
+        ? {
+            ...item,
+            revision: item.revision + 1,
+            aiDefaults: structuredClone(config),
+          }
+        : item,
+    ),
+    conversations: data.conversations.map((item) =>
+      item.robotId === robotId &&
+      item.status !== "deleted" &&
+      item.aiConfig.connectionId === effective.connectionId
+        ? {
+            ...item,
+            revision: item.revision + 1,
+            updatedAt: Date.now(),
+            aiConfig: {
+              connectionId: effective.connectionId,
+              modelId: effective.model,
+            },
+          }
+        : item,
+    ),
+  };
+}
+
+/** 删除教师仅影响可用列表，旧会话保留教师身份，不改成另一位教师。 */
 export function replaceRobots(
   data: AppData,
   robots: Robot[],
   defaultId: string | null,
+  settings?: AiSettings | null,
 ): AppData {
-  const ids = new Set(robots.map((robot) => robot.id));
-  const defaultRobotId =
-    defaultId && ids.has(defaultId) ? defaultId : (robots[0]?.id ?? null);
+  let next = data;
+  for (const robot of robots) {
+    const saved = next.robots.find((item) => item.id === robot.id);
+    if (
+      saved &&
+      JSON.stringify(saved.aiDefaults) !== JSON.stringify(robot.aiDefaults)
+    )
+      next = applyRobotAi(
+        next,
+        robot.id,
+        robot.aiDefaults,
+        settings ?? null,
+        robot.revision,
+      );
+  }
+  const ids = new Set(robots.map((item) => item.id));
   return {
-    ...data,
-    robots,
-    defaultRobotId,
-    conversations: data.conversations.map((conversation) => ({
-      ...conversation,
-      robotId:
-        conversation.robotId && ids.has(conversation.robotId)
-          ? conversation.robotId
-          : defaultRobotId,
-      messages: conversation.messages.map((message) => {
-        if (message.role !== "assistant") return message;
-        // 删除或切换机器人后，历史回复继续显示实际作者。
-        const author = data.robots.find(
-          (robot) => robot.id === (message.botId ?? conversation.robotId),
-        );
-        return {
-          ...message,
-          botId: message.botId ?? author?.id,
-          botName: message.botName ?? author?.name,
-          botIcon: message.botIcon ?? author?.icon,
-        };
-      }),
-    })),
+    ...next,
+    defaultRobotId:
+      defaultId && ids.has(defaultId) ? defaultId : (robots[0]?.id ?? null),
+    robots: robots.map((robot) => {
+      const saved = data.robots.find((item) => item.id === robot.id);
+      if (
+        saved &&
+        isRobotModified(saved, robot) &&
+        saved.revision !== robot.revision
+      )
+        throw new Error("教师配置已更新，请重新读取后再保存。");
+      return saved && isRobotModified(saved, robot)
+        ? { ...robot, revision: saved.revision + 1 }
+        : robot;
+    }),
+    conversations: next.conversations.map((conversation) => {
+      const author = data.robots.find(
+        (item) => item.id === conversation.robotId,
+      );
+      const identity =
+        conversation.robotIdentity ??
+        (author
+          ? { id: author.id, name: author.name, icon: author.icon }
+          : null);
+      return {
+        ...conversation,
+        robotIdentity: identity,
+        messages: conversation.messages.map((message) => {
+          if (message.role !== "assistant") return message;
+          const bot = data.robots.find(
+            (item) => item.id === (message.botId ?? conversation.robotId),
+          );
+          return {
+            ...message,
+            botId: message.botId ?? bot?.id,
+            botName: message.botName ?? bot?.name,
+            botIcon: message.botIcon ?? bot?.icon,
+          };
+        }),
+      };
+    }),
   };
 }

@@ -15,13 +15,16 @@
     "dev": "npm run dev --workspace @solvemate/web",
     "build": "npm run licenses:check && npm run build --workspace @solvemate/web",
     "preview": "npm run preview --workspace @solvemate/web",
-    "check": "npm run check --workspace @solvemate/web",
+    "check": "npm run contracts:check && npm run check --workspace @solvemate/web",
     "test": "node --test scripts/start.test.mjs packages/deepmerge/test/*.test.cjs && npm run test --workspace @solvemate/web",
     "format:check": "prettier --check apps/web/src packages/contracts/src apps/web/*.ts apps/web/*.json packages/contracts/package.json package.json eslint.config.js scripts/generate-license-notices.mjs scripts/start*.mjs packages/deepmerge/*.cjs packages/deepmerge/*.json packages/deepmerge/test/*.cjs",
     "licenses:generate": "node scripts/generate-license-notices.mjs",
-    "licenses:check": "node scripts/generate-license-notices.mjs --check"
+    "licenses:check": "node scripts/generate-license-notices.mjs --check",
+    "contracts:generate": "node scripts/generate-ai-contracts.mjs",
+    "contracts:check": "node scripts/generate-ai-contracts.mjs --check"
   },
   "devDependencies": {
+    "json-schema-to-typescript": "^15.0.4",
     "prettier": "^3.9.10"
   },
   "license": "MIT",

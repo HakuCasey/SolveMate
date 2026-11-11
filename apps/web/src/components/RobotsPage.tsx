@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, type Dispatch, type SetStateAction } from "react";
 import {
   Bot,
   Copy,
@@ -9,6 +9,14 @@ import {
   Trash2,
 } from "lucide-react";
 import { ContextMenu, Tabs } from "radix-ui";
+import { RobotAiFields } from "./RobotAiFields";
+import { useSaveFeedback } from "./SaveFeedback";
+import type { AiSettings } from "../ai/local-api";
+import {
+  isRobotAiModified,
+  robotAiError,
+  resolveRobotAi,
+} from "../ai/robot-config";
 import type { Robot } from "@solvemate/contracts";
 import {
   createRobot,
@@ -21,9 +29,12 @@ interface RobotsPageProps {
   robots: Robot[];
   defaultRobotId: string | null;
   activeRobotId: string | null;
-  onChange: (robots: Robot[], defaultRobotId: string | null) => void;
-  onUse: (robot: Robot) => void;
+  onChange: (robots: Robot[], defaultRobotId: string | null) => Promise<void>;
+  onUse: (robot: Robot) => Promise<void>;
   disabled?: boolean;
+  aiSettings: AiSettings | null;
+  drafts: Record<string, Robot>;
+  onDraftsChange: Dispatch<SetStateAction<Record<string, Robot>>>;
 }
 
 const skills: { value: Robot["skills"][number]; label: string }[] = [
@@ -49,15 +60,20 @@ export function RobotsPage({
   onChange,
   onUse,
   disabled = false,
+  aiSettings,
+  drafts,
+  onDraftsChange: setDrafts,
 }: RobotsPageProps) {
+  const showSaved = useSaveFeedback();
   const [selectedId, setSelectedId] = useState<string | null>(
     robots[0]?.id ?? null,
   );
-  const [drafts, setDrafts] = useState<Record<string, Robot>>({});
   const [status, setStatus] = useState("");
-  const [invalidField, setInvalidField] = useState<"name" | "prompt" | null>(
-    null,
-  );
+  const [saving, setSaving] = useState(false);
+  disabled ||= saving;
+  const [invalidField, setInvalidField] = useState<
+    "name" | "prompt" | "model" | null
+  >(null);
   const [portalContainer, setPortalContainer] = useState<HTMLElement | null>(
     null,
   );
@@ -109,22 +125,27 @@ export function RobotsPage({
     setDraft({ ...draft, [field]: value });
   }
 
-  function addRobot() {
+  async function addRobot() {
     const robot = createRobot();
-    onChange([...robots, robot], defaultRobotId ?? robot.id);
+    try {
+      await onChange([...robots, robot], defaultRobotId ?? robot.id);
+    } catch (error) {
+      setStatus(String(error));
+      return;
+    }
     setSelectedId(robot.id);
     setTab("persona");
     setInvalidField(null);
     setStatus("已新建机器人，可以修改它的配置。");
   }
 
-  function saveRobot(): Robot | null {
+  async function saveRobot(): Promise<Robot | null> {
     if (!draft) return null;
     const next = {
       ...draft,
       name: draft.name.trim(),
       prompt: draft.prompt.trim(),
-      modelName: draft.modelName.trim(),
+
       skills: [...draft.skills],
     };
     if (!next.name || !next.prompt) {
@@ -136,10 +157,29 @@ export function RobotsPage({
       else promptInput.current?.focus();
       return null;
     }
-    onChange(
-      robots.map((robot) => (robot.id === next.id ? next : robot)),
-      defaultRobotId,
-    );
+    const error =
+      selected && isRobotAiModified(selected, next.aiDefaults)
+        ? robotAiError(next.aiDefaults, aiSettings)
+        : "";
+    if (error) {
+      setInvalidField("model");
+      setTab("model");
+      setStatus(error);
+      return null;
+    }
+    setSaving(true);
+    try {
+      await onChange(
+        robots.map((robot) => (robot.id === next.id ? next : robot)),
+        defaultRobotId,
+      );
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "保存配置失败。");
+      setInvalidField("model");
+      return null;
+    } finally {
+      setSaving(false);
+    }
     setDrafts((previous) => {
       const remaining = { ...previous };
       delete remaining[next.id];
@@ -147,10 +187,11 @@ export function RobotsPage({
     });
     setInvalidField(null);
     setStatus("配置已更新。");
+    showSaved();
     return next;
   }
 
-  function copyRobot(robot: Robot) {
+  async function copyRobot(robot: Robot) {
     const base = robot.name.slice(0, 16);
     let name = `${base}（副本）`;
     let number = 2;
@@ -159,20 +200,31 @@ export function RobotsPage({
     const copy = {
       ...robot,
       id: crypto.randomUUID(),
+      revision: 1,
       name,
       skills: [...robot.skills],
     };
-    onChange([...robots, copy], defaultRobotId);
+    try {
+      await onChange([...robots, copy], defaultRobotId);
+    } catch (error) {
+      setStatus(String(error));
+      return;
+    }
     setSelectedId(copy.id);
     setInvalidField(null);
     setStatus(`已复制“${robot.name}”的已保存配置。`);
   }
 
-  function deleteRobot(robot: Robot) {
+  async function deleteRobot(robot: Robot) {
     const remaining = robots.filter((item) => item.id !== robot.id);
     const nextDefault =
       defaultRobotId === robot.id ? (remaining[0]?.id ?? null) : defaultRobotId;
-    onChange(remaining, nextDefault);
+    try {
+      await onChange(remaining, nextDefault);
+    } catch (error) {
+      setStatus(String(error));
+      return;
+    }
     if (selected?.id === robot.id) {
       const index = robots.findIndex((item) => item.id === robot.id);
       setSelectedId((remaining[index] ?? remaining[index - 1])?.id ?? null);
@@ -235,6 +287,11 @@ export function RobotsPage({
                         <span className={styles.defaultBadge}>默认</span>
                       )}
                     </span>
+                    <span className={styles.cardDescription}>
+                      {aiSettings?.enabled
+                        ? resolveRobotAi(robot, aiSettings).label
+                        : "AI 未配置"}
+                    </span>
                     {robot.id === activeRobotId && (
                       <span className={styles.cardDescription}>当前使用</span>
                     )}
@@ -253,8 +310,13 @@ export function RobotsPage({
                   <ContextMenu.Item
                     className={styles.menuItem}
                     disabled={disabled || robot.id === defaultRobotId}
-                    onSelect={() => {
-                      onChange(robots, robot.id);
+                    onSelect={async () => {
+                      try {
+                        await onChange(robots, robot.id);
+                      } catch (error) {
+                        setStatus(String(error));
+                        return;
+                      }
                       setStatus(
                         `已将“${robot.name}”设为默认，新对话将使用它。`,
                       );
@@ -301,10 +363,15 @@ export function RobotsPage({
               className={styles.secondaryButton}
               disabled={disabled}
               title="保存当前配置并新建对话"
-              onClick={() => {
-                const saved = saveRobot();
+              onClick={async () => {
+                const saved = await saveRobot();
                 // 同时传递保存后的配置，父页面可以在一次更新中创建对应会话。
-                if (saved) onUse(saved);
+                if (saved)
+                  try {
+                    await onUse(saved);
+                  } catch (error) {
+                    setStatus(String(error));
+                  }
               }}
             >
               使用此机器人
@@ -324,7 +391,7 @@ export function RobotsPage({
                 角色设定
               </Tabs.Trigger>
               <Tabs.Trigger type="button" className={styles.tab} value="model">
-                模型设置
+                AI 配置
               </Tabs.Trigger>
               <Tabs.Trigger type="button" className={styles.tab} value="memory">
                 记忆与能力
@@ -363,55 +430,14 @@ export function RobotsPage({
                   </p>
                 </Tabs.Content>
                 <Tabs.Content value="model" className={styles.panel}>
-                  <label className={styles.field}>
-                    模型来源
-                    <select
-                      value={draft.modelSource}
-                      onChange={(event) =>
-                        updateDraft(
-                          "modelSource",
-                          event.target.value === "custom" ? "custom" : "global",
-                        )
-                      }
-                    >
-                      <option value="global">跟随全局模型设置</option>
-                      <option value="custom">为这个机器人单独配置</option>
-                    </select>
-                  </label>
-                  <label className={styles.field}>
-                    模型名称
-                    <input
-                      value={draft.modelName}
-                      maxLength={100}
-                      placeholder={
-                        draft.modelSource === "global"
-                          ? "使用全局模型"
-                          : "填写模型标识，例如 provider/model"
-                      }
-                      disabled={draft.modelSource === "global"}
-                      onChange={(event) =>
-                        updateDraft("modelName", event.target.value)
-                      }
-                    />
-                  </label>
-                  <label className={styles.field}>
-                    <span className={styles.rangeLabel}>
-                      回答发散度 <output>{draft.temperature.toFixed(1)}</output>
-                    </span>
-                    <input
-                      type="range"
-                      min={0}
-                      max={1.5}
-                      step={0.1}
-                      value={draft.temperature}
-                      onChange={(event) =>
-                        updateDraft("temperature", Number(event.target.value))
-                      }
-                    />
-                  </label>
-                  <p className={styles.hint}>
-                    较低时更稳定，较高时表达更多样。具体效果取决于所接入的模型。
-                  </p>
+                  <RobotAiFields
+                    config={draft.aiDefaults}
+                    settings={aiSettings}
+                    disabled={disabled}
+                    onChange={(config) =>
+                      setDraft({ ...draft, aiDefaults: config })
+                    }
+                  />
                 </Tabs.Content>
                 <Tabs.Content value="memory" className={styles.panel}>
                   <h3 className={styles.sectionTitle}>记忆</h3>
@@ -468,7 +494,7 @@ export function RobotsPage({
               className={invalidField ? styles.error : styles.status}
               role={invalidField ? "alert" : "status"}
             >
-              {status || (hasChanges ? "有未保存的修改" : "")}
+              {hasChanges && !invalidField ? "有未保存的修改" : status}
             </p>
             <div className={styles.actions}>
               <button
@@ -493,11 +519,11 @@ export function RobotsPage({
                 disabled={disabled || !hasChanges}
                 onClick={saveRobot}
               >
-                保存配置
+                {saving ? "保存中…" : "保存配置"}
               </button>
             </div>
             <p className={styles.footerHint}>
-              AI 与长期记忆功能尚未接入，以上选项当前仅保存配置。
+              角色指令和模型用于实际对话；记忆与能力选项目前仅保存配置。
             </p>
           </footer>
         </div>

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { AppData } from "@solvemate/contracts";
 import { createInitialData } from "../data/catalog";
 import { assertAppData } from "../data/validation";
+import { upgradeRobot } from "../data/migrate-ai-metadata";
 import legacyRobots from "../data/legacy-robots.json";
 import { createConversation } from "./conversations";
 import {
@@ -16,7 +17,7 @@ function legacyData(): AppData {
   const data = {
     ...initial,
     robotCatalogVersion: undefined,
-    robots: structuredClone(legacyRobots),
+    robots: structuredClone(legacyRobots).map(upgradeRobot),
     conversations: initial.conversations.map((session) => ({
       ...session,
       robotId: session.selection?.courseId === "calculus" ? "scholar" : "hero",
@@ -57,7 +58,7 @@ describe("robot configuration drafts", () => {
       "高数教师",
       "C 语言教师",
     ]);
-    expect(next.conversations[2].robotId).toBe("c-language-teacher");
+    expect(next.conversations[2].robotId).toBe(old.conversations[2].robotId);
     expect(next.conversations[2].messages).toBe(old.conversations[2].messages);
     expect(old.robots[0].name).toBe("金牌教师");
     expect(upgradeRobotCatalog(next)).toBe(next);

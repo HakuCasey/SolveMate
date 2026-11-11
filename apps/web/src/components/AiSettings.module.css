@@ -1,0 +1,111 @@
+.settings {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+.settings h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 500;
+}
+.settings label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+}
+.settings input {
+  width: 100%;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--sm-line);
+  border-radius: 7px;
+  background: var(--sm-paper);
+  font-size: 13px;
+}
+.settings button:not([role="combobox"]) {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--sm-line);
+  border-radius: 7px;
+  padding: 7px 11px;
+  font-size: 12px;
+}
+.settings button:disabled {
+  opacity: 0.5;
+}
+.detect,
+.actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+.hint {
+  color: var(--sm-soft);
+  font-size: 11px;
+  margin: 0;
+}
+.source {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--sm-soft);
+  font-size: 11px;
+}
+.connections {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.connections .deleteConnection {
+  color: light-dark(#ac3333, #ffb0b0);
+  margin-left: auto;
+}
+.deleteConfirm:global(button) {
+  background: light-dark(#ac3333, #b64848) !important;
+  color: #fff !important;
+}
+.status {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  margin: 0;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.problem {
+  color: light-dark(#a83535, #ffb5b5);
+  font-size: 12px;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.problem p {
+  margin: 0 0 8px;
+}
+.detect,
+.actions {
+  justify-content: flex-end;
+  padding-top: 3px;
+}
+.actions .primary {
+  background: var(--sm-accent);
+  border-color: transparent;
+  color: var(--sm-on);
+}
+.spinning {
+  animation: spin 1.2s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (max-width: 480px) {
+  .settings input {
+    font-size: 16px;
+  }
+}

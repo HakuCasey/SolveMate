@@ -4,7 +4,7 @@
 
 ## 运行与检查
 
-网页安装与启动见 [README](README.md#本地启动与访问)，Python 服务见 [后端说明](apps/server/README.md)。前端使用 Node.js 24、npm 11 验证，后端支持 Python 3.12 及以上，当前验证环境为 Python 3.14。
+网页安装与启动见 [README](README.md#本地启动与访问)，Python 服务见[官方内容服务](apps/server/README.md)和[本机 AI 服务](apps/local/README.md)。前端使用 Node.js 24、npm 11 验证，后端支持 Python 3.12 及以上，当前验证环境为 Python 3.14。
 
 修改网页代码后，在仓库根目录执行：
 
@@ -26,9 +26,13 @@ python -m pip check
 python -m build --wheel --no-isolation
 ```
 
-`npm test` 同时运行网页测试和 `packages/deepmerge/` 的安全补丁测试。依赖升级还应执行 `npm audit` 与 `npm audit --omit=dev`，根级 override 的原因及移除条件见[架构说明](docs/architecture/overview.md#依赖安全修复)。
+本机 AI 服务的检查命令见其 README。真实模型测试需要显式配置程序与模型；普通测试及 CI 不依赖账号或模型额度。
 
-改动接口后，从 `create_app().openapi()` 重新生成 `packages/contracts/content-api.openapi.json`，同步客户端校验与接口说明。修改内容资产时检查题号、章节锚点和记忆来源引用，并运行发布测试。
+`npm test` 同时运行网页、启动脚本测试和 `packages/deepmerge/` 的安全补丁测试。依赖升级还应执行 `npm audit` 与 `npm audit --omit=dev`，根级 override 的原因及移除条件见[架构说明](docs/architecture/overview.md#依赖安全修复)。
+
+修改 AI 配置与对话的共享字段时，先更新 `packages/contracts/ai-metadata.schema.json`，运行 `npm run contracts:generate`，同步两端转换逻辑和共享测试样例；`npm run check` 会检查生成文件是否同步。
+
+改动官方内容接口后，从 `create_app().openapi()` 重新生成 `packages/contracts/content-api.openapi.json`，同步客户端校验与接口说明。修改内容资产时检查题号、章节锚点和记忆来源引用，并运行发布测试。
 
 ## 提交改动
 

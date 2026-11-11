@@ -3,8 +3,18 @@ import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
-  server: { proxy: { "/api/v1": "http://127.0.0.1:8000" } },
-  preview: { proxy: { "/api/v1": "http://127.0.0.1:8000" } },
+  server: {
+    proxy: {
+      "/api/v1": "http://127.0.0.1:8000",
+      "/local-api": "http://127.0.0.1:8765",
+    },
+  },
+  preview: {
+    proxy: {
+      "/api/v1": "http://127.0.0.1:8000",
+      "/local-api": "http://127.0.0.1:8765",
+    },
+  },
   plugins: [
     react(),
     VitePWA({
@@ -45,7 +55,7 @@ export default defineConfig({
         // 教材、题库及公式字体随应用缓存，离线启动不依赖外部字体服务。
         globPatterns: ["**/*.{js,css,html,svg,png,woff,woff2,ttf}"],
         navigateFallback: "index.html",
-        navigateFallbackDenylist: [/^\/api\//],
+        navigateFallbackDenylist: [/^\/api\//, /^\/local-api\//],
         cleanupOutdatedCaches: true,
       },
     }),

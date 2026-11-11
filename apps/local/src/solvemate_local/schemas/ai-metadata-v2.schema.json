@@ -1,0 +1,1709 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:solvemate:ai-metadata:2",
+  "title": "AiMetadataContract",
+  "$defs": {
+    "ProviderId": {
+      "type": "string",
+      "enum": [
+        "deepseek-harness",
+        "hermes",
+        "codex"
+      ],
+      "title": "ProviderId"
+    },
+    "HarnessProtocol": {
+      "type": "string",
+      "enum": [
+        "acp",
+        "codex-app-server",
+        "opencode",
+        "openclaw",
+        "hermes",
+        "api"
+      ],
+      "title": "HarnessProtocol"
+    },
+    "TurnStatus": {
+      "type": "string",
+      "enum": [
+        "running",
+        "completed",
+        "failed",
+        "cancelled",
+        "interrupted"
+      ],
+      "title": "TurnStatus"
+    },
+    "TurnPhase": {
+      "type": "string",
+      "enum": [
+        "queued",
+        "connecting",
+        "waiting",
+        "thinking",
+        "responding",
+        "tool",
+        "permission",
+        "stopping",
+        "finished"
+      ],
+      "title": "TurnPhase"
+    },
+    "RobotIcon": {
+      "type": "string",
+      "enum": [
+        "graduation-cap",
+        "sparkles",
+        "bot"
+      ],
+      "title": "RobotIcon"
+    },
+    "ConnectionSelection": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "global-default"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "connection"
+            },
+            "connectionId": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "kind",
+            "connectionId"
+          ],
+          "additionalProperties": false
+        }
+      ],
+      "title": "ConnectionSelection"
+    },
+    "ModelSelection": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "connection-default"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "model"
+            },
+            "connectionId": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "modelId": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "kind",
+            "connectionId",
+            "modelId"
+          ],
+          "additionalProperties": false
+        }
+      ],
+      "title": "ModelSelection"
+    },
+    "RobotAiDefaults": {
+      "type": "object",
+      "properties": {
+        "connection": {
+          "$ref": "#/$defs/ConnectionSelection"
+        },
+        "model": {
+          "$ref": "#/$defs/ModelSelection"
+        }
+      },
+      "required": [
+        "connection",
+        "model"
+      ],
+      "additionalProperties": false,
+      "title": "RobotAiDefaults"
+    },
+    "ConversationAiConfig": {
+      "type": "object",
+      "properties": {
+        "connectionId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "model": {
+          "$ref": "#/$defs/ModelSelection"
+        }
+      },
+      "required": [
+        "connectionId",
+        "model"
+      ],
+      "additionalProperties": false,
+      "title": "ConversationAiConfig"
+    },
+    "ClientRuntime": {
+      "type": "object",
+      "properties": {
+        "appVersion": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "buildId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "clientKind": {
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": [
+                "web",
+                "pwa"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "appVersion",
+        "buildId",
+        "clientKind"
+      ],
+      "additionalProperties": false,
+      "title": "ClientRuntime"
+    },
+    "TeacherSnapshot": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "prompt": {
+          "type": "string",
+          "maxLength": 20000
+        },
+        "icon": {
+          "$ref": "#/$defs/RobotIcon"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "prompt",
+        "icon"
+      ],
+      "additionalProperties": false,
+      "title": "TeacherSnapshot"
+    },
+    "RobotIdentity": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "icon": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RobotIcon"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "icon"
+      ],
+      "additionalProperties": false,
+      "title": "RobotIdentity"
+    },
+    "ReadingSelection": {
+      "type": "object",
+      "properties": {
+        "courseId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "questions",
+            "textbooks"
+          ]
+        },
+        "itemId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "chapterIndex": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "courseId",
+        "kind",
+        "itemId",
+        "chapterIndex"
+      ],
+      "additionalProperties": false,
+      "title": "ReadingSelection"
+    },
+    "ReadingReference": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "content": {
+          "type": "string",
+          "maxLength": 100000
+        },
+        "selection": {
+          "$ref": "#/$defs/ReadingSelection"
+        }
+      },
+      "required": [
+        "title",
+        "content",
+        "selection"
+      ],
+      "additionalProperties": false,
+      "title": "ReadingReference"
+    },
+    "ModelOption": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "group": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "value",
+        "name",
+        "group"
+      ],
+      "additionalProperties": false,
+      "title": "ModelOption"
+    },
+    "AiConfig": {
+      "type": "object",
+      "properties": {
+        "provider": {
+          "$ref": "#/$defs/ProviderId"
+        },
+        "executablePath": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "model": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "reasoningEffort": {
+          "type": "string",
+          "maxLength": 100
+        }
+      },
+      "required": [
+        "provider",
+        "executablePath",
+        "model",
+        "reasoningEffort"
+      ],
+      "additionalProperties": false,
+      "title": "AiConfig"
+    },
+    "Detection": {
+      "type": "object",
+      "properties": {
+        "executablePath": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "models": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ModelOption"
+          }
+        },
+        "currentModel": {
+          "type": "string"
+        },
+        "reasoningOptions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ModelOption"
+          }
+        },
+        "currentReasoning": {
+          "type": "string"
+        },
+        "capabilities": {
+          "$ref": "#/$defs/CapabilitySupport"
+        }
+      },
+      "required": [
+        "executablePath",
+        "version",
+        "models",
+        "currentModel",
+        "reasoningOptions",
+        "currentReasoning",
+        "capabilities"
+      ],
+      "additionalProperties": false,
+      "title": "Detection"
+    },
+    "AiConnection": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "config": {
+          "$ref": "#/$defs/AiConfig"
+        },
+        "detection": {
+          "$ref": "#/$defs/Detection"
+        }
+      },
+      "required": [
+        "id",
+        "revision",
+        "config",
+        "detection"
+      ],
+      "additionalProperties": false,
+      "title": "AiConnection"
+    },
+    "AiServiceInfo": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "provider": {
+          "$ref": "#/$defs/ProviderId"
+        },
+        "name": {
+          "type": "string"
+        },
+        "shortName": {
+          "type": "string"
+        },
+        "defaultPath": {
+          "type": "string"
+        },
+        "detectedPath": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "provider",
+        "name",
+        "defaultPath",
+        "detectedPath"
+      ],
+      "additionalProperties": false,
+      "title": "AiServiceInfo"
+    },
+    "AiSettings": {
+      "type": "object",
+      "properties": {
+        "schemaVersion": {
+          "const": 2
+        },
+        "preferencesRevision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "defaultConnectionId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "connections": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/AiConnection"
+          }
+        },
+        "services": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/AiServiceInfo"
+          }
+        },
+        "busy": {
+          "type": "boolean"
+        },
+        "config": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AiConfig"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "detection": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Detection"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "defaultPath": {
+          "type": "string"
+        },
+        "detectedPath": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "preferencesRevision",
+        "enabled",
+        "defaultConnectionId",
+        "connections",
+        "services",
+        "busy"
+      ],
+      "additionalProperties": false,
+      "title": "AiSettings"
+    },
+    "Robot": {
+      "type": "object",
+      "properties": {
+        "schemaVersion": {
+          "const": 2
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "specialty": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "icon": {
+          "$ref": "#/$defs/RobotIcon"
+        },
+        "prompt": {
+          "type": "string",
+          "maxLength": 20000
+        },
+        "aiDefaults": {
+          "$ref": "#/$defs/RobotAiDefaults"
+        },
+        "temperature": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1.5
+        },
+        "memoryEnabled": {
+          "type": "boolean"
+        },
+        "courseMemory": {
+          "type": "boolean"
+        },
+        "skills": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "questions",
+              "textbooks",
+              "notes"
+            ]
+          }
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "revision",
+        "id",
+        "name",
+        "description",
+        "icon",
+        "prompt",
+        "aiDefaults",
+        "temperature",
+        "memoryEnabled",
+        "courseMemory",
+        "skills"
+      ],
+      "additionalProperties": false,
+      "title": "Robot"
+    },
+    "ConversationMetadata": {
+      "type": "object",
+      "properties": {
+        "schemaVersion": {
+          "const": 2
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "titleSource": {
+          "type": "string",
+          "enum": [
+            "default",
+            "first-message",
+            "manual",
+            "harness",
+            "unknown"
+          ]
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 24
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "active",
+            "archived",
+            "deleted"
+          ]
+        },
+        "createdAt": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "updatedAt": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "lastActivityAt": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "archivedAt": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "deletedAt": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "origin": {
+          "type": "string",
+          "enum": [
+            "local",
+            "example",
+            "imported"
+          ]
+        },
+        "creationReason": {
+          "type": "string",
+          "enum": [
+            "new",
+            "teacher-switch",
+            "service-switch",
+            "imported",
+            "unknown"
+          ]
+        },
+        "sourceConversationId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "createdWith": {
+          "$ref": "#/$defs/ClientRuntime"
+        },
+        "robotId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "robotIdentity": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RobotIdentity"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "selection": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ReadingSelection"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "aiConfig": {
+          "$ref": "#/$defs/ConversationAiConfig"
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "revision",
+        "id",
+        "title",
+        "titleSource",
+        "label",
+        "status",
+        "createdAt",
+        "updatedAt",
+        "lastActivityAt",
+        "archivedAt",
+        "deletedAt",
+        "origin",
+        "creationReason",
+        "sourceConversationId",
+        "createdWith",
+        "robotId",
+        "robotIdentity",
+        "selection",
+        "aiConfig"
+      ],
+      "additionalProperties": false,
+      "title": "ConversationMetadata"
+    },
+    "SessionBinding": {
+      "type": "object",
+      "properties": {
+        "conversationId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "connectionId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "protocol": {
+          "$ref": "#/$defs/HarnessProtocol"
+        },
+        "externalSessionId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "creating",
+            "bound",
+            "uncertain",
+            "restore-failed"
+          ]
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "conversationId",
+        "connectionId",
+        "protocol",
+        "externalSessionId",
+        "state",
+        "revision"
+      ],
+      "additionalProperties": false,
+      "title": "SessionBinding"
+    },
+    "TurnSnapshot": {
+      "type": "object",
+      "properties": {
+        "connectionId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "connectionRevision": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "conversationRevision": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "robotRevision": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "providerId": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProviderId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "serviceName": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "modelSelection": {
+          "$ref": "#/$defs/ModelSelection"
+        },
+        "requestedModelId": {
+          "type": "string"
+        },
+        "requestedModelName": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reasoningEffort": {
+          "type": "string"
+        },
+        "teacher": {
+          "$ref": "#/$defs/TeacherSnapshot"
+        },
+        "client": {
+          "$ref": "#/$defs/ClientRuntime"
+        },
+        "localServiceVersion": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "connectionId",
+        "connectionRevision",
+        "conversationRevision",
+        "robotRevision",
+        "providerId",
+        "serviceName",
+        "modelSelection",
+        "requestedModelId",
+        "requestedModelName",
+        "reasoningEffort",
+        "teacher",
+        "client",
+        "localServiceVersion"
+      ],
+      "additionalProperties": false,
+      "title": "TurnSnapshot"
+    },
+    "TurnDispatch": {
+      "type": "object",
+      "properties": {
+        "submittedModelId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reasoningEffort": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "submittedAt": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "harnessVersion": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "adapterId": {
+          "type": "string"
+        },
+        "adapterVersion": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "submittedModelId",
+        "reasoningEffort",
+        "submittedAt",
+        "harnessVersion",
+        "adapterId",
+        "adapterVersion"
+      ],
+      "additionalProperties": false,
+      "title": "TurnDispatch"
+    },
+    "PermissionOption": {
+      "type": "object",
+      "properties": {
+        "optionId": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "allow_once",
+            "reject_once"
+          ]
+        }
+      },
+      "required": [
+        "optionId",
+        "name",
+        "kind"
+      ],
+      "additionalProperties": false,
+      "title": "PermissionOption"
+    },
+    "AiPermission": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "options": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PermissionOption"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "options"
+      ],
+      "additionalProperties": false,
+      "title": "AiPermission"
+    },
+    "ToolExecution": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "status"
+      ],
+      "additionalProperties": false,
+      "title": "ToolExecution"
+    },
+    "AiTurn": {
+      "type": "object",
+      "properties": {
+        "schemaVersion": {
+          "const": 2
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "conversationId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "connectionId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "provider": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ProviderId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "protocol": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/HarnessProtocol"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "userMessageId": {
+          "type": "string"
+        },
+        "assistantMessageId": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "teacher": {
+          "$ref": "#/$defs/TeacherSnapshot"
+        },
+        "reference": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ReadingReference"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "model": {
+          "type": "string"
+        },
+        "reasoningEffort": {
+          "type": "string"
+        },
+        "snapshot": {
+          "$ref": "#/$defs/TurnSnapshot"
+        },
+        "dispatch": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TurnDispatch"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reportedModelId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "status": {
+          "$ref": "#/$defs/TurnStatus"
+        },
+        "phase": {
+          "$ref": "#/$defs/TurnPhase"
+        },
+        "lastActivityAt": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "startedAt": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "completedAt": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "externalSessionId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "externalTurnId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "content": {
+          "type": "string"
+        },
+        "error": {
+          "type": "string"
+        },
+        "errorCode": {
+          "type": "string"
+        },
+        "tools": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ToolExecution"
+          }
+        },
+        "permissions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/AiPermission"
+          }
+        },
+        "binding": {
+          "$ref": "#/$defs/SessionBinding"
+        },
+        "submissionStatus": {
+          "type": "string",
+          "enum": [
+            "pending",
+            "accepted",
+            "uncertain",
+            "rejected"
+          ]
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "revision",
+        "id",
+        "conversationId",
+        "connectionId",
+        "provider",
+        "protocol",
+        "userMessageId",
+        "assistantMessageId",
+        "text",
+        "teacher",
+        "reference",
+        "model",
+        "reasoningEffort",
+        "snapshot",
+        "dispatch",
+        "reportedModelId",
+        "status",
+        "phase",
+        "lastActivityAt",
+        "startedAt",
+        "content",
+        "error",
+        "tools",
+        "permissions",
+        "submissionStatus"
+      ],
+      "additionalProperties": false,
+      "title": "AiTurn"
+    },
+    "SessionTurn": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "connectionId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "externalTurnId": {
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/TurnStatus"
+        },
+        "startedAt": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "completedAt": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "error": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        },
+        "userMessageId": {
+          "type": "string"
+        },
+        "phase": {
+          "$ref": "#/$defs/TurnPhase"
+        },
+        "lastActivityAt": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "snapshot": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TurnSnapshot"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "dispatch": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TurnDispatch"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reportedModelId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "submissionStatus": {
+          "type": "string",
+          "enum": [
+            "pending",
+            "accepted",
+            "uncertain",
+            "rejected"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "revision",
+        "connectionId",
+        "status",
+        "startedAt",
+        "snapshot",
+        "dispatch",
+        "reportedModelId",
+        "submissionStatus"
+      ],
+      "additionalProperties": false,
+      "title": "SessionTurn"
+    },
+    "TurnInput": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9-]{1,100}$"
+        },
+        "conversationId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9-]{1,100}$"
+        },
+        "connectionId": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "externalSessionId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 1000
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "userMessageId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 10000
+        },
+        "teacher": {
+          "$ref": "#/$defs/TeacherSnapshot"
+        },
+        "model": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "reasoningEffort": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "reference": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ReadingReference"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "history": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "role": {
+                "type": "string",
+                "enum": [
+                  "user",
+                  "assistant"
+                ]
+              },
+              "content": {
+                "type": "string",
+                "maxLength": 100000
+              }
+            },
+            "required": [
+              "role",
+              "content"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 100
+        },
+        "conversationSnapshot": {
+          "$ref": "#/$defs/ConversationMetadata"
+        },
+        "connectionRevision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "robotRevision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "client": {
+          "$ref": "#/$defs/ClientRuntime"
+        }
+      },
+      "required": [
+        "id",
+        "conversationId",
+        "userMessageId",
+        "text",
+        "teacher",
+        "model",
+        "reference",
+        "history"
+      ],
+      "additionalProperties": false,
+      "title": "TurnInput"
+    },
+    "CapabilitySupport": {
+      "title": "CapabilitySupport",
+      "type": "object",
+      "properties": {
+        "models": {
+          "type": "string",
+          "enum": [
+            "supported",
+            "unsupported",
+            "unknown"
+          ]
+        },
+        "resume": {
+          "type": "string",
+          "enum": [
+            "supported",
+            "unsupported",
+            "unknown"
+          ]
+        },
+        "textUpdates": {
+          "type": "string",
+          "enum": [
+            "supported",
+            "unsupported",
+            "unknown"
+          ]
+        },
+        "rawTextDeltas": {
+          "type": "string",
+          "enum": [
+            "supported",
+            "unsupported",
+            "unknown"
+          ]
+        },
+        "rename": {
+          "type": "string",
+          "enum": [
+            "supported",
+            "unsupported",
+            "unknown"
+          ]
+        },
+        "archive": {
+          "type": "string",
+          "enum": [
+            "supported",
+            "unsupported",
+            "unknown"
+          ]
+        },
+        "attachments": {
+          "type": "string",
+          "enum": [
+            "supported",
+            "unsupported",
+            "unknown"
+          ]
+        }
+      },
+      "required": [
+        "models",
+        "resume",
+        "textUpdates",
+        "rawTextDeltas",
+        "rename",
+        "archive",
+        "attachments"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "anyOf": [
+    {
+      "$ref": "#/$defs/ProviderId"
+    },
+    {
+      "$ref": "#/$defs/HarnessProtocol"
+    },
+    {
+      "$ref": "#/$defs/TurnStatus"
+    },
+    {
+      "$ref": "#/$defs/TurnPhase"
+    },
+    {
+      "$ref": "#/$defs/RobotIcon"
+    },
+    {
+      "$ref": "#/$defs/ConnectionSelection"
+    },
+    {
+      "$ref": "#/$defs/ModelSelection"
+    },
+    {
+      "$ref": "#/$defs/RobotAiDefaults"
+    },
+    {
+      "$ref": "#/$defs/ConversationAiConfig"
+    },
+    {
+      "$ref": "#/$defs/ClientRuntime"
+    },
+    {
+      "$ref": "#/$defs/TeacherSnapshot"
+    },
+    {
+      "$ref": "#/$defs/RobotIdentity"
+    },
+    {
+      "$ref": "#/$defs/ReadingSelection"
+    },
+    {
+      "$ref": "#/$defs/ReadingReference"
+    },
+    {
+      "$ref": "#/$defs/ModelOption"
+    },
+    {
+      "$ref": "#/$defs/AiConfig"
+    },
+    {
+      "$ref": "#/$defs/Detection"
+    },
+    {
+      "$ref": "#/$defs/AiConnection"
+    },
+    {
+      "$ref": "#/$defs/AiServiceInfo"
+    },
+    {
+      "$ref": "#/$defs/AiSettings"
+    },
+    {
+      "$ref": "#/$defs/Robot"
+    },
+    {
+      "$ref": "#/$defs/ConversationMetadata"
+    },
+    {
+      "$ref": "#/$defs/SessionBinding"
+    },
+    {
+      "$ref": "#/$defs/TurnSnapshot"
+    },
+    {
+      "$ref": "#/$defs/TurnDispatch"
+    },
+    {
+      "$ref": "#/$defs/PermissionOption"
+    },
+    {
+      "$ref": "#/$defs/AiPermission"
+    },
+    {
+      "$ref": "#/$defs/ToolExecution"
+    },
+    {
+      "$ref": "#/$defs/AiTurn"
+    },
+    {
+      "$ref": "#/$defs/SessionTurn"
+    },
+    {
+      "$ref": "#/$defs/TurnInput"
+    },
+    {
+      "$ref": "#/$defs/CapabilitySupport"
+    }
+  ]
+}
