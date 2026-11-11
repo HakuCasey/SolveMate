@@ -9,6 +9,7 @@ import {
   Trash2,
   Check,
   Pencil,
+  CornerUpLeft,
 } from "lucide-react";
 import { ContextMenu, Popover } from "radix-ui";
 import type { Course, Conversation, Robot } from "@solvemate/contracts";
@@ -21,6 +22,7 @@ interface Props {
   robots: Robot[];
   activeId: string | null;
   onOpen: (conversation: Conversation) => void;
+  onReturn: (conversation: Conversation) => void;
   onNew: () => void;
   onUpdate: (
     id: string,
@@ -38,6 +40,7 @@ export function ConversationList({
   robots,
   activeId,
   onOpen,
+  onReturn,
   onNew,
   onUpdate,
   onDelete,
@@ -81,7 +84,20 @@ export function ConversationList({
         (!conversation.selection.version ||
           item.version === conversation.selection.version),
     );
-    const robot = robots.find((item) => item.id === conversation.robotId);
+    const selection = conversation.selection;
+    const contentTitle = selection
+      ? selection.kind === "textbooks"
+        ? course?.textbooks.find((item) => item.id === selection.itemId)
+            ?.chapters[selection.chapterIndex]?.title
+        : course?.questions.find((item) => item.id === selection.itemId)?.title
+      : null;
+    const context = selection
+      ? `${course?.title ?? "课程不可用"} · ${contentTitle ?? "关联内容不可用"}`
+      : "普通对话";
+    // 直接显示最近一次提问的原文，省略只由样式处理，不生成或保存摘要。
+    const lastQuestion =
+      conversation.messages.filter((item) => item.role === "user").at(-1)
+        ?.content ?? "还没有提问";
     const label = conversation.label || "无标签";
     const renaming = renameTarget === conversation.id;
     return (
@@ -98,41 +114,50 @@ export function ConversationList({
         <ContextMenu.Root>
           <ContextMenu.Trigger asChild>
             <Popover.Anchor asChild>
-              <button
+              <div
                 className={styles.item}
-                aria-label={conversation.title}
-                aria-pressed={conversation.id === activeId}
-                onClick={() => onOpen(conversation)}
+                data-active={conversation.id === activeId}
               >
-                <span className={styles.icon}>
-                  <MessagesSquare aria-hidden="true" />
-                </span>
-                <span className={styles.copy}>
-                  <span className={styles.titleRow}>
-                    <strong>{conversation.title}</strong>
-                    <span
-                      className={styles.label}
-                      data-important={label === "重要"}
-                    >
-                      {label}
+                <button
+                  className={styles.openItem}
+                  aria-label={conversation.title}
+                  aria-pressed={conversation.id === activeId}
+                  onClick={() => onOpen(conversation)}
+                >
+                  <span className={styles.icon}>
+                    <MessagesSquare aria-hidden="true" />
+                  </span>
+                  <span className={styles.copy}>
+                    <span className={styles.titleRow}>
+                      <strong>{conversation.title}</strong>
+                      <span
+                        className={styles.label}
+                        data-important={label === "重要"}
+                      >
+                        {label}
+                      </span>
                     </span>
+                    <small
+                      className={styles.details}
+                      title={`${context} · ${lastQuestion}`}
+                    >
+                      <span className={styles.context}>{context}</span>
+                      <span aria-hidden="true">·</span>
+                      <span className={styles.preview}>{lastQuestion}</span>
+                    </small>
                   </span>
-                  <small>
-                    {conversation.selection
-                      ? `${course?.title} · ${conversation.selection.itemId}`
-                      : "普通对话"}{" "}
-                    ·{" "}
-                    {robot?.name ??
-                      conversation.robotIdentity?.name ??
-                      "教师不可用"}
-                  </small>
-                  <span className={styles.preview}>
-                    {conversation.messages
-                      .filter((item) => item.role === "user")
-                      .at(-1)?.content ?? "还没有消息"}
-                  </span>
-                </span>
-              </button>
+                </button>
+                {conversation.status === "active" && (
+                  <button
+                    className={styles.returnButton}
+                    aria-label={`返回对话：${conversation.title}`}
+                    onClick={() => onReturn(conversation)}
+                  >
+                    <CornerUpLeft aria-hidden="true" />
+                    返回对话
+                  </button>
+                )}
+              </div>
             </Popover.Anchor>
           </ContextMenu.Trigger>
           <ContextMenu.Portal>

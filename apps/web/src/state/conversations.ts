@@ -24,6 +24,39 @@ export function sameContent(
   );
 }
 
+/** 按学习活动找最近的未归档会话；改名或改标签不改变恢复顺序。 */
+export function latestConversation(conversations: Conversation[]) {
+  return conversations.reduce<Conversation | undefined>((latest, item) => {
+    if (item.status !== "active") return latest;
+    const activity = item.lastActivityAt ?? item.createdAt ?? 0;
+    const previousActivity = latest
+      ? (latest.lastActivityAt ?? latest.createdAt ?? 0)
+      : -1;
+    return !latest ||
+      activity > previousActivity ||
+      (activity === previousActivity &&
+        (item.createdAt ?? 0) > (latest.createdAt ?? 0))
+      ? item
+      : latest;
+  }, undefined);
+}
+
+export function conversationForReading(
+  conversations: Conversation[],
+  selection: ReadingSelection,
+  preferredId: string | null = null,
+) {
+  const matching = conversations.filter(
+    (item) =>
+      item.status === "active" && sameContent(item.selection, selection),
+  );
+  // 用户从条目返回某个旧会话时保留该选择；科目入口则取最近一条。
+  return (
+    matching.find((item) => item.id === preferredId) ??
+    latestConversation(matching)
+  );
+}
+
 export function createConversation(
   data: AppData,
   selection: ReadingSelection | null = null,

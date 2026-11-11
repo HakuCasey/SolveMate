@@ -27,7 +27,8 @@ import { useLocalData } from "./storage/useLocalData";
 import {
   createConversation,
   replaceRobots,
-  sameContent,
+  latestConversation,
+  conversationForReading,
   updateConversation,
   deleteConversation,
   applyRobotAi,
@@ -99,19 +100,31 @@ function Workspace({ content }: { content: OfficialContent }) {
     setData((previous) => (previous ? change(previous) : previous)),
   );
   const restoreAiConversation = ai.restore;
+  const currentConversation = data
+    ? view === "reading"
+      ? conversationForReading(
+          data.conversations,
+          data.selection,
+          activeConversationId,
+        )
+      : data.conversations.find(
+          (item) =>
+            item.status !== "deleted" && item.id === activeConversationId,
+        )
+    : undefined;
+  const restoreConversationId = currentConversation?.id ?? null;
   const pendingAiIds =
-    data?.conversations
-      .find((conversation) => conversation.id === activeConversationId)
-      ?.turns?.filter((turn) => turn.status === "running")
+    currentConversation?.turns
+      ?.filter((turn) => turn.status === "running")
       .map((turn) => turn.id)
       .join(",") ?? "";
   useEffect(() => {
-    if (activeConversationId)
+    if (restoreConversationId)
       void restoreAiConversation(
-        activeConversationId,
+        restoreConversationId,
         pendingAiIds ? pendingAiIds.split(",") : [],
       );
-  }, [activeConversationId, pendingAiIds, restoreAiConversation]);
+  }, [restoreConversationId, pendingAiIds, restoreAiConversation]);
   const [noteId, setNoteId] = useState(sampleNotes[0].id);
 
   useEffect(() => {
@@ -146,12 +159,6 @@ function Workspace({ content }: { content: OfficialContent }) {
     );
 
   const selection = data.selection;
-  const currentConversation = data.conversations.find(
-    (item) =>
-      item.status !== "deleted" &&
-      item.id === activeConversationId &&
-      (view !== "reading" || sameContent(item.selection, selection)),
-  );
   const currentRobotId =
     currentConversation?.robotId ?? activeRobotId ?? data.defaultRobotId;
   const currentRobot =
@@ -164,6 +171,10 @@ function Workspace({ content }: { content: OfficialContent }) {
     currentRobot,
   );
   const note = sampleNotes.find((item) => item.id === noteId) ?? sampleNotes[0];
+  const noteCourse = courses.find((item) => item.id === note.courseId);
+  const noteQuestion = noteCourse?.questions.find(
+    (item) => item.id === note.questionId,
+  );
   // 阅读位置与会话关联分别保存，普通对话不能继承后台停留的题目。
   const chatSelection =
     view === "reading" ? selection : (currentConversation?.selection ?? null);
@@ -174,13 +185,31 @@ function Workspace({ content }: { content: OfficialContent }) {
       : `已关联 ${chatSelection.itemId}`;
 
   function selectContent(next: ReadingSelection) {
+    const conversation = conversationForReading(data!.conversations, next);
     updateData((previous) => ({ ...previous, selection: next }));
-    setActiveConversationId(null);
+    setActiveConversationId(conversation?.id ?? null);
+    setActiveRobotId(conversation?.robotId ?? null);
     setView("reading");
   }
 
   function selectCourse(courseId: CourseId, kind: ReadingSelection["kind"]) {
     const course = courses.find((item) => item.id === courseId)!;
+    if (selection.courseId === courseId && selection.kind === kind) {
+      selectContent(selection);
+      return;
+    }
+    const recent = latestConversation(
+      data!.conversations.filter(
+        (item) =>
+          item.selection?.courseId === courseId &&
+          item.selection.kind === kind &&
+          (item.selection.version ?? "example-1") === course.version,
+      ),
+    );
+    if (recent?.selection) {
+      selectContent(recent.selection);
+      return;
+    }
     const itemId =
       kind === "textbooks" ? course.textbooks[0].id : course.questions[0].id;
     selectContent({
@@ -192,7 +221,23 @@ function Workspace({ content }: { content: OfficialContent }) {
     });
   }
 
-  function openConversation(conversation: Conversation) {
+  function openConversation(
+    conversation: Conversation,
+    returnToReading = false,
+  ) {
+    // 用原编号重新读取当前记录，页面切换不复制或重建原会话。
+    const saved = data!.conversations.find(
+      (item) => item.id === conversation.id,
+    );
+    if (
+      !saved ||
+      saved.status === "deleted" ||
+      (returnToReading && saved.status !== "active")
+    ) {
+      setCommandError("此对话已删除或归档，请重新选择。");
+      return;
+    }
+    conversation = saved;
     if (conversation.selection) {
       const readingSelection = conversation.selection;
       updateData((previous) => ({
@@ -202,7 +247,9 @@ function Workspace({ content }: { content: OfficialContent }) {
     }
     setActiveConversationId(conversation.id);
     setActiveRobotId(conversation.robotId);
-    setView("conversations");
+    setView(
+      returnToReading && conversation.selection ? "reading" : "conversations",
+    );
   }
 
   async function newConversation(robot?: Robot) {
@@ -384,7 +431,10 @@ function Workspace({ content }: { content: OfficialContent }) {
         teacher,
         ai.settings,
       );
-      setActiveConversationId(conversation.id);
+      // 保存期间若用户已选中另一会话，后台提问不能覆盖其当前选择。
+      setActiveConversationId((current) =>
+        current === activeConversationId ? conversation.id : current,
+      );
       if (resolved.configured)
         await ai.start({
           id: turnId,
@@ -508,15 +558,15 @@ function Workspace({ content }: { content: OfficialContent }) {
           selection={selection}
           settings={data.settings}
           onNavigate={(next) => {
-            if (
-              next === "conversations" &&
-              !currentConversation &&
-              data.conversations.some((item) => item.status === "active")
-            )
-              openConversation(
-                data.conversations.find((item) => item.status === "active")!,
-              );
-            else setView(next);
+            if (next === "conversations") {
+              const conversation =
+                currentConversation ?? latestConversation(data.conversations);
+              if (conversation) {
+                openConversation(conversation);
+                return;
+              }
+            }
+            setView(next);
           }}
           onSelectContent={selectCourse}
           onSettingsChange={(settings) =>
@@ -564,6 +614,9 @@ function Workspace({ content }: { content: OfficialContent }) {
                 robots={data.robots}
                 activeId={currentConversation?.id ?? null}
                 onOpen={openConversation}
+                onReturn={(conversation) =>
+                  openConversation(conversation, true)
+                }
                 onNew={() =>
                   void newConversation().catch((error) =>
                     setCommandError(String(error)),
@@ -624,19 +677,31 @@ function Workspace({ content }: { content: OfficialContent }) {
                     ))}
                   </div>
                 </section>
-                <article className={styles.note} aria-label="笔记正文">
-                  <header>
-                    {courses.find((item) => item.id === note.courseId)?.title} ·
-                    关联题目 {note.questionId}
-                  </header>
-                  <div
-                    className={styles.noteBody}
+                <section
+                  className={styles.note}
+                  aria-label="笔记阅读区"
+                  key={note.id}
+                >
+                  <article
+                    className={styles.notePaper}
+                    aria-label="笔记正文"
                     style={{ fontSize: data.settings.fontSize }}
                   >
-                    <h1>{note.title}</h1>
-                    <Markdown>{note.content}</Markdown>
-                  </div>
-                </article>
+                    <header className={styles.noteHeading}>
+                      <h1>{note.title}</h1>
+                      <p className={styles.noteSource}>
+                        <span>{noteCourse?.title ?? "课程不可用"}</span>
+                        <span aria-hidden="true">·</span>
+                        <span>
+                          关联题目：{noteQuestion?.title ?? note.questionId}
+                        </span>
+                      </p>
+                    </header>
+                    <div className={styles.noteBody}>
+                      <Markdown>{note.content}</Markdown>
+                    </div>
+                  </article>
+                </section>
               </>
             )}
             {(view === "reading" || view === "conversations") && (
