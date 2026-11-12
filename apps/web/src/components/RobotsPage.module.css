@@ -266,7 +266,7 @@
 }
 
 .field [aria-invalid="true"] {
-  border-color: light-dark(#b43c4d, #f49aa6);
+  border-color: var(--sm-danger);
 }
 
 .field input:disabled {
@@ -341,7 +341,7 @@
 }
 
 .error {
-  color: light-dark(#b43c4d, #f49aa6);
+  color: var(--sm-danger);
 }
 
 .actions {
@@ -410,9 +410,7 @@
   border-radius: 12px;
   color: var(--sm-ink);
   background: var(--sm-paper);
-  box-shadow:
-    0 4px 12px light-dark(#2025390d, #00000033),
-    0 14px 40px light-dark(#20253924, #00000066);
+  box-shadow: var(--sm-shadow-popover);
 }
 
 .menuItem {
@@ -442,7 +440,7 @@
 }
 
 .deleteItem {
-  color: light-dark(#b43c4d, #f49aa6);
+  color: var(--sm-danger);
 }
 
 .menuSeparator {

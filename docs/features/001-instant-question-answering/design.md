@@ -197,6 +197,8 @@ npm run build
 
 ### 正式构建中的外观切换验证
 
+当前颜色由 [009 主题配色](../009-theme-configuration/design.md)集中管理，日间与夜间切换通过共用函数设置完整配色，原有显示设置和本地保存字段保持兼容。以下为相关历史验证记录。
+
 2026-11-06：修复仅通过 JavaScript 设置 `color-scheme` 时，正式构建中的 `light-dark()` 兼容样式仍跟随系统配色的问题。外观选择同时写入根节点 `data-appearance`，CSS 显式声明 light 和 dark 两种 `color-scheme`，使构建工具生成对应选择器下的兼容变量，做法见 [Lightning CSS 的 light-dark 转换说明](https://lightningcss.dev/transpilation.html#light-dark-color-function)。
 
 在正式构建的 PWA 中验证应用更新提示、更新后昼夜配色切换、夜间选择在刷新后的恢复，以及切回白天模式；57 项网页测试、6 项构建补丁测试、类型、代码、格式检查与生产构建通过。用户指南第 8 章补充完整切换步骤及真实夜间截图。

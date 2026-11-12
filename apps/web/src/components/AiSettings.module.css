@@ -62,12 +62,12 @@
   flex-wrap: wrap;
 }
 .connections .deleteConnection {
-  color: light-dark(#ac3333, #ffb0b0);
+  color: var(--sm-danger);
   margin-left: auto;
 }
 .deleteConfirm:global(button) {
-  background: light-dark(#ac3333, #b64848) !important;
-  color: #fff !important;
+  background: var(--sm-danger-background) !important;
+  color: var(--sm-on-danger) !important;
 }
 .status {
   display: flex;
@@ -78,7 +78,7 @@
   overflow-wrap: anywhere;
 }
 .problem {
-  color: light-dark(#a83535, #ffb5b5);
+  color: var(--sm-danger);
   font-size: 12px;
   margin: 0;
   overflow-wrap: anywhere;

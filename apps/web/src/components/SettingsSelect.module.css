@@ -31,7 +31,9 @@
 .trigger:disabled {
   opacity: 0.5;
 }
-.trigger[data-placeholder],
+.trigger[data-placeholder] {
+  color: var(--sm-placeholder);
+}
 .chevron {
   color: var(--sm-soft);
 }
@@ -49,7 +51,7 @@
   border-radius: 10px;
   color: var(--sm-ink);
   background: var(--sm-paper);
-  box-shadow: 0 10px 32px light-dark(#20253924, #00000066);
+  box-shadow: var(--sm-shadow-menu);
   font-family: inherit;
   font-size: 13px;
 }

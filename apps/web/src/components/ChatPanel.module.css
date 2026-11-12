@@ -47,7 +47,7 @@
   gap: 4px;
 }
 .configurationWarning {
-  color: light-dark(#a83535, #ffb5b5);
+  color: var(--sm-danger);
   font-size: 10px;
   line-height: 1.4;
   text-align: right;
@@ -118,9 +118,9 @@
 }
 .userMessage {
   padding: 11px 15px;
-  border: 1px solid light-dark(#dcd7f7, #534774);
+  border: 1px solid var(--sm-chat-user-border);
   border-radius: 16px 4px 16px 16px;
-  background: light-dark(#eeebff, #3a3155);
+  background: var(--sm-chat-user-background);
   align-self: flex-end;
 }
 .assistantMessage {
@@ -129,7 +129,7 @@
   padding: 12px 15px;
   border: 1px solid var(--sm-line);
   border-radius: 4px 16px 16px 16px;
-  background: light-dark(#f1f3f7, #292d39);
+  background: var(--sm-chat-assistant-background);
 }
 .pendingReply {
   min-width: min(240px, 88%);
@@ -366,7 +366,7 @@
   font-size: 12px;
 }
 .failure {
-  color: light-dark(#a83535, #ffb5b5);
+  color: var(--sm-danger);
 }
 .failure p,
 .permission p {

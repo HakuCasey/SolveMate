@@ -129,7 +129,7 @@
   color: var(--sm-accent);
 }
 .transfer[role="alert"] {
-  color: light-dark(#b43c4d, #f49aa6);
+  color: var(--sm-danger);
 }
 .transfer progress {
   width: 100%;

@@ -118,9 +118,7 @@
   border: 1px solid var(--sm-line);
   border-radius: 16px;
   background: var(--sm-paper);
-  box-shadow:
-    0 4px 10px light-dark(#20253909, #00000022),
-    0 18px 48px light-dark(#20253924, #00000066);
+  box-shadow: var(--sm-shadow-popover);
 }
 .popover h3 {
   font-size: 13px;
@@ -179,7 +177,7 @@
   border-radius: 7px;
   color: var(--sm-ink);
   background: var(--sm-paper);
-  box-shadow: 0 6px 20px light-dark(#20253918, #00000055);
+  box-shadow: var(--sm-shadow-tooltip);
   font-size: 11px;
 }
 @media (max-width: 740px) {

@@ -1,13 +1,6 @@
+@import "./theme/base.css";
+
 :root {
-  color-scheme: light dark;
-  --sm-paper: light-dark(#ffffff, #1d2029);
-  --sm-ground: light-dark(#f5f6fa, #171922);
-  --sm-ink: light-dark(#202539, #e8eaf2);
-  --sm-soft: light-dark(#747b8e, #a2a9bc);
-  --sm-line: light-dark(#e5e7ee, #343949);
-  --sm-accent: light-dark(#5551da, #b4b0ff);
-  --sm-active: light-dark(#eeedff, #32304c);
-  --sm-on: light-dark(#ffffff, #23203e);
   font-family:
     "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
   font-size: 14px;
@@ -16,13 +9,6 @@
   background: var(--sm-ground);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
-}
-/* 显式声明手动外观，构建时才能为 light-dark() 生成对应的兼容样式。 */
-:root[data-appearance="light"] {
-  color-scheme: light;
-}
-:root[data-appearance="dark"] {
-  color-scheme: dark;
 }
 * {
   box-sizing: border-box;
@@ -37,6 +23,12 @@ textarea,
 select {
   font: inherit;
   color: inherit;
+}
+/* 示例与输入提示共用浅色，用户实际填写的内容继续使用正常文字颜色。 */
+input::placeholder,
+textarea::placeholder {
+  color: var(--sm-placeholder);
+  opacity: 1;
 }
 button {
   border: 0;

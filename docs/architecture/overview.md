@@ -99,6 +99,7 @@ Codex 的 app-server 接口与跨协议公共接口见 [005 设计](../features/
 - `apps/server/src/solvemate_server/` 提供官方内容 API 和发布工具，源文件白名单位于 `data/catalog.json`，接口通过 OpenAPI 共享；个人记录不进入此服务。
 
 - `apps/web/src/components/` 实现阅读、对话、笔记、机器人、导航、设置和学习统计展示，样式使用 CSS Modules。
+- `apps/web/src/theme/` 集中定义界面颜色、默认日间与夜间配色，以及主题校验和应用函数。组件引用公共变量；可配置范围和后续接入约定见 [009 主题配色](../features/009-theme-configuration/design.md)。
 - `apps/web/src/data/` 直接导入仓库现有的教材、题库和课程记忆，提供内容查找、示例记录及数据校验。
 - `apps/web/src/content/` 负责内容 API、ZIP 校验与独立 `solvemate-content` 数据库；版本记录和当前指针通过同一事务提交，历史版本保留。
 - `apps/web/src/storage/` 提供本地存储接口和 Dexie 实现。状态保存在一个事务内；读取错误时保留原数据，多个页面同时修改时通过记录版本检查拒绝旧值覆盖新值。
@@ -184,6 +185,7 @@ KaTeX 修复[继承配置绕过](https://github.com/advisories/GHSA-238p-pmpm-9m
 | [004 Hermes 接入](../features/004-hermes-harness-adapter/spec.md)                    | AI 管理中的多服务配置、ACP 差异适配、检测复用与切换确认                                                                                                       | 已完成 macOS 真实调用，Windows 实机验收待补              |
 | [005 Codex 接入](../features/005-codex-harness-adapter/spec.md)                      | AI 管理中的 app-server 接入、跨协议操作与事件转换、流式正文及原生执行编号                                                                                     | 已完成 macOS 真实调用，Windows 实机验收待补              |
 | [006 AI 配置与对话元数据](../features/006-ai-conversation-metadata/spec.md) | AI 管理中的配置、对话与执行记录；数据管理中的共享校验、事务与旧数据迁移 | 已实现并验证，Windows 实机验收待补 |
+| [009 主题配色集中管理](../features/009-theme-configuration/spec.md) | 各页面共用的颜色定义、默认主题、日间与夜间模式，以及主题配置校验 | 已实现默认主题与配置函数；主题选择、导入和保存尚未开放 |
 
 例如，“针对选段提问”需要资料阅读提供内容选择、数据管理读取引用内容、AI 管理组织提问并接收回复。这类特性应统一说明跨模块协作和验收条件；该例用于说明关系，尚未分配新特性编号或确定开发范围。
 

@@ -151,8 +151,8 @@
   padding: clamp(22px, 3vw, 44px);
   border: 1px solid var(--sm-line);
   border-radius: 8px;
-  background: var(--sm-paper);
-  box-shadow: 0 3px 16px light-dark(#2025390b, #00000024);
+  background: var(--sm-note-paper);
+  box-shadow: 0 3px 16px var(--sm-shadow-soft-color);
   overflow-wrap: anywhere;
 }
 .noteHeading {
@@ -193,7 +193,7 @@
   text-decoration: underline;
 }
 .footer [role="alert"] {
-  color: light-dark(#b43c4d, #f49aa6);
+  color: var(--sm-danger);
 }
 .loading {
   min-height: 100dvh;

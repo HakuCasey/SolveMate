@@ -1,0 +1,17 @@
+:root {
+  color-scheme: light dark;
+  /* 原始图片及 PDF 的白底不随界面主题重着色。 */
+  --sm-original-paper: #ffffff;
+  --sm-shadow-popover:
+    0 4px 10px var(--sm-shadow-soft-color), 0 18px 48px var(--sm-shadow-color);
+  --sm-shadow-menu: 0 8px 32px var(--sm-shadow-color);
+  --sm-shadow-dialog: 0 16px 60px var(--sm-shadow-color);
+  --sm-shadow-tooltip: 0 6px 20px var(--sm-shadow-color);
+  --sm-shadow-feedback: 0 6px 24px var(--sm-shadow-color);
+}
+:root[data-appearance="light"] {
+  color-scheme: light;
+}
+:root[data-appearance="dark"] {
+  color-scheme: dark;
+}

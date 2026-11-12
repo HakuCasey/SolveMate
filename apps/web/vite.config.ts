@@ -1,4 +1,5 @@
 import { defineConfig } from "vite";
+import { defaultTheme } from "./src/theme/default";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 
@@ -34,8 +35,8 @@ export default defineConfig({
         start_url: "/",
         scope: "/",
         display: "standalone",
-        theme_color: "#5551da",
-        background_color: "#f5f6fa",
+        theme_color: defaultTheme.colors.light.accent,
+        background_color: defaultTheme.colors.light.background,
         icons: [
           {
             src: "icon-192.png",

@@ -18,14 +18,14 @@
   border-radius: 12px;
   background: var(--sm-paper);
   color: var(--sm-ink);
-  box-shadow: 0 6px 24px rgb(0 0 0 / 14%);
+  box-shadow: var(--sm-shadow-feedback);
   pointer-events: auto;
   animation: appear 140ms ease-out;
 }
 .check {
   width: 20px;
   height: 20px;
-  color: light-dark(#248151, #8bd3a8);
+  color: var(--sm-success);
 }
 .notice button {
   display: grid;

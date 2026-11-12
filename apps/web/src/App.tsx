@@ -46,6 +46,7 @@ import {
 } from "./components/ConversationSwitchDialog";
 import { RobotsPage } from "./components/RobotsPage";
 import { PwaControls } from "./components/PwaControls";
+import { applyTheme } from "./theme/theme";
 import styles from "./App.module.css";
 import { clientRuntime } from "./version";
 import { useSaveFeedback } from "./components/SaveFeedback";
@@ -127,12 +128,10 @@ function Workspace({ content }: { content: OfficialContent }) {
   }, [restoreConversationId, pendingAiIds, restoreAiConversation]);
   const [noteId, setNoteId] = useState(sampleNotes[0].id);
 
+  const appearance = data?.settings.appearance;
   useEffect(() => {
-    if (data) {
-      document.documentElement.dataset.appearance = data.settings.appearance;
-      document.documentElement.style.colorScheme = data.settings.appearance;
-    }
-  }, [data]);
+    if (appearance) applyTheme(appearance);
+  }, [appearance]);
 
   function updateData(change: (previous: AppData) => AppData) {
     setData((previous) => (previous ? change(previous) : previous));

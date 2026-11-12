@@ -219,7 +219,7 @@
   color: var(--sm-ink);
   border: 1px solid var(--sm-line);
   border-radius: 12px;
-  box-shadow: 0 8px 32px light-dark(#20253922, #00000066);
+  box-shadow: var(--sm-shadow-menu);
   z-index: 70;
 }
 .menu {
@@ -245,7 +245,7 @@
   background: var(--sm-line);
 }
 .delete {
-  color: light-dark(#b43c4d, #f49aa6);
+  color: var(--sm-danger);
 }
 .popover {
   width: 220px;
@@ -340,7 +340,7 @@
 }
 .renameForm p {
   margin: 10px 0 0;
-  color: light-dark(#b43c4d, #f49aa6);
+  color: var(--sm-danger);
 }
 .renameActions {
   display: flex;

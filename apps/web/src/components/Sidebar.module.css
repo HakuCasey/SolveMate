@@ -49,7 +49,7 @@
   position: relative;
   overflow: hidden;
   border-radius: 8px;
-  background: #fff;
+  background: var(--sm-original-paper);
 }
 .avatarImage {
   width: 100%;
@@ -171,9 +171,7 @@
   border: 1px solid var(--sm-line);
   border-radius: 16px;
   background: var(--sm-paper);
-  box-shadow:
-    0 4px 10px light-dark(#20253909, #00000022),
-    0 18px 48px light-dark(#20253924, #00000066);
+  box-shadow: var(--sm-shadow-popover);
   max-width: calc(100vw - 24px);
   animation: bubbleIn 140ms ease-out;
 }

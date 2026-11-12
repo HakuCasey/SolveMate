@@ -1,7 +1,7 @@
 .overlay {
   position: fixed;
   inset: 0;
-  background: rgb(0 0 0 / 40%);
+  background: var(--sm-overlay);
   z-index: 100;
 }
 .dialog {
@@ -15,7 +15,7 @@
   background: var(--sm-paper);
   color: var(--sm-ink);
   border: 1px solid var(--sm-line);
-  box-shadow: 0 16px 60px rgb(0 0 0 / 22%);
+  box-shadow: var(--sm-shadow-dialog);
   z-index: 101;
 }
 .dialog h2 {
