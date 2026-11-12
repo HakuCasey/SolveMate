@@ -10,11 +10,14 @@ import pytest
 from solvemate_local import processes
 
 
-def test_managed_process_can_be_stopped_on_the_current_system(tmp_path):
+@pytest.mark.parametrize("newline", [None, "\n", "\r\n"])
+def test_managed_process_can_be_stopped_on_the_current_system(tmp_path, newline):
     async def exercise():
         script = tmp_path / "中文 path.py"
         script.write_text(
-            "import sys, time\nsys.stdout.write('ready\\n')\n"
+            "import sys, time\n"
+            f"sys.stdout.reconfigure(newline={newline!r})\n"
+            "sys.stdout.write('ready\\n')\n"
             "sys.stdout.flush()\ntime.sleep(60)\n",
             encoding="utf-8",
         )
@@ -25,7 +28,8 @@ def test_managed_process_can_be_stopped_on_the_current_system(tmp_path):
             **processes.process_options(),
         )
         try:
-            assert await asyncio.wait_for(child.stdout.readline(), 5) == b"ready\n"
+            ready = await asyncio.wait_for(child.stdout.readline(), 5)
+            assert ready.rstrip(b"\r\n") == b"ready"
             await asyncio.wait_for(
                 processes.stop_process_tree(child, signal.SIGTERM), 5
             )
