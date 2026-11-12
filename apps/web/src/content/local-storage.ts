@@ -23,7 +23,7 @@ import {
 export class LocalContentStorage {
   async load() {
     await ensureUserStorage();
-    let records: SavedCourse[], heads: CourseHead[];
+    let records: SavedCourse[], heads: CourseHead[], missingHeads: CourseHead[];
     try {
       const result = (await (await localRequest("/content")).json()) as {
         versions: (Omit<SavedCourse, "archive"> & { available?: boolean })[];
@@ -95,13 +95,16 @@ export class LocalContentStorage {
             item.courseId === head.courseId && item.version === head.version,
         ),
       );
+      missingHeads = result.heads.filter(
+        (head) => !heads.some((item) => item.courseId === head.courseId),
+      );
       dataRefresh.reportIssue(
         "content",
         missing.length
           ? `${[...new Set(missing)].join("、")}的课程文件缺失或无法读取，请恢复文件或重新下载；已有缓存仍保留。`
           : "",
       );
-      await remember("content", { records, heads });
+      await remember("content", { records, heads, missingHeads });
     } catch (error) {
       if (
         !(error instanceof LocalServiceError) ||
@@ -111,12 +114,14 @@ export class LocalContentStorage {
       const cached = await userCache.get<{
         records: SavedCourse[];
         heads: CourseHead[];
+        missingHeads?: CourseHead[];
       }>("content");
       if (!cached) {
         // 初次迁移尚未连接服务时，允许只读原来的课程缓存。
         return new ContentStorage().load();
       }
       ({ records, heads } = cached);
+      missingHeads = cached.missingHeads ?? [];
     }
     const installed = await Promise.all(
       records.map(async (item) => ({
@@ -124,7 +129,7 @@ export class LocalContentStorage {
         course: await readPackage(item.manifest, item.archive),
       })),
     );
-    return makeSnapshot(installed, heads);
+    return makeSnapshot(installed, heads, missingHeads);
   }
   async install(
     manifest: ReleaseManifest,

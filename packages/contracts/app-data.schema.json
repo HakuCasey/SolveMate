@@ -43,6 +43,10 @@
         "appearance": {
           "enum": ["light", "dark"]
         },
+        "themeId": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9_-]{0,99}$"
+        },
         "globalModel": {
           "type": "string"
         },
@@ -158,6 +162,19 @@
                   "minLength": 1
                 },
                 "uniqueItems": true
+              },
+              "source": {
+                "anyOf": [
+                  {
+                    "$ref": "urn:solvemate:ai-metadata:3#/$defs/ReadingSelection"
+                  },
+                  {
+                    "$ref": "urn:solvemate:ai-metadata:3#/$defs/MaterialLocation"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               }
             },
             "required": [
@@ -261,6 +278,43 @@
       "additionalProperties": {
         "type": "string",
         "maxLength": 10000
+      }
+    },
+    "officialMaterials": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          },
+          "subjectId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "deletedAt": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": ["id", "subjectId", "deletedAt"],
+        "additionalProperties": false
       }
     }
   },

@@ -1,5 +1,11 @@
 import { ResourceUnavailable } from "../refresh/ResourceUnavailable";
-import { useId, useRef, type Dispatch, type SetStateAction } from "react";
+import {
+  useId,
+  useRef,
+  type Dispatch,
+  type SetStateAction,
+  type ReactNode,
+} from "react";
 import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
 import type {
   Course,
@@ -15,8 +21,10 @@ import { Markdown } from "./Markdown";
 import styles from "./Reader.module.css";
 
 interface ReaderProps {
+  relatedContent?: ReactNode;
   availableCourses: Course[];
   historical?: boolean;
+  removed?: boolean;
   selection: ReadingSelection;
   fontSize: number;
   onChange: (selection: ReadingSelection) => void;
@@ -124,10 +132,12 @@ function AvailableReader({
   onChange,
   availableCourses,
   historical,
+  removed,
   onBack,
   position,
   onAddReference,
   onPositionChange,
+  relatedContent,
 }: ReaderProps) {
   const course = getCourse(
     selection.courseId,
@@ -163,8 +173,12 @@ function AvailableReader({
       aria-label={isTextbook ? "学习资料阅读栏" : "题目阅读栏"}
     >
       <header className={styles.toolbar}>
-        {historical && (
-          <span className={styles.historyNote}>正在阅读历史版本</span>
+        {(historical || removed) && (
+          <span className={styles.historyNote}>
+            {removed
+              ? "该资料已从资料库删除，当前显示历史内容。"
+              : "正在阅读历史版本"}
+          </span>
         )}
         <button
           type="button"
@@ -202,6 +216,7 @@ function AvailableReader({
             </select>
           </>
         )}
+        {relatedContent}
       </header>
       {/* 按内容重建正文，显示状态和滚动位置由应用层的同一份阅读记录恢复。 */}
       <ReadingBody

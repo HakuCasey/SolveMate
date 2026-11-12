@@ -1,0 +1,132 @@
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  margin-left: auto;
+  padding: 7px 9px;
+  border-radius: 8px;
+  color: var(--sm-accent);
+  font-size: 12px;
+}
+.trigger:hover,
+.trigger[data-state="open"] {
+  background: var(--sm-active);
+}
+.trigger span {
+  color: var(--sm-soft);
+  font-size: 11px;
+}
+.trigger svg,
+.popover svg {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+.popover {
+  z-index: 65;
+  width: min(360px, calc(100vw - 24px));
+  max-height: min(520px, calc(100dvh - 32px));
+  overflow: auto;
+  padding: 16px;
+  border: 1px solid var(--sm-line);
+  border-radius: 16px;
+  background: var(--sm-paper);
+  color: var(--sm-ink);
+  box-shadow: var(--sm-shadow-popover);
+  font-size: 13px;
+}
+.heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.heading strong {
+  display: block;
+  font-weight: 600;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.heading button {
+  padding: 4px;
+  border-radius: 5px;
+  color: var(--sm-soft);
+}
+.tabs {
+  display: flex;
+  gap: 6px;
+  margin: 16px 0 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--sm-line);
+}
+.tabs button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  border-radius: 7px;
+  color: var(--sm-soft);
+}
+.tabs button[aria-pressed="true"] {
+  color: var(--sm-accent);
+  background: var(--sm-active);
+}
+.entries {
+  max-height: 280px;
+  overflow: auto;
+}
+.entry {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 8px;
+  border-radius: 8px;
+  text-align: left;
+}
+.entry:hover {
+  background: var(--sm-ground);
+}
+.entry > svg {
+  margin-top: 2px;
+  color: var(--sm-soft);
+}
+.entry span {
+  min-width: 0;
+}
+.entry strong {
+  display: block;
+  font-weight: 500;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.entry small {
+  display: block;
+  margin-top: 4px;
+  color: var(--sm-soft);
+  font-size: 11px;
+}
+.empty {
+  margin: 0;
+  padding: 28px 8px;
+  text-align: center;
+  color: var(--sm-soft);
+}
+.create {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  margin-top: 10px;
+  padding: 9px;
+  border: 1px solid var(--sm-line);
+  border-radius: 8px;
+  color: var(--sm-accent);
+}
+.popover button:focus-visible,
+.trigger:focus-visible {
+  outline: 2px solid var(--sm-accent);
+  outline-offset: 2px;
+}

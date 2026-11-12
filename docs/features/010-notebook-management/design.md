@@ -4,12 +4,12 @@
 
 `AppData.noteLibrary` 保存笔记本、笔记和自定义标签，通过统一个人记录接口保存到 `user/app.sqlite3`，浏览器保存缓存。共享类型位于 `packages/contracts/src/index.ts`，校验及变更规则集中在 `state/notes.ts`，页面通过已有 `saveChanges` 提交。
 
-| 对象 | 关键字段与关联 |
-| --- | --- |
-| `Notebook` | `id`、`title`、`revision`；固定编号 `notebook-unclassified` 表示“未分类” |
-| `Note` | `id`、`notebookId`、`title`、`content`、`tagIds`、`revision`；保留现有 `courseId`、`questionId` 和旧 `summary`，列表不使用旧摘要 |
-| `NoteTag` | 自定义标签的 `id` 与 `title`，统一保存于 `customTags`，笔记通过编号引用 |
-| 学科标签 | 编号为 `subject:<学科编号>`，名称实时来自同一学科目录；不重复存储学科名称。固定“未分类”标签为 `subject:unclassified` |
+| 对象       | 关键字段与关联                                                                                                                                                   |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Notebook` | `id`、`title`、`revision`；固定编号 `notebook-unclassified` 表示“未分类”                                                                                         |
+| `Note`     | `id`、`notebookId`、`title`、`content`、`tagIds`、`revision`；可选 `source` 记录固定资料位置；保留现有 `courseId`、`questionId` 和旧 `summary`，列表不使用旧摘要 |
+| `NoteTag`  | 自定义标签的 `id` 与 `title`，统一保存于 `customTags`，笔记通过编号引用                                                                                          |
+| 学科标签   | 编号为 `subject:<学科编号>`，名称实时来自同一学科目录；不重复存储学科名称。固定“未分类”标签为 `subject:unclassified`                                             |
 
 学科标签与自定义标签各自保留身份。删除学科后，已有标签通过保留的学科记录显示原名称，新选择只列出有效学科和该笔记已应用的标签。创建同名标签复用当前已有项，不复制定义。
 
@@ -32,3 +32,5 @@
 2026-11-12：194 项网页测试、19 项脚本测试、类型检查、ESLint、格式检查及构建通过。笔记专项验证初始化不重复、改名及修订冲突、两种笔记本删除选择、标签引用、无效关联、首行预览和本地重新打开；正文预览保留 C 语言标识符中的下划线和指针符号。
 
 独立浏览器页面验证笔记本与笔记改名、添加及复用自定义标签、学科改名同步、删除确认与取消、保留笔记转至未分类、删除全部、删除最后一篇及刷新后的空状态。日间和夜间窗口均已检查。验证未修改用户正式记录，也未调用模型；Windows 浏览器的实际操作尚未验证。
+
+正文创建、编辑与来源兼容规则见 [015](../015-material-learning-relations/design.md)。

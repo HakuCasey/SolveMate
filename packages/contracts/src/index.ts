@@ -19,6 +19,7 @@ export interface Chapter {
 export interface Textbook {
   id: string;
   title: string;
+  description?: string;
   chapters: Chapter[];
 }
 
@@ -62,6 +63,13 @@ export interface Subject {
   deleted: boolean;
   /** 同时移除上传资料条目；缺少此字段的旧记录仍按仅删除分类处理。 */
   materialsDeleted?: boolean;
+}
+
+/** 官方来源编号保持不变；本地归属和删除状态与版本文件分开保存。 */
+export interface OfficialMaterialMetadata {
+  id: string;
+  subjectId: CourseId | null;
+  deletedAt: number | null;
 }
 
 export type * from "./ai-metadata.generated";
@@ -110,6 +118,9 @@ export interface Notebook {
   revision: number;
 }
 
+/** 固定资料版本及其阅读位置，供对话引用和笔记来源复用。 */
+export type LearningLocation = ReadingSelection | MaterialLocation;
+
 export interface Note {
   id: string;
   notebookId: string;
@@ -120,6 +131,7 @@ export interface Note {
   content: string;
   revision: number;
   tagIds: string[];
+  source?: LearningLocation | null;
 }
 
 export interface NoteTag {
@@ -136,6 +148,7 @@ export interface NoteLibrary {
 export interface Settings {
   fontSize: number;
   appearance: "light" | "dark";
+  themeId?: string;
   globalModel: string;
   readingPaneRatio?: number;
 }
@@ -150,6 +163,7 @@ export interface AppData {
   selection: ReadingSelection;
   materialSelection?: MaterialLocation | null;
   subjects?: Subject[];
+  officialMaterials?: OfficialMaterialMetadata[];
   noteLibrary?: NoteLibrary;
   readingProgress?: ReadingProgress;
   drafts?: Record<string, string>;

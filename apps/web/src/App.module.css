@@ -147,6 +147,32 @@
 .footer [role="alert"] {
   color: var(--sm-danger);
 }
+.noteActions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+.noteActions button,
+.noteSource button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid var(--sm-line);
+  border-radius: 7px;
+  color: var(--sm-accent);
+  font-size: 12px;
+  background: var(--sm-paper);
+}
+.noteActions svg {
+  width: 14px;
+  height: 14px;
+}
+.noteActions button:focus-visible,
+.noteSource button:focus-visible {
+  outline: 2px solid var(--sm-accent);
+  outline-offset: 2px;
+}
 .loading {
   min-height: 100dvh;
   padding: 48px;

@@ -10,10 +10,12 @@ export interface FormDraft {
 
 /** 表单草稿独立于正式查询结果；组件因记录删除而卸载时，草稿仍可查看和导出。 */
 export class FormDraftStore {
-  private state: { items: FormDraft[]; error: string } = {
+  private state: { items: FormDraft[]; error: string; activeCount: number } = {
     items: [],
+    activeCount: 0,
     error: "",
   };
+  private active = new Set<string>();
   private listeners = new Set<() => void>();
   private writes = new Map<string, Promise<unknown>>();
   private changed = new Set<string>();
@@ -25,13 +27,18 @@ export class FormDraftStore {
     };
   };
   private publish(items: FormDraft[], error = this.state.error) {
-    this.state = { items, error };
+    this.state = { items, error, activeCount: this.active.size };
     for (const callback of this.listeners) callback();
   }
   remember(draft: FormDraft) {
     this.changed.add(draft.id);
+    const activated = !this.active.has(draft.id);
+    this.active.add(draft.id);
     const previous = this.state.items.find((item) => item.id === draft.id);
-    if (JSON.stringify(previous?.value) === JSON.stringify(draft.value)) return;
+    if (JSON.stringify(previous?.value) === JSON.stringify(draft.value)) {
+      if (activated) this.publish(this.state.items);
+      return;
+    }
     this.publish([
       draft,
       ...this.state.items.filter((item) => item.id !== draft.id),
@@ -40,8 +47,12 @@ export class FormDraftStore {
   }
   clear = (id: string) => {
     this.changed.add(id);
+    this.active.delete(id);
     this.publish(this.state.items.filter((item) => item.id !== id));
     this.write(id, () => userCache.records.delete(`form-draft:${id}`));
+  };
+  deactivate = (id: string) => {
+    if (this.active.delete(id)) this.publish(this.state.items);
   };
   private write(id: string, action: () => Promise<unknown>) {
     const task = (this.writes.get(id) ?? Promise.resolve())
@@ -91,6 +102,7 @@ export function useDraftBackup(
 ) {
   const token = useMemo(() => `${id}:${crypto.randomUUID()}`, [id]);
   const previous = useRef({ token, dirty: false });
+  useEffect(() => () => formDrafts.deactivate(token), [token]);
   const serialized = JSON.stringify(value);
   const valueRef = useRef(value);
   valueRef.current = value;

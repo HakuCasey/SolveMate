@@ -1,6 +1,12 @@
 import { ResourceUnavailable } from "../refresh/ResourceUnavailable";
 import { dataRefresh } from "../refresh/coordinator";
-import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
+import {
+  useEffect,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+  type ReactNode,
+} from "react";
 import {
   ArrowLeft,
   ChevronLeft,
@@ -27,7 +33,9 @@ export function MaterialReader({
   zoom,
   onZoomChange,
   onAddReference,
+  relatedContent,
 }: {
+  relatedContent?: ReactNode;
   onAddReference: (reference: ReadingReference) => void;
   library: PersonalMaterials;
   location: MaterialLocation | null;
@@ -77,6 +85,7 @@ export function MaterialReader({
         <span className={styles.documentTitle}>
           {selected?.title ?? "资料不可用"}
         </span>
+        {relatedContent}
       </header>
       {!selected ? (
         <ResourceUnavailable

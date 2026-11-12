@@ -10,6 +10,7 @@ export interface SavedCourse {
   manifest: ReleaseManifest;
   archive: Uint8Array;
   installedAt: number;
+  available?: boolean;
 }
 export interface InstalledCourse extends SavedCourse {
   course: Course;
@@ -23,11 +24,13 @@ export interface ContentSnapshot {
   heads: CourseHead[];
   activeCourses: Course[];
   allCourses: Course[];
+  missingHeads: CourseHead[];
 }
 
 export function makeSnapshot(
   installed: InstalledCourse[] = [],
   heads: CourseHead[] = [],
+  missingHeads: CourseHead[] = [],
 ): ContentSnapshot {
   const downloaded = heads.map((head) => {
     const record = installed.find(
@@ -58,7 +61,16 @@ export function makeSnapshot(
     )
       allCourses.push(course);
   }
-  return { installed, heads, activeCourses, allCourses };
+  return { installed, heads, activeCourses, allCourses, missingHeads };
+}
+
+/** 缺失文件仍保留服务端版本指针，用于安全地重新下载同一版本。 */
+export function storedVersion(snapshot: ContentSnapshot, courseId: string) {
+  return (
+    [...snapshot.heads, ...snapshot.missingHeads].find(
+      (head) => head.courseId === courseId,
+    )?.version ?? null
+  );
 }
 
 export class CourseDatabase extends Dexie {

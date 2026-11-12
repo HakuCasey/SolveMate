@@ -1,3 +1,4 @@
+import { dataRefresh } from "./refresh/coordinator";
 import {
   lazy,
   Suspense,
@@ -6,7 +7,11 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
+import { OfficialLibrary } from "./content/library";
+import { OfficialLibraryService } from "./content/library-service";
+import { officialEntryId } from "./content/entries";
 import { NotebookPen, RefreshCw } from "lucide-react";
 import { conversationMetadata } from "@solvemate/contracts";
 import type {
@@ -18,8 +23,20 @@ import type {
   Robot,
   MaterialLocation,
   ReadingReference,
+  LearningLocation,
+  Note,
 } from "@solvemate/contracts";
-import { applyNoteAction, noteTags } from "./state/notes";
+import { applyNoteAction, noteTags, createNote, editNote } from "./state/notes";
+import {
+  LearningRelations,
+  LearningMaterial,
+  sourceForNote,
+} from "./reading/relations";
+import { RelatedLearning } from "./components/RelatedLearning";
+import {
+  NoteEditorDialog,
+  type NoteEditorTarget,
+} from "./components/NoteEditorDialog";
 import { isRobotModified } from "./state/robots";
 import {
   resolveConversationAi,
@@ -33,7 +50,6 @@ import {
   useOfficialContent,
   type OfficialContent,
 } from "./content/useOfficialContent";
-import { updatedSelection } from "./content/selection";
 import { ContentManager } from "./components/ContentManager";
 import { useLocalData } from "./storage/useLocalData";
 import {
@@ -53,7 +69,6 @@ import { SubjectDialog, type SubjectAction } from "./components/SubjectDialog";
 import {
   addSubject,
   renameSubject,
-  removeSubject,
   createSubjectDirectory,
 } from "./state/subjects";
 import { SubjectContentList } from "./components/SubjectContentList";
@@ -99,7 +114,7 @@ import {
   clearReloadCheckpoint,
 } from "./pwa/reload-checkpoint";
 import { RefreshControls } from "./refresh/RefreshControls";
-import { useDraftBackup } from "./refresh/drafts";
+import { useDraftBackup, formDrafts } from "./refresh/drafts";
 import { useSaveFeedback } from "./components/SaveFeedback";
 import {
   UserStorageGate,
@@ -156,6 +171,7 @@ function Workspace({ content }: { content: OfficialContent }) {
     rememberLocation,
     restoreProgress,
   } = useReadingState(reloadCheckpoint.value?.reading);
+  const { readSnapshot, reloadLocal, install } = content;
   const sourceCourses = content.snapshot.activeCourses;
   const sourceAvailableCourses = content.snapshot.allCourses;
   const {
@@ -175,6 +191,66 @@ function Workspace({ content }: { content: OfficialContent }) {
     resolveConflict,
   } = useLocalData(sourceAvailableCourses);
   const checkpointRestored = useRef(false);
+  const officialSaveState = useRef(readSaveState);
+  officialSaveState.current = readSaveState;
+  const officialCatalog = useRef({
+    remote: content.remote,
+    updates: content.updates,
+  });
+  officialCatalog.current = {
+    remote: content.remote,
+    updates: content.updates,
+  };
+  const readOfficialLibrary = useCallback(
+    () =>
+      new OfficialLibrary(
+        readSnapshot(),
+        readData() ?? {},
+        officialCatalog.current.remote,
+        officialCatalog.current.updates,
+      ),
+    [readSnapshot, readData],
+  );
+  const officialService = useMemo(
+    () =>
+      new OfficialLibraryService({
+        read: readOfficialLibrary,
+        refresh: async () => {
+          if (!(await dataRefresh.refresh(["records", "content"], true)))
+            throw new Error("未能读取最新资料状态，请确认本机服务可用后重试。");
+          if (officialSaveState.current() === "error")
+            throw new Error("本机记录存在未保存修改，请先处理保存状态。");
+        },
+        load: reloadLocal,
+        install,
+        save: saveChanges,
+      }),
+    [readOfficialLibrary, reloadLocal, install, saveChanges],
+  );
+  const officialOperation = useSyncExternalStore(
+    officialService.subscribe,
+    officialService.snapshot,
+    officialService.snapshot,
+  );
+  const officialLibrary = useMemo(
+    () =>
+      new OfficialLibrary(
+        content.snapshot,
+        {
+          subjects: data?.subjects,
+          officialMaterials: data?.officialMaterials,
+        },
+        content.remote,
+        content.updates,
+      ),
+    [
+      content.snapshot,
+      data?.subjects,
+      data?.officialMaterials,
+      content.remote,
+      content.updates,
+    ],
+  );
   const progressRestored = useRef(false);
   useEffect(() => {
     if (!data || progressRestored.current) return;
@@ -224,10 +300,7 @@ function Workspace({ content }: { content: OfficialContent }) {
       checkpointRestored.current = true;
     }
   }, [data, reloadCheckpoint]);
-  const subjectDirectory = useMemo(
-    () => createSubjectDirectory(sourceCourses, data?.subjects),
-    [sourceCourses, data?.subjects],
-  );
+  const subjectDirectory = officialLibrary.directory;
   const subjects = subjectDirectory.active;
   const courses = useMemo(
     () =>
@@ -251,6 +324,28 @@ function Workspace({ content }: { content: OfficialContent }) {
     return createSubjectDirectory(sourceCourses, current.subjects);
   }, [sourceCourses, readData]);
   const materials = useMaterials(readSubjects);
+  const relationConversations = data?.conversations;
+  const relationNotes = data?.noteLibrary;
+  const relations = useMemo(
+    () =>
+      new LearningRelations(
+        {
+          conversations: relationConversations ?? [],
+          noteLibrary: relationNotes,
+        },
+        sourceAvailableCourses,
+        materials.items,
+        officialLibrary,
+      ),
+    [
+      relationConversations,
+      relationNotes,
+      sourceAvailableCourses,
+      materials.items,
+      officialLibrary,
+    ],
+  );
+  const [noteEditor, setNoteEditor] = useState<NoteEditorTarget | null>(null);
   const [subjectAction, setSubjectAction] = useState<SubjectAction | null>(
     null,
   );
@@ -424,12 +519,34 @@ function Workspace({ content }: { content: OfficialContent }) {
   const note =
     noteLibrary.notes.find((item) => item.id === noteId) ??
     noteLibrary.notes[0];
-  const noteCourse = availableCourses.find(
-    (item) => item.id === note?.courseId,
-  );
-  const noteQuestion = noteCourse?.questions.find(
-    (item) => item.id === note?.questionId,
-  );
+  const noteSource = note ? sourceForNote(note) : null;
+  const noteMaterial = noteSource ? relations.material(noteSource) : null;
+  const editorMaterial = noteEditor?.source
+    ? relations.material(noteEditor.source)
+    : null;
+  function openNote(item: Note) {
+    setNoteId(item.id);
+    setView("notes");
+  }
+  function startNote(source: LearningLocation) {
+    setNoteEditor({
+      id: `note-${crypto.randomUUID()}`,
+      source: structuredClone(source),
+    });
+  }
+  function relatedContent(source: LearningLocation) {
+    return (
+      <RelatedLearning
+        source={source}
+        relations={relations}
+        onConversation={(item) =>
+          openConversation(item, item.status === "active")
+        }
+        onNote={openNote}
+        onCreateNote={startNote}
+      />
+    );
+  }
   // 阅读位置与会话关联分别保存，普通对话不能继承后台停留的题目。
   const chatSelection =
     view === "materials" || view === "library"
@@ -468,6 +585,8 @@ function Workspace({ content }: { content: OfficialContent }) {
       )
     )
       throw new Error("机器人配置尚未保存，请先保存或取消修改，再更新应用。");
+    if (formDrafts.snapshot().activeCount > 0)
+      throw new Error("表单内容尚未保存，请先保存或取消修改，再更新应用。");
     saveReloadCheckpoint({
       schemaVersion: 1,
       conversationId: currentConversation?.id ?? null,
@@ -551,10 +670,28 @@ function Workspace({ content }: { content: OfficialContent }) {
     showSaved("学科名称已保存");
   }
   async function deleteSubject(id: string) {
-    await saveChanges((previous) => removeSubject(previous, sourceCourses, id));
+    await officialService.removeSubject(id);
     if (libraryScope.courseId === id)
       setLibraryScope({ courseId: null, kind: "textbooks" });
     showSaved("学科已删除");
+  }
+  async function deleteOfficial(id: string) {
+    await officialService.remove(id);
+    showSaved("资料已删除");
+  }
+  async function readOfficial(
+    id: string,
+    previous?: ReadingSelection,
+    requireDownload = false,
+  ) {
+    try {
+      const target = await officialService.read(id, previous, requireDownload);
+      selectContent(restoreReadingLocation(readingState, target));
+    } catch (error) {
+      setCommandError(
+        error instanceof Error ? error.message : "无法打开资料，请刷新后重试。",
+      );
+    }
   }
 
   function selectCourse(
@@ -573,9 +710,11 @@ function Workspace({ content }: { content: OfficialContent }) {
             materials.items,
             subjectDirectory,
           )
-        : subjects.some((item) => item.id === selection.courseId)
-          ? { courseId: selection.courseId, kind: selection.kind }
-          : { courseId: null, kind: "textbooks" as const };
+        : officialLibrary.scopeForSelection(selection);
+    if (!scope) {
+      setView("content");
+      return;
+    }
     setLibraryScope(scope);
     setView("library");
   }
@@ -584,7 +723,7 @@ function Workspace({ content }: { content: OfficialContent }) {
     view === "library"
       ? libraryScope
       : view === "reading"
-        ? { courseId: selection.courseId, kind: selection.kind }
+        ? officialLibrary.scopeForSelection(selection)
         : view === "materials" && data.materialSelection
           ? scopeForMaterial(
               data.materialSelection,
@@ -1003,6 +1142,7 @@ function Workspace({ content }: { content: OfficialContent }) {
               <Reader
                 key={`reader:${selection.courseId}:${selection.version}:${selection.kind}:${selection.itemId}:${selection.chapterIndex}`}
                 availableCourses={availableCourses}
+                removed={!officialLibrary.scopeForSelection(selection)}
                 historical={
                   courses.find((course) => course.id === selection.courseId)
                     ?.version !== selection.version
@@ -1014,6 +1154,7 @@ function Workspace({ content }: { content: OfficialContent }) {
                 position={readingPosition}
                 onAddReference={addReference}
                 onPositionChange={setReadingPosition}
+                relatedContent={relatedContent(selection)}
               />
             )}
             {view === "materials" && (
@@ -1028,6 +1169,11 @@ function Workspace({ content }: { content: OfficialContent }) {
                   onPositionChange={setReadingPosition}
                   zoom={readingState.documents[documentKey]?.zoom ?? 1}
                   onZoomChange={setReadingZoom}
+                  relatedContent={
+                    data.materialSelection
+                      ? relatedContent(data.materialSelection)
+                      : undefined
+                  }
                 />
               </Suspense>
             )}
@@ -1039,12 +1185,13 @@ function Workspace({ content }: { content: OfficialContent }) {
                 onUploaded={(courseId) =>
                   setLibraryScope({ courseId, kind: "textbooks" })
                 }
-                courses={courses}
+                official={officialLibrary}
+                onRemoveOfficial={deleteOfficial}
                 library={materials}
                 selection={selection}
                 materialSelection={data.materialSelection ?? null}
                 onOpen={(location) =>
-                  selectContent(restoreReadingLocation(readingState, location))
+                  void readOfficial(officialEntryId(location), location)
                 }
                 onOpenMaterial={(location) =>
                   selectMaterial(restoreReadingLocation(readingState, location))
@@ -1071,8 +1218,7 @@ function Workspace({ content }: { content: OfficialContent }) {
             )}
             {view === "conversations" && (
               <ConversationList
-                availableCourses={availableCourses}
-                materials={materials.items}
+                relations={relations}
                 conversations={data.conversations.filter(
                   (item) => item.status !== "deleted",
                 )}
@@ -1160,18 +1306,43 @@ function Workspace({ content }: { content: OfficialContent }) {
                     style={{ fontSize: data.settings.fontSize }}
                   >
                     <header className={styles.noteHeading}>
+                      <div className={styles.noteActions}>
+                        <button
+                          onClick={() =>
+                            setNoteEditor({
+                              id: note.id,
+                              note: structuredClone(note),
+                              source: sourceForNote(note),
+                            })
+                          }
+                        >
+                          <NotebookPen aria-hidden="true" />
+                          编辑笔记
+                        </button>
+                      </div>
                       <h1>{note.title}</h1>
-                      <p className={styles.noteSource}>
-                        <span>
-                          {noteCourse?.title ??
-                            subjectDirectory.byId.get(note.courseId)?.title ??
-                            "未分类"}
-                        </span>
-                        <span aria-hidden="true">·</span>
-                        <span>
-                          关联题目：{noteQuestion?.title ?? note.questionId}
-                        </span>
-                      </p>
+                      {noteMaterial && (
+                        <p className={styles.noteSource}>
+                          <span>
+                            来源：{noteMaterial.title} · {noteMaterial.position}
+                          </span>
+                          {noteMaterial.available && (
+                            <button
+                              onClick={() => {
+                                if (noteSource && "materialId" in noteSource)
+                                  selectMaterial({ ...noteSource });
+                                else if (noteSource)
+                                  selectContent({ ...noteSource });
+                              }}
+                            >
+                              查看原文
+                            </button>
+                          )}
+                          {noteMaterial.removed && (
+                            <span>资料已从列表删除</span>
+                          )}
+                        </p>
+                      )}
                     </header>
                     {note.tagIds.length > 0 && (
                       <div className={styles.noteTags}>
@@ -1240,15 +1411,15 @@ function Workspace({ content }: { content: OfficialContent }) {
           {view === "content" && (
             <ContentManager
               content={content}
-              onInstall={content.install}
-              onRead={(id) => {
-                const course = courses.find((course) => course.id === id)!;
-                if (selection.courseId === id)
-                  selectContent(
-                    updatedSelection(selection, course, availableCourses),
-                  );
-                else selectCourse(id, "questions");
+              library={officialLibrary}
+              operation={officialOperation}
+              onRemove={deleteOfficial}
+              onInstall={async (id, update) => {
+                const saved = await officialService.acquire(id, update);
+                if (saved) showSaved("资料已保存");
+                return saved;
               }}
+              onRead={(id) => readOfficial(id, selection, true)}
             />
           )}
           {view === "teaching" && (
@@ -1272,6 +1443,45 @@ function Workspace({ content }: { content: OfficialContent }) {
           </div>
         </section>
       </div>
+      {noteEditor && (
+        <NoteEditorDialog
+          key={noteEditor.id}
+          target={noteEditor}
+          library={noteLibrary}
+          sourceLabel={
+            editorMaterial
+              ? `${editorMaterial.title} · ${editorMaterial.position}`
+              : ""
+          }
+          onClose={() => setNoteEditor(null)}
+          onSave={async (value, revision) => {
+            const target = noteEditor;
+            await saveChanges((previous) => {
+              if (target.note)
+                return editNote(previous, target.id, value, revision);
+              const official = new OfficialLibrary(readSnapshot(), previous);
+              const material = target.source
+                ? new LearningMaterial(
+                    target.source,
+                    readSnapshot().allCourses,
+                    materials.items,
+                    official,
+                  )
+                : null;
+              return createNote(
+                previous,
+                value,
+                target.source,
+                material?.subjectId ?? null,
+                target.id,
+              );
+            });
+            setNoteId(target.id);
+            setView("notes");
+            showSaved("笔记已保存");
+          }}
+        />
+      )}
       <footer className={styles.footer}>
         {commandError && <span role="alert">{commandError}</span>}
         <span

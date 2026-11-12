@@ -21,5 +21,13 @@ export function parseTextbook(id: string, markdown: string): Textbook {
     };
   });
 
-  return { id, title, chapters };
+  const preface = markdown.slice(0, headings[0]!.index);
+  const description = preface
+    .replace(/^#\s+.+$/m, "")
+    .trim()
+    .split(/\n\s*\n/)
+    .at(-1)
+    ?.replace(/\s+/g, " ")
+    .trim();
+  return { id, title, description, chapters };
 }

@@ -1,3 +1,5 @@
+import type { OfficialLibrary, OfficialMaterial } from "../content/library";
+import { OfficialContentActions } from "./OfficialContentActions";
 import { useState } from "react";
 import {
   BookOpen,
@@ -8,7 +10,6 @@ import {
   Upload,
 } from "lucide-react";
 import type {
-  Course,
   Subject,
   Material,
   MaterialLocation,
@@ -20,6 +21,7 @@ import type { SubjectDirectory } from "../state/subjects";
 import type { PersonalMaterials } from "../materials/useMaterials";
 import { materialsInCourse, type LibraryScope } from "../reading/library";
 import { useSaveFeedback } from "./SaveFeedback";
+import { dataRefresh } from "../refresh/coordinator";
 import styles from "./SubjectContentList.module.css";
 
 export function SubjectContentList({
@@ -27,7 +29,8 @@ export function SubjectContentList({
   directory,
   onCreateSubject,
   onUploaded,
-  courses,
+  official,
+  onRemoveOfficial,
   library,
   selection,
   materialSelection,
@@ -38,7 +41,8 @@ export function SubjectContentList({
   directory: SubjectDirectory;
   onCreateSubject: (title: string) => Promise<Subject>;
   onUploaded: (courseId: string | null) => void;
-  courses: Course[];
+  official: OfficialLibrary;
+  onRemoveOfficial: (id: string) => Promise<void>;
   library: PersonalMaterials;
   selection: ReadingSelection;
   materialSelection: MaterialLocation | null;
@@ -52,31 +56,27 @@ export function SubjectContentList({
   const showFeedback = useSaveFeedback();
   const activeSubjects = directory.active;
   const subject = activeSubjects.find((item) => item.id === scope.courseId);
-  const course = subject
-    ? courses.find((item) => item.id === scope.courseId)
-    : undefined;
   const questions = scope.kind === "questions";
   const files = questions
     ? []
     : materialsInCourse(library.items, scope.courseId, directory);
-  const books = questions ? [] : (course?.textbooks ?? []);
-  const items = questions ? (course?.questions ?? []) : [];
+  const officialItems =
+    subject || scope.courseId === null
+      ? official.forSubject(scope.courseId, scope.kind)
+      : [];
+  const books = questions ? [] : officialItems;
+  const items = questions
+    ? officialItems.flatMap((entry) =>
+        (entry.course?.questions ?? []).map((question) => ({
+          entry,
+          question,
+        })),
+      )
+    : [];
   const count = files.length + books.length + items.length;
-  function openItem(id: string) {
-    if (!course) return;
-    onOpen({
-      courseId: course.id,
-      version: course.version,
-      kind: scope.kind,
-      itemId: id,
-      chapterIndex:
-        selection.courseId === course.id &&
-        selection.kind === scope.kind &&
-        selection.itemId === id &&
-        selection.version === course.version
-          ? selection.chapterIndex
-          : 0,
-    });
+  function openItem(entry: OfficialMaterial, questionId?: string) {
+    const target = entry.selection(selection);
+    onOpen(questionId ? { ...target, itemId: questionId } : target);
   }
   function chooseFiles(values: File[]) {
     if (!values.length) return;
@@ -88,6 +88,10 @@ export function SubjectContentList({
     setRefreshing(true);
     setNotice("");
     try {
+      if (!(await dataRefresh.refresh(["records", "content"], true))) {
+        setNotice("无法刷新资料列表，请重试。");
+        return;
+      }
       const result = await library.refresh();
       // 部分记录无法读取或缓存失败时，由列表显示具体说明，不提示全部成功。
       if (result && !result.warning) showFeedback("资料列表已刷新");
@@ -200,20 +204,31 @@ export function SubjectContentList({
           </div>
         )}
         {books.map((book) => (
-          <button
-            key={`book:${book.id}`}
-            className={styles.courseItem}
-            onClick={() => openItem(book.id)}
+          <OfficialContentActions
+            key={book.id}
+            item={book}
+            onRemove={onRemoveOfficial}
           >
-            <span className={styles.icon}>
-              <BookOpen aria-hidden="true" />
-            </span>
-            <span className={styles.copy}>
-              <strong>{book.title}</strong>
-              <small>课程资料 · {book.chapters.length} 节</small>
-            </span>
-            <ChevronRight aria-hidden="true" />
-          </button>
+            <button
+              className={styles.courseItem}
+              onClick={() => openItem(book)}
+            >
+              <span className={styles.icon}>
+                <BookOpen aria-hidden="true" />
+              </span>
+              <span className={styles.copy}>
+                <strong>{book.title}</strong>
+                <small>
+                  课程资料 ·{" "}
+                  {book.course?.textbooks.find(
+                    (item) => item.id === book.entry.selection?.itemId,
+                  )?.chapters.length ?? 0}{" "}
+                  节
+                </small>
+              </span>
+              <ChevronRight aria-hidden="true" />
+            </button>
+          </OfficialContentActions>
         ))}
         {files.map((item) => (
           <MaterialActions
@@ -258,23 +273,29 @@ export function SubjectContentList({
             </div>
           </MaterialActions>
         ))}
-        {items.map((item) => (
-          <button
-            key={item.id}
-            className={styles.courseItem}
-            onClick={() => openItem(item.id)}
+        {items.map(({ entry, question: item }) => (
+          <OfficialContentActions
+            key={`${entry.id}:${item.id}`}
+            item={entry}
+            onRemove={onRemoveOfficial}
           >
-            <span className={styles.icon}>
-              <ListChecks aria-hidden="true" />
-            </span>
-            <span className={styles.copy}>
-              <strong>{item.title}</strong>
-              <small>
-                {item.id} · {item.topic} · {item.difficulty}
-              </small>
-            </span>
-            <ChevronRight aria-hidden="true" />
-          </button>
+            <button
+              key={`${entry.id}:${item.id}`}
+              className={styles.courseItem}
+              onClick={() => openItem(entry, item.id)}
+            >
+              <span className={styles.icon}>
+                <ListChecks aria-hidden="true" />
+              </span>
+              <span className={styles.copy}>
+                <strong>{item.title}</strong>
+                <small>
+                  {item.id} · {item.topic} · {item.difficulty}
+                </small>
+              </span>
+              <ChevronRight aria-hidden="true" />
+            </button>
+          </OfficialContentActions>
         ))}
       </div>
       {pendingFiles && (

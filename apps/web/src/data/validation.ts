@@ -19,6 +19,12 @@ export function assertAppData(value: unknown): asserts value is AppData {
     throw new Error("Local data has an unsupported schema version.");
   const data = value as AppData;
   if (data.noteLibrary !== undefined) assertNoteLibrary(data.noteLibrary);
+  if (
+    data.officialMaterials &&
+    new Set(data.officialMaterials.map((item) => item.id)).size !==
+      data.officialMaterials.length
+  )
+    throw new Error("Official material metadata contains duplicate IDs.");
   if (data.subjects !== undefined) {
     if (
       !Array.isArray(data.subjects) ||

@@ -218,7 +218,9 @@ export class LocalDataController {
       saveState: dataEqual(data, this.base) ? "saved" : "error",
       saveError: conflicts.length
         ? "请核对剩余的修改冲突。"
-        : "本页修改已保留，确认后可点击“重试保存”。",
+        : dataEqual(data, this.base)
+          ? ""
+          : "本页修改已保留，确认后可点击“重试保存”。",
     });
   };
   refresh = (): Promise<void> => {

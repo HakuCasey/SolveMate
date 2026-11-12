@@ -4,7 +4,9 @@ import type {
   Notebook,
   NoteLibrary,
   NoteTag,
+  LearningLocation,
 } from "@solvemate/contracts";
+import { assertMetadata } from "@solvemate/contracts";
 import type { SubjectDirectory } from "./subjects";
 import { requireCurrentRecord } from "../refresh/errors";
 
@@ -299,6 +301,80 @@ export function notePreview(content: string): string {
     .slice(0, 120);
 }
 
+export interface NoteContent {
+  title: string;
+  content: string;
+  notebookId: string;
+}
+function requireNotebook(library: NoteLibrary, id: string) {
+  if (!library.notebooks.some((item) => item.id === id))
+    throw new Error("所选笔记本已删除，请重新选择。");
+}
+function validateContent(value: NoteContent) {
+  const name = title(value.title, "笔记");
+  if (!value.content.trim() || value.content.length > 100000)
+    throw new Error("请输入笔记正文，最多支持 100000 个字符。");
+  return { ...value, title: name, summary: notePreview(value.content) };
+}
+
+export function createNote(
+  data: AppData,
+  value: NoteContent,
+  source: LearningLocation | null,
+  subjectId: string | null,
+  id = `note-${crypto.randomUUID()}`,
+): AppData {
+  const library = libraryOf(data);
+  requireNotebook(library, value.notebookId);
+  if (library.notes.some((item) => item.id === id))
+    throw new Error("这篇笔记已存在，请刷新后查看。");
+  if (source)
+    assertMetadata(
+      "materialId" in source ? "MaterialLocation" : "ReadingSelection",
+      source,
+    );
+  const note: Note = {
+    ...validateContent(value),
+    id,
+    // 旧字段继续保留；新笔记的资料来源只从 source 读取。
+    courseId: "",
+    questionId: "",
+    source: source ? structuredClone(source) : null,
+    revision: 1,
+    tagIds: [`subject:${subjectId ?? "unclassified"}`],
+  };
+  return {
+    ...data,
+    noteLibrary: { ...library, notes: [note, ...library.notes] },
+  };
+}
+
+export function editNote(
+  data: AppData,
+  id: string,
+  value: NoteContent,
+  expected: number,
+): AppData {
+  const library = libraryOf(data);
+  revision(
+    library.notes.find((item) => item.id === id),
+    expected,
+  );
+  requireNotebook(library, value.notebookId);
+  const validated = validateContent(value);
+  return {
+    ...data,
+    noteLibrary: {
+      ...library,
+      notes: library.notes.map((item) =>
+        item.id === id
+          ? { ...item, ...validated, revision: item.revision + 1 }
+          : item,
+      ),
+    },
+  };
+}
+
 export function assertNoteLibrary(
   value: unknown,
 ): asserts value is NoteLibrary {
@@ -354,4 +430,10 @@ export function assertNoteLibrary(
     )
   )
     throw new Error("Invalid notebook, note or tag metadata.");
+  for (const note of library.notes)
+    if (note.source != null)
+      assertMetadata(
+        "materialId" in note.source ? "MaterialLocation" : "ReadingSelection",
+        note.source,
+      );
 }

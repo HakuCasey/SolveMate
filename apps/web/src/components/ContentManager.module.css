@@ -4,6 +4,7 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
+  container-type: inline-size;
 }
 .heading {
   display: flex;
@@ -11,11 +12,11 @@
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 14px;
-  padding: 26px 30px 22px;
+  padding: 24px;
   border-bottom: 1px solid var(--sm-line);
 }
 .heading h1 {
-  margin: 0 0 8px;
+  margin: 0 0 6px;
   font-size: 21px;
   font-weight: 500;
 }
@@ -26,81 +27,113 @@
 }
 .list {
   overflow: auto;
-  padding: 24px 30px;
+  padding: 20px 24px;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 330px), 1fr));
-  gap: 18px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
   align-content: start;
+  align-items: start;
 }
 .card {
-  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
   border: 1px solid var(--sm-line);
-  border-radius: 14px;
+  border-radius: 12px;
   min-width: 0;
+  background: var(--sm-paper);
 }
 .cardTitle {
   display: flex;
-  align-items: flex-start;
-  gap: 10px;
-}
-.cardTitle > div {
-  flex: 1;
-  min-width: 0;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 9px;
+  margin-bottom: 10px;
 }
 .icon {
   display: grid;
   place-items: center;
-  width: 36px;
-  height: 36px;
+  width: 30px;
+  height: 30px;
   flex-shrink: 0;
   background: var(--sm-active);
   color: var(--sm-accent);
-  border-radius: 10px;
+  border-radius: 9px;
+}
+.icon svg {
+  width: 17px;
+  height: 17px;
 }
 .card h2 {
-  margin: 0 0 6px;
-  font-size: 16px;
-  font-weight: 500;
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;
 }
 .card p {
   margin: 0;
   font-size: 12px;
   color: var(--sm-soft);
-  line-height: 1.8;
+  line-height: 1.65;
 }
-.badge {
-  padding: 3px 7px;
+.description {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 10px;
+}
+.tags span {
+  padding: 2px 7px;
   border-radius: 5px;
+  color: var(--sm-soft);
+  background: var(--sm-ground);
+  font-size: 10px;
+  line-height: 1.6;
+}
+.tags span:first-child {
   color: var(--sm-accent);
   background: var(--sm-active);
-  font-size: 10px;
-  white-space: nowrap;
 }
-.details {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding-top: 20px;
+.card .date {
+  padding-top: 10px;
   font-size: 12px;
-  color: var(--sm-soft);
-  overflow-wrap: anywhere;
+}
+.card .noticeInline {
+  padding-top: 8px;
+  color: var(--sm-danger);
 }
 .actions {
   display: flex;
-  justify-content: flex-end;
-  flex-wrap: wrap;
-  gap: 9px;
-  padding-top: 22px;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 6px;
+  margin-left: auto;
 }
 .primary,
 .secondary {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 5px;
   font-size: 12px;
   border-radius: 8px;
-  padding: 8px 12px;
+  padding: 7px 10px;
+  min-height: 34px;
+  cursor: pointer;
+}
+.primary svg,
+.secondary svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
 }
 .primary {
   background: var(--sm-accent);
@@ -109,6 +142,18 @@
 .secondary {
   border: 1px solid var(--sm-line);
   background: var(--sm-ground);
+  color: var(--sm-ink);
+}
+.primary:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+.secondary:hover:not(:disabled) {
+  background: var(--sm-active);
+}
+.primary:focus-visible,
+.secondary:focus-visible {
+  outline: 2px solid var(--sm-accent);
+  outline-offset: 3px;
 }
 .primary:disabled,
 .secondary:disabled {
@@ -116,15 +161,15 @@
   cursor: not-allowed;
 }
 .notice {
-  margin: 18px 30px 0;
+  margin: 16px 24px 0;
   font-size: 12px;
-  color: var(--sm-soft);
+  color: var(--sm-danger);
 }
 .transfer {
   display: flex;
   flex-direction: column;
-  gap: 9px;
-  padding-top: 18px;
+  gap: 7px;
+  padding-top: 12px;
   font-size: 12px;
   color: var(--sm-accent);
 }
@@ -136,20 +181,25 @@
   height: 5px;
   accent-color: var(--sm-accent);
 }
-@media (max-width: 800px) {
-  .page {
-    min-height: 650px;
+@container (max-width: 900px) {
+  .list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@container (max-width: 680px) {
+  .list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 16px;
   }
   .heading {
     padding: 20px 16px;
   }
-  .list {
-    padding: 18px 16px;
-  }
-  .card {
-    padding: 16px;
-  }
   .notice {
     margin-inline: 16px;
+  }
+}
+@container (max-width: 420px) {
+  .list {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

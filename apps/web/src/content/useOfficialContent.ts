@@ -7,6 +7,7 @@ import {
 } from "./contracts";
 import {
   makeSnapshot,
+  storedVersion,
   type ContentSnapshot,
   type InstalledCourse,
 } from "./storage";
@@ -51,6 +52,12 @@ export function useOfficialContent() {
     snapshotRef.current = next;
     setSnapshot(next);
   }, []);
+  const readSnapshot = useCallback(() => snapshotRef.current, []);
+  const reloadLocal = useCallback(async () => {
+    if (!(await dataRefresh.refresh(["content"], true)))
+      throw new Error("无法重新读取本机课程，已有文件和记录仍保留。");
+    return snapshotRef.current;
+  }, []);
   useEffect(() => {
     let active = true;
     void contentStorage
@@ -86,9 +93,10 @@ export function useOfficialContent() {
 
   const refresh = useCallback((): Promise<void> => {
     if (refreshing.current) return refreshing.current;
+    if (downloading.current) return Promise.resolve();
+    const request = ++contentGeneration.current;
     setChecking(true);
     setConnectionError("");
-    setUpdates({});
     setTransfer((previous) =>
       previous &&
       ["downloading", "verifying", "saving"].includes(previous.phase)
@@ -97,22 +105,27 @@ export function useOfficialContent() {
     );
     const task = (async () => {
       try {
+        if (!(await dataRefresh.refresh(["records"], true)))
+          throw new ContentError("无法刷新资料归属和删除状态，请重试。");
+        // 先读取本机版本，避免其他窗口已完成下载后仍按旧指针查询。
+        const local = await contentStorage.load();
+        if (request !== contentGeneration.current || downloading.current)
+          return;
+        applySnapshot(local);
         const catalog = await api.catalog();
         const results = await Promise.all(
           catalog.map((course) =>
-            api.update(
-              course.id,
-              snapshotRef.current.heads.find(
-                (head) => head.courseId === course.id,
-              )?.version ?? null,
-            ),
+            api.update(course.id, storedVersion(local, course.id)),
           ),
         );
+        if (request !== contentGeneration.current || downloading.current)
+          return;
         setRemote(catalog);
         setUpdates(
           Object.fromEntries(results.map((item) => [item.course_id, item])),
         );
       } catch (error) {
+        if (request !== contentGeneration.current) return;
         logError("Failed to check official course updates.", error);
         setConnectionError(
           message(error, "无法连接官方内容服务，已下载的内容仍可使用。"),
@@ -124,18 +137,25 @@ export function useOfficialContent() {
     })();
     refreshing.current = task;
     return task;
-  }, [api]);
+  }, [api, applySnapshot]);
 
   const install = useCallback(
-    async (courseId: string): Promise<InstalledCourse | null> => {
+    async (
+      courseId: string,
+      forceUpdate = false,
+    ): Promise<InstalledCourse | null> => {
       if (downloading.current) return null;
       contentGeneration.current++;
       const controller = new AbortController();
       downloading.current = controller;
       const current = snapshotRef.current;
-      const previousVersion =
-        current.heads.find((head) => head.courseId === courseId)?.version ??
-        null;
+      const previousVersion = storedVersion(current, courseId);
+      const local = current.installed.find(
+        (item) =>
+          item.courseId === courseId && item.version === previousVersion,
+      );
+      const repair =
+        !forceUpdate && local?.available === false ? local : undefined;
       const operation: { phase: Phase } = { phase: "downloading" };
       const report = (next: Phase, received = 0, total = 0, text = "") => {
         operation.phase = next;
@@ -143,24 +163,32 @@ export function useOfficialContent() {
       };
       report("downloading");
       try {
-        const update = await api.update(
-          courseId,
-          previousVersion,
-          controller.signal,
-        );
+        const update = repair
+          ? {
+              latest: repair.manifest,
+              status: "up_to_date" as const,
+              course_id: courseId,
+              current_version: previousVersion,
+              update_available: false,
+            }
+          : await api.update(courseId, previousVersion, controller.signal);
         if (update.status === "unknown_version")
           throw new ContentError("官方服务无法确认本地版本，已保留当前内容。");
-        if (update.status === "up_to_date") {
+        if (
+          update.status === "up_to_date" &&
+          local &&
+          local.available !== false
+        ) {
           setUpdates((previous) => ({ ...previous, [courseId]: update }));
           report("done", 0, 0, "当前已是最新版本。");
           return null;
         }
         const manifest = update.latest;
-        const bytes = await api.download(
-          manifest,
-          controller.signal,
-          (received) => report("downloading", received, manifest.size_bytes),
-        );
+        const bytes =
+          repair?.archive ??
+          (await api.download(manifest, controller.signal, (received) =>
+            report("downloading", received, manifest.size_bytes),
+          ));
         report("verifying", bytes.length, bytes.length);
         const installed = await contentStorage.install(
           manifest,
@@ -182,16 +210,23 @@ export function useOfficialContent() {
           ...current.heads.filter((head) => head.courseId !== courseId),
           { courseId, version: installed.version },
         ];
-        applySnapshot(makeSnapshot(nextInstalled, nextHeads));
-        setUpdates((previous) => ({
-          ...previous,
-          [courseId]: {
-            ...update,
-            status: "up_to_date",
-            current_version: installed.version,
-            update_available: false,
-          },
-        }));
+        applySnapshot(
+          makeSnapshot(
+            nextInstalled,
+            nextHeads,
+            current.missingHeads.filter((head) => head.courseId !== courseId),
+          ),
+        );
+        if (!repair)
+          setUpdates((previous) => ({
+            ...previous,
+            [courseId]: {
+              ...update,
+              status: "up_to_date",
+              current_version: installed.version,
+              update_available: false,
+            },
+          }));
         report(
           "done",
           bytes.length,
@@ -230,6 +265,8 @@ export function useOfficialContent() {
 
   return {
     snapshot,
+    readSnapshot,
+    reloadLocal,
     ready,
     loadError,
     remote,

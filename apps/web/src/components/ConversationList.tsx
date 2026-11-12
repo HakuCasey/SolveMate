@@ -1,3 +1,4 @@
+import type { LearningRelations } from "../reading/relations";
 import { useEditValue } from "../refresh/useEditRevision";
 import { useDraftBackup } from "../refresh/drafts";
 import { useState } from "react";
@@ -14,18 +15,12 @@ import {
   CornerUpLeft,
 } from "lucide-react";
 import { AlertDialog, ContextMenu, Popover } from "radix-ui";
-import type {
-  Course,
-  Conversation,
-  Robot,
-  Material,
-} from "@solvemate/contracts";
+import type { Conversation, Robot } from "@solvemate/contracts";
 import type { ConversationChange } from "../state/conversations";
 import styles from "./ConversationList.module.css";
 
 interface Props {
-  availableCourses: Course[];
-  materials: Material[];
+  relations: LearningRelations;
   conversations: Conversation[];
   robots: Robot[];
   activeId: string | null;
@@ -43,8 +38,7 @@ interface Props {
 const presetLabels = ["重要", "一般", "无标签"];
 
 export function ConversationList({
-  availableCourses,
-  materials,
+  relations,
   conversations,
   robots,
   activeId,
@@ -111,27 +105,8 @@ export function ConversationList({
   }
 
   function renderItem(conversation: Conversation) {
-    const course = availableCourses.find(
-      (item) =>
-        item.id === conversation.selection?.courseId &&
-        (!conversation.selection.version ||
-          item.version === conversation.selection.version),
-    );
-    const selection = conversation.selection;
-    const contentTitle = selection
-      ? selection.kind === "textbooks"
-        ? course?.textbooks.find((item) => item.id === selection.itemId)
-            ?.chapters[selection.chapterIndex]?.title
-        : course?.questions.find((item) => item.id === selection.itemId)?.title
-      : null;
-    const material = materials.find(
-      (item) => item.id === conversation.material?.materialId,
-    );
-    const context = conversation.material
-      ? `${material?.title ?? "用户资料"} · 第 ${conversation.material.pageNumber} 页`
-      : selection
-        ? `${course?.title ?? "课程不可用"} · ${contentTitle ?? "关联内容不可用"}`
-        : "普通对话";
+    const source = conversation.material ?? conversation.selection;
+    const context = source ? relations.material(source).context : "普通对话";
     // 直接显示最近一次提问的原文，省略只由样式处理，不生成或保存摘要。
     const lastQuestion =
       conversation.messages.filter((item) => item.role === "user").at(-1)

@@ -51,7 +51,7 @@ def encoded(value):
 def validate_data(value):
     if next(VALIDATOR.iter_errors(value), None):
         raise UserDataError("学习记录格式不正确，原有数据已保留。")
-    for key in ("robots", "conversations", "subjects"):
+    for key in ("robots", "conversations", "subjects", "officialMaterials"):
         ids = [item["id"] for item in value.get(key, [])]
         if len(set(ids)) != len(ids):
             raise UserDataError("学习记录包含重复编号。")

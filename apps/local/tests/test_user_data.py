@@ -147,6 +147,19 @@ def test_retry_after_lost_response_is_idempotent(tmp_path):
     store.close()
 
 
+@pytest.mark.parametrize("theme_id", [None, "default", "sky", "rain", "grayscale"])
+def test_theme_choice_survives_reopening_and_accepts_old_settings(tmp_path, theme_id):
+    value = data()
+    if theme_id is not None:
+        value["settings"]["themeId"] = theme_id
+    store = UserData(tmp_path)
+    store.save(value, 0)
+    store.close()
+    reopened = UserData(tmp_path)
+    assert reopened.state()["value"]["settings"] == value["settings"]
+    reopened.close()
+
+
 def test_migration_backs_up_raw_envelope_and_is_repeatable(tmp_path):
     store = UserData(tmp_path)
     body = migration()
@@ -483,4 +496,106 @@ def test_missing_course_file_does_not_delete_version_index_or_personal_records(
     path.write_bytes(raw)
     assert store.content()["versions"][0]["available"] is True
     assert store.state()["value"] == original
+    store.close()
+
+
+def test_official_material_metadata_survives_restart_and_stale_writes(tmp_path):
+    value = data()
+    value["officialMaterials"] = [
+        {"id": "calculus:textbooks:B001", "subjectId": "calculus", "deletedAt": None}
+    ]
+    store = UserData(tmp_path)
+    first = store.save(value, 0)
+    changed = deepcopy(value)
+    changed["officialMaterials"][0]["deletedAt"] = 123
+    store.save(changed, first["revision"])
+    with pytest.raises(UserDataError):
+        store.save(value, first["revision"])
+    store.close()
+    reopened = UserData(tmp_path)
+    assert reopened.state()["value"]["officialMaterials"][0]["deletedAt"] == 123
+    assert reopened.state()["value"]["selection"] == value["selection"]
+    reopened.close()
+
+
+def test_official_material_metadata_rejects_duplicate_ids_without_replacing_state(
+    tmp_path,
+):
+    store = UserData(tmp_path)
+    value = data()
+    store.save(value, 0)
+    invalid = deepcopy(value)
+    item = {"id": "calculus:questions", "subjectId": "calculus", "deletedAt": None}
+    invalid["officialMaterials"] = [item, deepcopy(item)]
+    with pytest.raises(UserDataError):
+        store.save(invalid, 1)
+    assert "officialMaterials" not in store.state()["value"]
+    store.close()
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        {
+            "materialId": "11111111-1111-4111-8111-111111111111",
+            "contentVersion": "a" * 64,
+            "pageNumber": 3,
+        },
+        {
+            "courseId": "calculus",
+            "version": "example-1",
+            "kind": "textbooks",
+            "itemId": "B001",
+            "chapterIndex": 2,
+        },
+        None,
+    ],
+)
+def test_note_source_roundtrip_preserves_old_notes_and_rejects_stale_edits(
+    tmp_path, source
+):
+    store = UserData(tmp_path)
+    initial = data()
+    store.save(initial, 0)
+    changed = deepcopy(initial)
+    note = deepcopy(changed["noteLibrary"]["notes"][0])
+    note.update(id="note-source", source=source, courseId="", questionId="")
+    changed["noteLibrary"]["notes"].append(note)
+    saved = store.save(changed, 1)
+    with pytest.raises(UserDataError):
+        store.save(initial, 1)
+    store.close()
+    reopened = UserData(tmp_path)
+    assert reopened.state()["revision"] == saved["revision"]
+    assert reopened.state()["value"] == changed
+    assert "source" not in reopened.state()["value"]["noteLibrary"]["notes"][0]
+    reopened.close()
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        {
+            "materialId": "11111111-1111-4111-8111-111111111111",
+            "contentVersion": "a" * 64,
+            "pageNumber": 0,
+        },
+        {
+            "courseId": "calculus",
+            "kind": "textbooks",
+            "itemId": "B001",
+            "chapterIndex": -1,
+        },
+        {"path": "/tmp/unknown.pdf"},
+    ],
+)
+def test_invalid_note_source_does_not_replace_old_state(tmp_path, source):
+    store = UserData(tmp_path)
+    initial = data()
+    store.save(initial, 0)
+    invalid = deepcopy(initial)
+    invalid["noteLibrary"]["notes"][0]["source"] = source
+    with pytest.raises(UserDataError):
+        store.save(invalid, 1)
+    assert store.state()["value"] == initial
     store.close()

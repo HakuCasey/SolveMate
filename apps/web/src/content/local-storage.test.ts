@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { packageFixture } from "./fixtures.test-support";
 import { LocalContentStorage } from "./local-storage";
 import { localRequest, LocalServiceError } from "../storage/local-service";
-import { ContentConflictError } from "./storage";
+import { ContentConflictError, storedVersion } from "./storage";
 
 const cache = vi.hoisted(() => new Map<string, unknown>());
 vi.mock("../storage/local-service", async (original) => ({
@@ -159,6 +159,10 @@ it("keeps other courses readable when one package is missing and has no cache", 
   );
   const result = await new LocalContentStorage().load();
   expect(result.installed).toHaveLength(0);
+  expect(result.missingHeads).toEqual([
+    { courseId: "calculus", version: record.version },
+  ]);
+  expect(storedVersion(result, "calculus")).toBe(record.version);
   expect(result.activeCourses.length).toBeGreaterThan(0);
   expect(localRequest).toHaveBeenCalledTimes(1);
 });

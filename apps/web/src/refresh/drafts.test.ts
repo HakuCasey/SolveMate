@@ -80,3 +80,16 @@ describe("unsaved form drafts", () => {
     expect(store.snapshot().items[0].value).toBe("重要内容");
   });
 });
+
+it("counts active form edits separately from retained historical backups", async () => {
+  const store = new FormDraftStore();
+  store.remember(draft("active", "未保存"));
+  expect(store.snapshot().activeCount).toBe(1);
+  store.deactivate("active");
+  expect(store.snapshot().activeCount).toBe(0);
+  expect(store.snapshot().items).toHaveLength(1);
+  store.remember(draft("active", "未保存"));
+  expect(store.snapshot().activeCount).toBe(1);
+  store.clear("active");
+  expect(store.snapshot().activeCount).toBe(0);
+});

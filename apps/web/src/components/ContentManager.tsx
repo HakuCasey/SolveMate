@@ -1,51 +1,47 @@
 import { useEffect } from "react";
-import { BookOpen, Check, Download, RefreshCw, X } from "lucide-react";
+import { BookOpen, ListChecks, RefreshCw, X } from "lucide-react";
 import type { OfficialContent } from "../content/useOfficialContent";
-import type { InstalledCourse } from "../content/storage";
+import type { OfficialLibrary } from "../content/library";
+import { OfficialContentActions } from "./OfficialContentActions";
 import styles from "./ContentManager.module.css";
 
 interface Props {
   content: OfficialContent;
-  onInstall: (id: string) => Promise<InstalledCourse | null>;
-  onRead: (id: string) => void;
+  library: OfficialLibrary;
+  operation: { busy: boolean; error: string };
+  onInstall: (id: string, update: boolean) => Promise<boolean>;
+  onRead: (id: string) => Promise<void>;
+  onRemove: (id: string) => Promise<void>;
 }
-export function ContentManager({ content, onInstall, onRead }: Props) {
-  const {
-    snapshot,
-    remote,
-    updates,
-    checking,
-    connectionError,
-    transfer,
-    refresh,
-  } = content;
+export function ContentManager({
+  content,
+  library,
+  operation,
+  onInstall,
+  onRead,
+  onRemove,
+}: Props) {
+  const { checking, connectionError, transfer, refresh } = content;
   useEffect(() => {
     void refresh();
   }, [refresh]);
   const busy =
     !!transfer &&
     ["downloading", "verifying", "saving"].includes(transfer.phase);
-  const entries = remote.length
-    ? remote
-    : snapshot.activeCourses.map((course) => ({
-        ...course,
-        description: "当前本地内容",
-        release: "",
-      }));
   return (
     <section className={styles.page} aria-label="官方内容">
       <header className={styles.heading}>
         <div>
           <h1>官方内容</h1>
-          <p>下载后可离线阅读。更新失败时，继续使用已保存的版本。</p>
+          <p>下载官方资料，或打开已下载的资料阅读。</p>
         </div>
         <button
           className={styles.secondary}
-          disabled={checking || busy}
+          disabled={checking || busy || operation.busy}
           onClick={() => void refresh()}
         >
           <RefreshCw aria-hidden="true" />
-          {checking ? "正在检查…" : "检查更新"}
+          {checking ? "正在检查内容更新…" : "检查内容更新"}
         </button>
       </header>
       {connectionError && (
@@ -53,19 +49,15 @@ export function ContentManager({ content, onInstall, onRead }: Props) {
           {connectionError}
         </p>
       )}
+      {operation.error && (
+        <p className={styles.notice} role="alert">
+          {operation.error}
+        </p>
+      )}
       <div className={styles.list}>
-        {entries.map((entry) => {
-          const head = snapshot.heads.find(
-            (head) => head.courseId === entry.id,
-          );
-          const saved = snapshot.installed.find(
-            (item) =>
-              item.courseId === entry.id && item.version === head?.version,
-          );
-          const local = snapshot.activeCourses.find(
-            (course) => course.id === entry.id,
-          );
-          const update = updates[entry.id];
+        {library.entries.map((item) => {
+          const { source: entry, packageState: state } = item;
+          const saved = item.downloaded ? state.saved : undefined;
           const currentTransfer =
             transfer?.courseId === entry.id ? transfer : null;
           const pending =
@@ -73,116 +65,124 @@ export function ContentManager({ content, onInstall, onRead }: Props) {
             ["downloading", "verifying", "saving"].includes(
               currentTransfer.phase,
             );
-          const unknown = update?.status === "unknown_version";
-          const current = !!saved && update?.status === "up_to_date";
+          const { title, description } = item;
+          const Icon = item.kind === "questions" ? ListChecks : BookOpen;
           return (
-            <article
-              className={styles.card}
-              key={entry.id}
-              aria-label={entry.title}
+            <OfficialContentActions
+              key={item.id}
+              item={item}
+              onRemove={onRemove}
             >
-              <div className={styles.cardTitle}>
-                <span className={styles.icon}>
-                  <BookOpen aria-hidden="true" />
-                </span>
-                <div>
-                  <h2>{entry.title}</h2>
-                  <p>{entry.description}</p>
-                </div>
-                <span className={styles.badge}>
-                  {saved ? "已下载" : local ? "随应用提供" : "未下载"}
-                </span>
-              </div>
-              <div className={styles.details}>
-                <span>
-                  {saved
-                    ? `本地版本：${saved.manifest.course.release} · ${saved.version.slice(0, 8)}`
-                    : local
-                      ? "当前可使用应用内的基础内容"
-                      : "下载后出现在学科菜单中"}
-                </span>
-                {saved && (
-                  <span>
-                    保存于 {new Date(saved.installedAt).toLocaleString("zh-CN")}
+              <article className={styles.card} key={item.id} aria-label={title}>
+                <div className={styles.cardTitle}>
+                  <span className={styles.icon}>
+                    <Icon aria-hidden="true" />
                   </span>
-                )}
-                {update && (
-                  <span>
-                    {current
-                      ? "已是最新版本"
-                      : unknown
-                        ? "本地版本暂无法核对，已保留"
-                        : saved
-                          ? "发现可下载的新版本"
-                          : "可下载官方课程包"}
-                    {` · ${(update.latest.size_bytes / 1024).toFixed(1)} KB`}
-                  </span>
-                )}
-              </div>
-              {currentTransfer && (
-                <div
-                  className={styles.transfer}
-                  role={currentTransfer.phase === "error" ? "alert" : "status"}
-                >
-                  {pending ? (
-                    <>
-                      <span>
-                        {currentTransfer.phase === "saving"
-                          ? "正在保存…"
-                          : currentTransfer.phase === "verifying"
-                            ? "正在校验…"
-                            : currentTransfer.total
-                              ? `正在下载 ${Math.round((currentTransfer.received / currentTransfer.total) * 100)}%`
-                              : "正在获取版本…"}
-                      </span>
-                      <progress
-                        aria-label={`${entry.title}下载进度`}
-                        max={currentTransfer.total || 1}
-                        value={currentTransfer.received}
-                      />
-                    </>
-                  ) : (
-                    currentTransfer.message
-                  )}
-                </div>
-              )}
-              <footer className={styles.actions}>
-                {local && (
-                  <button
-                    className={styles.secondary}
-                    onClick={() => onRead(entry.id)}
-                  >
-                    继续阅读
-                  </button>
-                )}
-                {pending && currentTransfer.phase !== "saving" ? (
-                  <button className={styles.secondary} onClick={content.cancel}>
-                    <X aria-hidden="true" />
-                    取消下载
-                  </button>
-                ) : (
-                  <button
-                    className={styles.primary}
-                    disabled={
-                      busy ||
-                      checking ||
-                      !update ||
-                      current ||
-                      unknown ||
-                      !!connectionError
-                    }
-                    onClick={() => void onInstall(entry.id)}
-                  >
-                    {current ? (
-                      <Check aria-hidden="true" />
-                    ) : (
-                      <Download aria-hidden="true" />
+                  <h2 title={title}>{title}</h2>
+                  <div className={styles.actions}>
+                    {item.downloaded && (
+                      <button
+                        className={styles.primary}
+                        onClick={() => void onRead(item.id)}
+                      >
+                        阅读
+                      </button>
                     )}
-                    {current ? "已是最新" : saved ? "下载更新" : "下载到本地"}
-                  </button>
+                    {pending && currentTransfer.phase !== "saving" ? (
+                      <button
+                        className={styles.secondary}
+                        onClick={content.cancel}
+                      >
+                        <X aria-hidden="true" />
+                        取消下载
+                      </button>
+                    ) : !item.downloaded || state.updateAvailable ? (
+                      <button
+                        className={saved ? styles.secondary : styles.primary}
+                        disabled={
+                          busy ||
+                          checking ||
+                          !item.canAcquire ||
+                          (!!connectionError && !state.saved) ||
+                          operation.busy
+                        }
+                        onClick={() =>
+                          void onInstall(item.id, item.downloaded).catch(
+                            () => undefined,
+                          )
+                        }
+                      >
+                        {saved ? "更新" : "下载"}
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+                <p className={styles.description} title={description}>
+                  {description}
+                </p>
+                <div className={styles.tags} aria-label="资料分类">
+                  <span>{item.subjectTitle}</span>
+                  <span>{item.kind === "questions" ? "题目" : "学习资料"}</span>
+                </div>
+                <p className={styles.date}>
+                  {saved && Number.isFinite(saved.installedAt) ? (
+                    <>
+                      更新日期{" "}
+                      <time
+                        dateTime={new Date(saved.installedAt).toISOString()}
+                      >
+                        {new Date(saved.installedAt).toLocaleDateString(
+                          "zh-CN",
+                          {
+                            year: "numeric",
+                            month: "2-digit",
+                            day: "2-digit",
+                          },
+                        )}
+                      </time>
+                    </>
+                  ) : saved ? (
+                    "更新日期未知"
+                  ) : (
+                    "尚未下载"
+                  )}
+                </p>
+                {state.unknown && (
+                  <p className={styles.noticeInline}>
+                    本地版本暂无法核对，仍可阅读。
+                  </p>
                 )}
-              </footer>
-            </article>
+                {currentTransfer && currentTransfer.phase !== "done" && (
+                  <div
+                    className={styles.transfer}
+                    role={
+                      currentTransfer.phase === "error" ? "alert" : "status"
+                    }
+                  >
+                    {pending ? (
+                      <>
+                        <span>
+                          {currentTransfer.phase === "saving"
+                            ? "正在保存…"
+                            : currentTransfer.phase === "verifying"
+                              ? "正在校验…"
+                              : currentTransfer.total
+                                ? `正在下载 ${Math.round((currentTransfer.received / currentTransfer.total) * 100)}%`
+                                : "正在获取版本…"}
+                        </span>
+                        <progress
+                          aria-label={`${title}下载进度`}
+                          max={currentTransfer.total || 1}
+                          value={currentTransfer.received}
+                        />
+                      </>
+                    ) : (
+                      currentTransfer.message
+                    )}
+                  </div>
+                )}
+              </article>
+            </OfficialContentActions>
           );
         })}
       </div>
