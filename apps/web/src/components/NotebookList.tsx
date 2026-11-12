@@ -22,6 +22,7 @@ import {
 } from "./NoteManagementDialog";
 import styles from "./NotebookList.module.css";
 import management from "./NoteManagement.module.css";
+import { PaneHeader } from "./PaneHeader";
 
 export function NotebookList({
   library,
@@ -55,12 +56,11 @@ export function NotebookList({
   }, [activeNotebookId]);
   return (
     <section className={styles.library} aria-label="笔记列表">
-      <header className={styles.header}>
-        <h2>笔记</h2>
-        <p>
-          {notebooks.length} 个笔记本 · {notes.length} 篇笔记
-        </p>
-      </header>
+      <PaneHeader
+        icon={NotebookPen}
+        title="笔记"
+        detail={`${notebooks.length} 个笔记本 · ${notes.length} 篇笔记`}
+      />
       <div className={styles.list}>
         {notebooks.map((notebook) => {
           const items = notes.filter((note) => note.notebookId === notebook.id);

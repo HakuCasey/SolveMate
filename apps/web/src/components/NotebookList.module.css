@@ -3,33 +3,12 @@
   flex-direction: column;
   min-width: 0;
   min-height: 0;
-  padding: 0 12px;
-}
-.header {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 8px 16px;
-  padding: 22px 12px 18px;
-  border-bottom: 1px solid var(--sm-line);
-  flex-shrink: 0;
-}
-.header h2 {
-  font-size: 18px;
-  font-weight: 500;
-  margin: 0;
-}
-.header p {
-  font-size: 11px;
-  color: var(--sm-soft);
-  margin: 0;
 }
 .list {
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: 12px 0;
+  padding: 12px;
   scrollbar-width: thin;
 }
 .notebook {
@@ -138,11 +117,8 @@
   }
 }
 @media (max-width: 480px) {
-  .library {
-    padding: 0 6px;
-  }
-  .header {
-    padding: 18px 6px;
+  .list {
+    padding-inline: 6px;
   }
   .notebookButton {
     padding: 9px 6px;

@@ -49,13 +49,21 @@
   flex: 1;
 }
 .note {
+  display: flex;
+  flex-direction: column;
   min-width: 0;
   min-height: 0;
   border-left: 1px solid var(--sm-line);
+  overflow: hidden;
+  background: var(--sm-ground);
+}
+.noteViewport {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
   padding: clamp(16px, 3vw, 32px);
   overflow: auto;
   scrollbar-width: thin;
-  background: var(--sm-ground);
 }
 .notePaper {
   position: relative;
@@ -119,12 +127,32 @@
 }
 .noteSource {
   display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 4px 8px;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
+  min-width: 0;
   margin: 0;
+  padding: 0;
   color: var(--sm-soft);
-  font-size: 12px;
+  font-size: 11px;
+  text-align: left;
+}
+.noteSource > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.noteSource svg {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+}
+.noteSource:hover:not(:disabled) {
+  color: var(--sm-accent);
+}
+.noteSource:disabled {
+  opacity: 0.6;
 }
 .noteBody {
   min-width: 0;
@@ -146,32 +174,6 @@
 }
 .footer [role="alert"] {
   color: var(--sm-danger);
-}
-.noteActions {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 12px;
-}
-.noteActions button,
-.noteSource button {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-  border: 1px solid var(--sm-line);
-  border-radius: 7px;
-  color: var(--sm-accent);
-  font-size: 12px;
-  background: var(--sm-paper);
-}
-.noteActions svg {
-  width: 14px;
-  height: 14px;
-}
-.noteActions button:focus-visible,
-.noteSource button:focus-visible {
-  outline: 2px solid var(--sm-accent);
-  outline-offset: 2px;
 }
 .loading {
   min-height: 100dvh;
@@ -236,7 +238,7 @@
   .noteHeading h1 {
     font-size: 20px;
   }
-  .note {
+  .noteViewport {
     padding: 12px;
   }
   .notePaper {

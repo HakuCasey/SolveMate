@@ -6,12 +6,13 @@
   border-left: 1px solid var(--sm-line);
 }
 .heading {
-  min-height: 64px;
-  padding: 15px 25px;
+  min-height: 52px;
+  flex-shrink: 0;
+  padding: 6px 20px;
   border-bottom: 1px solid var(--sm-line);
   display: flex;
   align-items: center;
-  gap: 11px;
+  gap: 8px;
 }
 .avatar {
   background: var(--sm-active);
@@ -19,14 +20,18 @@
   border-radius: 9px;
   display: grid;
   place-items: center;
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   flex-shrink: 0;
 }
+.avatar svg {
+  width: 17px;
+  height: 17px;
+}
 .heading select {
-  max-width: 100%;
+  max-width: 30%;
   min-width: 0;
-  height: 30px;
+  height: 28px;
   padding: 2px 6px;
   border: 1px solid transparent;
   border-radius: 7px;
@@ -39,18 +44,23 @@
 }
 .connectionGroup {
   margin-left: auto;
+  flex: 1;
   min-width: 0;
   max-width: 55%;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 4px;
+  gap: 1px;
 }
 .configurationWarning {
   color: var(--sm-danger);
   font-size: 10px;
   line-height: 1.4;
   text-align: right;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .connection {
   font-size: 11px;
@@ -60,6 +70,7 @@
   align-items: center;
   gap: 5px;
   max-width: 100%;
+  min-height: 20px;
 }
 .connection span {
   overflow: hidden;
@@ -67,6 +78,8 @@
 }
 .connection svg {
   flex-shrink: 0;
+  width: 14px;
+  height: 14px;
 }
 .main {
   padding: 24px 25px 12px;
@@ -176,6 +189,9 @@
   .activitySpinner {
     animation: none;
   }
+  .recommendationToggle .recommendationChevron {
+    transition: none;
+  }
 }
 
 .author {
@@ -191,48 +207,89 @@
   height: 14px;
 }
 .recommendations {
-  margin-top: 20px;
-}
-.recommendations > p {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  color: var(--sm-soft);
-  margin: 0 0 10px;
-}
-.recommendations > p > span {
-  margin-left: auto;
-}
-.suggestion {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  width: 100%;
-  padding: 10px 12px;
-  margin-top: 7px;
+  gap: 8px;
+  padding: 5px 10px;
+  margin: 10px 0 0;
   border: 1px solid var(--sm-line);
-  border-radius: 8px;
-  font-size: 12px;
+  border-bottom: 0;
+  border-radius: 13px 13px 0 0;
+  background: var(--sm-ground);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.recommendationToggle {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  padding: 5px 0;
+  color: var(--sm-soft);
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: nowrap;
   text-align: left;
+  cursor: pointer;
 }
-.suggestion span {
-  flex: 1;
-}
-.suggestion:hover {
-  border-color: var(--sm-accent);
+.recommendationToggle:hover {
+  color: var(--sm-accent);
   background: var(--sm-active);
 }
-.suggestion svg {
+.recommendationToggle svg {
   width: 13px;
   height: 13px;
   flex-shrink: 0;
+}
+.recommendationChevron {
+  transition: transform 150ms ease;
+}
+.recommendationToggle[aria-expanded="true"] .recommendationChevron {
+  transform: rotate(180deg);
+}
+.suggestions {
+  display: contents;
+}
+.suggestions[hidden] {
+  display: none;
+}
+.suggestion {
+  flex: 0 1 33.333%;
+  max-width: 33.333%;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--sm-line);
+  border-radius: 7px;
+  background: var(--sm-paper);
+  font-size: 11px;
+  line-height: 1.6;
+  text-align: left;
+  cursor: pointer;
+}
+.suggestion span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.suggestion:hover:not(:disabled) {
+  border-color: var(--sm-accent);
+  background: var(--sm-active);
+}
+.suggestion:disabled {
+  opacity: 0.55;
+  cursor: default;
 }
 .compose {
   border: 1px solid var(--sm-line);
   border-radius: 13px;
   padding: 11px 12px 9px;
   margin: 16px 0 0;
+}
+.recommendations + .compose {
+  margin-top: 0;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
 }
 .compose:focus-within {
   border-color: var(--sm-accent);
@@ -256,17 +313,30 @@
   justify-content: space-between;
   gap: 12px;
 }
+.composeMeta {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
 .context {
   display: inline-flex;
   align-items: center;
   gap: 5px;
   min-width: 0;
+  max-width: 50%;
   font-size: 11px;
   background: var(--sm-ground);
   color: var(--sm-soft);
   padding: 3px 6px;
   border-radius: 4px;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
+}
+.context > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .context svg {
   flex-shrink: 0;
@@ -287,15 +357,21 @@
 .send:disabled {
   opacity: 0.4;
 }
-.notice,
-.voice {
+.notice {
   font-size: 11px;
   color: var(--sm-soft);
   text-align: center;
   margin: 7px 0 0;
 }
 .voice {
-  margin-top: 2px;
+  min-width: 0;
+  flex: 1;
+  font-size: 11px;
+  color: var(--sm-soft);
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .voice span {
   opacity: 0.8;
@@ -332,8 +408,7 @@
 }
 @media (max-width: 480px) {
   .heading {
-    padding: 14px 12px;
-    flex-wrap: wrap;
+    padding-inline: 12px;
   }
   .connection {
     font-size: 10px;

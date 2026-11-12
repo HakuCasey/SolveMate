@@ -18,6 +18,7 @@ import { AlertDialog, ContextMenu, Popover } from "radix-ui";
 import type { Conversation, Robot } from "@solvemate/contracts";
 import type { ConversationChange } from "../state/conversations";
 import styles from "./ConversationList.module.css";
+import { PaneHeader } from "./PaneHeader";
 
 interface Props {
   relations: LearningRelations;
@@ -383,21 +384,18 @@ export function ConversationList({
   const archived = conversations.filter((item) => item.status === "archived");
   return (
     <section className={styles.library} aria-label="会话列表">
-      <header className={styles.heading}>
-        <div>
-          <h2>对话</h2>
-          <span>{conversations.length} 个会话</span>
-          {labelError && !labelTarget && <p role="alert">{labelError}</p>}
-        </div>
-        <button
-          className={styles.newButton}
-          disabled={!robots.length}
-          onClick={onNew}
-        >
-          <SquarePen aria-hidden="true" />
-          新建对话
-        </button>
-      </header>
+      <PaneHeader
+        icon={MessagesSquare}
+        title="对话"
+        detail={`${conversations.length} 个会话`}
+        actions={
+          <button type="button" disabled={!robots.length} onClick={onNew}>
+            <SquarePen aria-hidden="true" />
+            新建对话
+          </button>
+        }
+      />
+      {labelError && !labelTarget && <p role="alert">{labelError}</p>}
       {/* 两组分别滚动，归档入口不会被进行中的条目推到窗口外。 */}
       <div className={styles.groups}>
         <section

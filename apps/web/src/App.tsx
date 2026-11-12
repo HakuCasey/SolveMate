@@ -12,7 +12,7 @@ import {
 import { OfficialLibrary } from "./content/library";
 import { OfficialLibraryService } from "./content/library-service";
 import { officialEntryId } from "./content/entries";
-import { NotebookPen, RefreshCw } from "lucide-react";
+import { Link, NotebookPen, RefreshCw, SquarePen } from "lucide-react";
 import { conversationMetadata } from "@solvemate/contracts";
 import type {
   AppData,
@@ -63,6 +63,7 @@ import {
   applyRobotAi,
 } from "./state/conversations";
 import { NotebookList } from "./components/NotebookList";
+import { PaneHeader } from "./components/PaneHeader";
 import { ConversationList } from "./components/ConversationList";
 import { Sidebar } from "./components/Sidebar";
 import { SubjectDialog, type SubjectAction } from "./components/SubjectDialog";
@@ -467,6 +468,7 @@ function Workspace({ content }: { content: OfficialContent }) {
       );
   }, [restoreConversationId, pendingAiIds, restoreAiConversation]);
   const [noteId, setNoteId] = useState<string | null>(null);
+  const [recommendationsExpanded, setRecommendationsExpanded] = useState(true);
 
   const appearance = data?.settings.appearance;
   useEffect(() => {
@@ -519,8 +521,13 @@ function Workspace({ content }: { content: OfficialContent }) {
   const note =
     noteLibrary.notes.find((item) => item.id === noteId) ??
     noteLibrary.notes[0];
+  const noteDisplayTagIds =
+    note?.tagIds.filter((id) => !id.startsWith("subject:")) ?? [];
   const noteSource = note ? sourceForNote(note) : null;
   const noteMaterial = noteSource ? relations.material(noteSource) : null;
+  const noteNotebook = noteLibrary.notebooks.find(
+    (item) => item.id === note?.notebookId,
+  );
   const editorMaterial = noteEditor?.source
     ? relations.material(noteEditor.source)
     : null;
@@ -1299,73 +1306,82 @@ function Workspace({ content }: { content: OfficialContent }) {
                 aria-label="笔记阅读区"
                 key={note?.id ?? "empty"}
               >
-                {note ? (
-                  <article
-                    className={styles.notePaper}
-                    aria-label="笔记正文"
-                    style={{ fontSize: data.settings.fontSize }}
-                  >
-                    <header className={styles.noteHeading}>
-                      <div className={styles.noteActions}>
-                        <button
-                          onClick={() =>
-                            setNoteEditor({
-                              id: note.id,
-                              note: structuredClone(note),
-                              source: sourceForNote(note),
-                            })
-                          }
-                        >
-                          <NotebookPen aria-hidden="true" />
-                          编辑笔记
-                        </button>
-                      </div>
-                      <h1>{note.title}</h1>
-                      {noteMaterial && (
-                        <p className={styles.noteSource}>
-                          <span>
-                            来源：{noteMaterial.title} · {noteMaterial.position}
-                          </span>
-                          {noteMaterial.available && (
-                            <button
-                              onClick={() => {
-                                if (noteSource && "materialId" in noteSource)
-                                  selectMaterial({ ...noteSource });
-                                else if (noteSource)
-                                  selectContent({ ...noteSource });
-                              }}
-                            >
-                              查看原文
-                            </button>
-                          )}
-                          {noteMaterial.removed && (
-                            <span>资料已从列表删除</span>
-                          )}
-                        </p>
+                <PaneHeader
+                  icon={NotebookPen}
+                  title={noteNotebook?.title ?? "笔记"}
+                  detail={
+                    noteMaterial && (
+                      <button
+                        type="button"
+                        className={styles.noteSource}
+                        aria-label="查看原文"
+                        title={`来源：${noteMaterial.title} · ${noteMaterial.position}${noteMaterial.removed ? "（资料已从列表删除）" : ""}`}
+                        disabled={!noteMaterial.available}
+                        onClick={() => {
+                          if (noteSource && "materialId" in noteSource)
+                            selectMaterial({ ...noteSource });
+                          else if (noteSource) selectContent({ ...noteSource });
+                        }}
+                      >
+                        <Link aria-hidden="true" />
+                        <span>
+                          {noteMaterial.title} · {noteMaterial.position}
+                          {noteMaterial.removed && "（资料已从列表删除）"}
+                        </span>
+                      </button>
+                    )
+                  }
+                  actions={
+                    note && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setNoteEditor({
+                            id: note.id,
+                            note: structuredClone(note),
+                            source: sourceForNote(note),
+                          })
+                        }
+                      >
+                        <SquarePen aria-hidden="true" />
+                        编辑笔记
+                      </button>
+                    )
+                  }
+                />
+                <div className={styles.noteViewport}>
+                  {note ? (
+                    <article
+                      className={styles.notePaper}
+                      aria-label="笔记正文"
+                      style={{ fontSize: data.settings.fontSize }}
+                    >
+                      <header className={styles.noteHeading}>
+                        <h1>{note.title}</h1>
+                      </header>
+                      {noteDisplayTagIds.length > 0 && (
+                        <div className={styles.noteTags}>
+                          {noteDisplayTagIds.map((id) => (
+                            <span key={id}>
+                              {noteTags(noteLibrary, subjectDirectory).find(
+                                (tag) => tag.id === id,
+                              )?.title ?? "标签不可用"}
+                            </span>
+                          ))}
+                        </div>
                       )}
-                    </header>
-                    {note.tagIds.length > 0 && (
-                      <div className={styles.noteTags}>
-                        {note.tagIds.map((id) => (
-                          <span key={id}>
-                            {noteTags(noteLibrary, subjectDirectory).find(
-                              (tag) => tag.id === id,
-                            )?.title ?? "标签不可用"}
-                          </span>
-                        ))}
+                      <div className={styles.noteBody}>
+                        <Markdown>{note.content}</Markdown>
                       </div>
-                    )}
-                    <div className={styles.noteBody}>
-                      <Markdown>{note.content}</Markdown>
+                    </article>
+                  ) : (
+                    <div className={styles.noteEmpty}>
+                      <NotebookPen aria-hidden="true" />
+                      <h2>暂无笔记</h2>
+                      <p>可以在左侧展开笔记本查看内容。</p>
                     </div>
-                  </article>
-                ) : (
-                  <div className={styles.noteEmpty}>
-                    <NotebookPen aria-hidden="true" />
-                    <h2>暂无笔记</h2>
-                    <p>可以在左侧展开笔记本查看内容。</p>
-                  </div>
-                )}
+                  )}
+                </div>
               </section>
             )}
             {(view === "reading" ||
@@ -1388,7 +1404,10 @@ function Workspace({ content }: { content: OfficialContent }) {
                 robotId={currentRobot?.id ?? null}
                 conversation={currentConversation}
                 contextLabel={contextLabel}
-                textbook={chatSelection?.kind === "textbooks"}
+                recommendationsExpanded={recommendationsExpanded}
+                onToggleRecommendations={() =>
+                  setRecommendationsExpanded((expanded) => !expanded)
+                }
                 onRobotChange={changeRobot}
                 onSend={saveQuestion}
                 onOpenReference={openReference}

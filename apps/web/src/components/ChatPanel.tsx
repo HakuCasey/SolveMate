@@ -1,8 +1,8 @@
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useId, useRef, useState } from "react";
 import {
   ArrowUp,
   Bot,
-  CornerDownLeft,
+  ChevronDown,
   GraduationCap,
   Link,
   Sparkles,
@@ -33,7 +33,8 @@ interface ChatPanelProps {
   robotId: string | null;
   conversation?: Conversation;
   contextLabel: string | null;
-  textbook: boolean;
+  recommendationsExpanded: boolean;
+  onToggleRecommendations: () => void;
   onRobotChange: (id: string) => void;
   onSend: (text: string) => Promise<void>;
   references: DraftReference[];
@@ -51,7 +52,8 @@ export function ChatPanel({
   robotId,
   conversation,
   contextLabel,
-  textbook,
+  recommendationsExpanded,
+  onToggleRecommendations,
   onRobotChange,
   onSend,
   references,
@@ -63,6 +65,7 @@ export function ChatPanel({
 }: ChatPanelProps) {
   const [notice, setNotice] = useState("");
   const [sending, setSending] = useState(false);
+  const recommendationsId = useId();
   const history = useRef<HTMLDivElement>(null);
   const followReply = useRef(true);
   const robot = robots.find((item) => item.id === robotId);
@@ -88,12 +91,10 @@ export function ChatPanel({
   const lastUserText =
     turn?.text ||
     [...messages].reverse().find((message) => message.role === "user")?.content;
-  const prompts = !contextLabel
-    ? ["能帮我理清这个想法吗？", "我们可以从哪些方面讨论？"]
-    : textbook
-      ? ["这一节的核心概念是什么？", "能举一个本节的例子吗？"]
-      : ["用到了哪些概念或公式？", "能把关键步骤展开讲吗？"];
-
+  const prompts = [
+    "可以把这里的推导过程详细讲一下吗？",
+    "如何理解这段话，能举一个例子吗？",
+  ];
   const latestContent = messages.at(-1)?.content;
   useEffect(() => {
     if (followReply.current)
@@ -249,6 +250,7 @@ export function ChatPanel({
         <select
           aria-label="选择机器人"
           value={robot?.id ?? ""}
+          title={robot?.name ?? conversation?.robotIdentity?.name ?? undefined}
           disabled={!robots.length || busy || archived}
           onChange={(event) => onRobotChange(event.target.value)}
         >
@@ -281,7 +283,10 @@ export function ChatPanel({
             </span>
           </button>
           {(!configured || effectiveAi.error) && (
-            <small className={styles.configurationWarning}>
+            <small
+              className={styles.configurationWarning}
+              title={effectiveAi.error || "请先在设置中配置 AI"}
+            >
               {effectiveAi.error || "请先在设置中配置 AI"}
             </small>
           )}
@@ -424,25 +429,46 @@ export function ChatPanel({
           </p>
         ) : (
           <>
-            {!!robot && !messages.length && !busy && (
+            {!!robot && (
               <section
                 className={styles.recommendations}
-                aria-label="推荐问题示例"
+                aria-label="AI 推荐问题"
               >
-                <p>
+                <button
+                  className={styles.recommendationToggle}
+                  type="button"
+                  aria-label={
+                    recommendationsExpanded ? "收起推荐问题" : "展开推荐问题"
+                  }
+                  aria-expanded={recommendationsExpanded}
+                  aria-controls={recommendationsId}
+                  onClick={onToggleRecommendations}
+                >
                   <Sparkles aria-hidden="true" />
-                  AI 推荐问题<span>示例</span>
-                </p>
-                {prompts.map((prompt) => (
-                  <button
-                    key={prompt}
-                    className={styles.suggestion}
-                    onClick={() => submit(prompt)}
-                  >
-                    <span>{prompt}</span>
-                    <CornerDownLeft aria-hidden="true" />
-                  </button>
-                ))}
+                  推荐问题
+                  <ChevronDown
+                    className={styles.recommendationChevron}
+                    aria-hidden="true"
+                  />
+                </button>
+                <div
+                  id={recommendationsId}
+                  className={styles.suggestions}
+                  hidden={!recommendationsExpanded}
+                >
+                  {prompts.map((prompt) => (
+                    <button
+                      key={prompt}
+                      type="button"
+                      className={styles.suggestion}
+                      title={prompt}
+                      disabled={busy}
+                      onClick={() => submit(prompt)}
+                    >
+                      <span>{prompt}</span>
+                    </button>
+                  ))}
+                </div>
               </section>
             )}
             <form
@@ -494,12 +520,20 @@ export function ChatPanel({
                 }}
               />
               <div className={styles.composeBottom}>
-                {contextLabel && (
-                  <span className={styles.context}>
-                    <Link aria-hidden="true" />
-                    {contextLabel}
+                <div className={styles.composeMeta}>
+                  {contextLabel && (
+                    <span className={styles.context} title={contextLabel}>
+                      <Link aria-hidden="true" />
+                      <span>{contextLabel}</span>
+                    </span>
+                  )}
+                  <span
+                    className={styles.voice}
+                    title="长按空格键可语音输入…（尚未开放）"
+                  >
+                    长按空格键可语音输入… <span>尚未开放</span>
                   </span>
-                )}
+                </div>
                 {busy ? (
                   <button
                     className={styles.send}
@@ -528,9 +562,6 @@ export function ChatPanel({
                 {notice}
               </p>
             )}
-            <p className={styles.voice}>
-              长按空格键可语音输入… <span>尚未开放</span>
-            </p>
           </>
         )}
       </div>
