@@ -11,16 +11,22 @@ const supplemental = {
   "remark-math@6.0.0": "remark-math",
   "react-remove-scroll-bar@2.3.8": "react-remove-scroll-bar",
 };
+// npm run 提供 CLI 路径；通过 Node 调用，避免 Windows 无法直接执行 npm.cmd。
+const npmCli = process.env.npm_execpath;
+if (!npmCli)
+  throw new Error(
+    "Run this script with npm run licenses:generate or npm run licenses:check.",
+  );
 const paths = execFileSync(
-  "npm",
-  ["ls", "--omit=dev", "--all", "--parseable"],
+  process.execPath,
+  [npmCli, "ls", "--omit=dev", "--all", "--parseable"],
   {
     cwd: root,
     encoding: "utf8",
   },
 )
   .trim()
-  .split("\n");
+  .split(/\r?\n/);
 const notices = new Map();
 // 字体单独使用 OFL；从原字体的 name 表读取版权与保留名称，不套用代码的 MIT。
 function fontLicense(path) {
