@@ -250,6 +250,7 @@ export function useAiService(update: Update) {
             text: input.text,
             teacher: input.teacher,
             reference: input.reference,
+            references: input.references,
             userMessageId: input.userMessageId,
             assistantMessageId: input.id + "-assistant",
             model: input.model,

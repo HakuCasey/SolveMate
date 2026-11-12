@@ -3,7 +3,11 @@ import Dexie from "dexie";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createInitialData } from "../data/catalog";
 import { DexieStorage, LocalDataConflictError } from "./index";
+import { addSubject, renameSubject, removeSubject } from "../state/subjects";
+import { courses } from "../data/catalog";
 import { createConversation } from "../state/conversations";
+import { deleteNotebook, renameNotebook, saveNoteTags } from "../state/notes";
+import { createSubjectDirectory } from "../state/subjects";
 
 const stores: DexieStorage[] = [];
 const databaseNames: string[] = [];
@@ -24,6 +28,53 @@ afterEach(async () => {
 });
 
 describe("local storage", () => {
+  it("restores renamed notebooks, custom tags and transferred notes together", async () => {
+    const name = `solvemate-test-${crypto.randomUUID()}`;
+    const first = createStore(name);
+    let data = renameNotebook(
+      createInitialData(),
+      "notebook-calculus",
+      "高数复习",
+      1,
+    );
+    data = saveNoteTags(
+      data,
+      createSubjectDirectory(courses),
+      "N001",
+      ["subject:calculus"],
+      ["待复习"],
+      1,
+      () => "note-tag-review",
+    );
+    data = deleteNotebook(data, "notebook-calculus", false, 2);
+    await first.save(data);
+    first.close();
+    const restored = await createStore(name).load();
+    expect(restored?.noteLibrary).toEqual(data.noteLibrary);
+    expect(restored?.noteLibrary?.notes[0]).toMatchObject({
+      id: "N001",
+      notebookId: "notebook-unclassified",
+      tagIds: ["subject:calculus", "note-tag-review"],
+    });
+  });
+  it("persists custom subjects, renamed official subjects and deletion markers across reopening", async () => {
+    const name = `solvemate-test-${crypto.randomUUID()}`;
+    const first = createStore(name);
+    let data = addSubject(
+      createInitialData(),
+      courses,
+      "物理",
+      "subject-physics",
+    );
+    data = renameSubject(data, courses, "c-language", "程序设计");
+    data = removeSubject(data, courses, "calculus");
+    await first.save(data);
+    first.close();
+    const restored = await createStore(name).load();
+    expect(restored?.subjects).toEqual(data.subjects);
+    expect(restored?.conversations).toEqual(data.conversations);
+    expect(restored?.selection).toEqual(data.selection);
+  });
   it("restores ordinary and reading sessions without borrowing the current reading selection", async () => {
     const name = `solvemate-test-${crypto.randomUUID()}`;
     const data = createInitialData();

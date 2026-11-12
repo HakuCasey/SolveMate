@@ -5,6 +5,49 @@ import { aiSettings } from "./fixtures.test-support";
 afterEach(() => vi.unstubAllGlobals());
 
 describe("local AI HTTP connection", () => {
+  it("renames only the bound native session and requires an explicit result", async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ status: "synced" }), { status: 200 }),
+      );
+    vi.stubGlobal("fetch", fetcher);
+    const binding = {
+      conversationId: "local-id",
+      connectionId: "hermes-local",
+      protocol: "acp" as const,
+      externalSessionId: "native-id",
+      state: "bound" as const,
+      revision: 1,
+    };
+    expect(
+      await localAi.renameSession("local-id", "指针讨论", binding),
+    ).toEqual({ status: "synced" });
+    expect(fetcher.mock.calls[0]![0]).toBe(
+      "/local-api/v1/conversations/local-id/native-title",
+    );
+    expect(JSON.parse(fetcher.mock.calls[0]![1].body)).toEqual({
+      title: "指针讨论",
+      connectionId: "hermes-local",
+      externalSessionId: "native-id",
+    });
+    fetcher.mockResolvedValue(new Response("{}", { status: 200 }));
+    await expect(
+      localAi.renameSession("local-id", "指针讨论", binding),
+    ).rejects.toMatchObject({ code: "protocol_invalid" });
+    fetcher.mockResolvedValue(
+      new Response(
+        JSON.stringify({ detail: "原会话不存在。", code: "session_missing" }),
+        { status: 422 },
+      ),
+    );
+    await expect(
+      localAi.renameSession("local-id", "指针讨论", binding),
+    ).rejects.toMatchObject({
+      code: "session_missing",
+      message: "原会话不存在。",
+    });
+  });
   it("uses same-origin JSON requests and sends no model credentials", async () => {
     const fetcher = vi
       .fn()

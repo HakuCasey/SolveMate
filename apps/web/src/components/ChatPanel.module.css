@@ -390,3 +390,71 @@
 .tools p {
   margin: 5px 0;
 }
+
+.quoteDraft {
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--sm-line);
+  border-radius: 8px;
+  background: var(--sm-ground);
+  color: var(--sm-soft);
+  font-size: 11px;
+  line-height: 1.6;
+}
+.quoteDraft > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.quoteDraft > div > span {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.quoteDraft button {
+  flex-shrink: 0;
+  padding: 3px;
+  color: var(--sm-accent);
+  border-radius: 4px;
+}
+.quoteDraft button:hover {
+  background: var(--sm-active);
+}
+.quoteDraft svg {
+  width: 14px;
+  height: 14px;
+  display: block;
+}
+.quoteDraft details {
+  margin-top: 4px;
+}
+.quoteDraft summary {
+  cursor: pointer;
+}
+.quoteDraft pre,
+.reference pre {
+  max-height: 180px;
+  overflow: auto;
+  white-space: pre-wrap;
+  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+  margin: 6px 0;
+}
+.returnReference {
+  color: var(--sm-accent);
+  font-size: 11px;
+  margin: 6px 0;
+}
+
+.quoteList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: min(260px, 30vh);
+  overflow: auto;
+  margin: -9px -9px 8px;
+  padding: 0 0 8px;
+  border-bottom: 1px solid var(--sm-line);
+}

@@ -8,10 +8,20 @@ import {
   Sparkles,
   Square,
   Settings2,
+  X,
 } from "lucide-react";
-import type { Conversation, Robot } from "@solvemate/contracts";
+import type {
+  Conversation,
+  Robot,
+  ReadingReference,
+} from "@solvemate/contracts";
 import { resolveConversationAi } from "../ai/robot-config";
 import type { AiService } from "../ai/useAiService";
+import {
+  messageReferences,
+  referencePreview,
+  type DraftReference,
+} from "../reading/reference";
 import { ReplyActivity } from "./ReplyActivity";
 import { Markdown } from "./Markdown";
 import styles from "./ChatPanel.module.css";
@@ -24,6 +34,9 @@ interface ChatPanelProps {
   textbook: boolean;
   onRobotChange: (id: string) => void;
   onSend: (text: string) => Promise<void>;
+  references: DraftReference[];
+  onRemoveReference: (id: string) => void;
+  onOpenReference: (reference: ReadingReference) => void;
   ai: AiService;
   onConfigure: () => void;
   aiSettingsOpen: boolean;
@@ -37,6 +50,9 @@ export function ChatPanel({
   textbook,
   onRobotChange,
   onSend,
+  references,
+  onRemoveReference,
+  onOpenReference,
   ai,
   onConfigure,
   aiSettingsOpen,
@@ -346,12 +362,21 @@ export function ChatPanel({
                   {message.example && (
                     <small className={styles.example}>示例记录</small>
                   )}
-                  {message.reference && (
-                    <details className={styles.reference}>
-                      <summary>引用：{message.reference.title}</summary>
-                      <Markdown>{message.reference.content}</Markdown>
+                  {messageReferences(message).map((reference, index) => (
+                    <details className={styles.reference} key={index}>
+                      <summary>
+                        引用：{referencePreview(reference.content)}
+                      </summary>
+                      <button
+                        type="button"
+                        className={styles.returnReference}
+                        onClick={() => onOpenReference(reference)}
+                      >
+                        返回原文
+                      </button>
+                      <pre>{reference.content}</pre>
                     </details>
-                  )}
+                  ))}
                   <Markdown>{message.content}</Markdown>
                   {message.id === currentReply?.id && feedback}
                   {message.role === "assistant" && olderTerminal && (
@@ -424,9 +449,31 @@ export function ChatPanel({
                 submit(draft);
               }}
             >
+              {!!references.length && (
+                <div className={styles.quoteList} aria-label="待发送引用">
+                  {references.map(({ id, reference }) => (
+                    <div key={id} className={styles.quoteDraft}>
+                      <div>
+                        <span>{referencePreview(reference.content)}</span>
+                        <button
+                          type="button"
+                          onClick={() => onRemoveReference(id)}
+                          aria-label={`删除引用：${referencePreview(reference.content)}`}
+                        >
+                          <X aria-hidden="true" />
+                        </button>
+                      </div>
+                      <details>
+                        <summary>查看引用内容</summary>
+                        <pre>{reference.content}</pre>
+                      </details>
+                    </div>
+                  ))}
+                </div>
+              )}
               <textarea
                 aria-label="向阅读助手提问"
-                placeholder="有什么疑问或想法？"
+                placeholder="选中内容，添加到侧边聊天后提问。"
                 rows={2}
                 maxLength={10000}
                 disabled={!robot || busy}

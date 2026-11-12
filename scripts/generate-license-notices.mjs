@@ -68,7 +68,26 @@ for (const path of paths) {
       "utf8",
     ).trim();
   }
+  // 原生平台包与主包同版本、同仓库发布，许可证原文随主包提供。
+  if (!body && pkg.name.startsWith("@napi-rs/canvas-")) {
+    const parent = join(root, "node_modules/@napi-rs/canvas");
+    const metadata = JSON.parse(
+      readFileSync(join(parent, "package.json"), "utf8"),
+    );
+    if (metadata.version !== pkg.version || metadata.license !== pkg.license)
+      throw new Error(`Canvas platform license does not match: ${key}`);
+    body = readFileSync(join(parent, "LICENSE"), "utf8").trim();
+  }
   if (!body) throw new Error(`Missing license text for ${key}`);
+  if (pkg.name === "pdfjs-dist") {
+    for (const directory of ["cmaps", "standard_fonts", "wasm"]) {
+      for (const file of readdirSync(join(path, directory))
+        .filter((name) => /license/i.test(name))
+        .sort()) {
+        body += `\n\n${directory}/${file}\n${readFileSync(join(path, directory, file), "utf8").trim()}`;
+      }
+    }
+  }
   if (pkg.name === "katex") {
     const fonts = join(path, "dist/fonts");
     const records = readdirSync(fonts)
@@ -83,10 +102,30 @@ for (const path of paths) {
       "\n\n" +
       readFileSync(join(root, "scripts/licenses/OFL-1.1.txt"), "utf8").trim();
   }
-  // 统一上游文件的换行符，保留许可证正文与版权信息。
+  // 统一换行符并移除行尾空白，保留许可证正文与版权信息。
   notices.set(
     key,
-    `${key}\nDeclared license: ${pkg.license}\n\n${body.replace(/\r\n?/g, "\n")}`,
+    `${key}\nDeclared license: ${pkg.license}\n\n${body.replace(/\r\n?/g, "\n").replace(/[ \t]+$/gm, "")}`,
+  );
+}
+// 可选原生包按锁定文件统一列出，避免在另一系统安装后许可证检查发生变化。
+const locked = JSON.parse(
+  readFileSync(join(root, "package-lock.json"), "utf8"),
+);
+const canvasPath = join(root, "node_modules/@napi-rs/canvas");
+const canvas = JSON.parse(
+  readFileSync(join(canvasPath, "package.json"), "utf8"),
+);
+const canvasLicense = readFileSync(join(canvasPath, "LICENSE"), "utf8").trim();
+for (const [path, pkg] of Object.entries(locked.packages)) {
+  const match = path.match(/node_modules\/(@napi-rs\/canvas-[^/]+)$/);
+  if (!match) continue;
+  if (pkg.version !== canvas.version || pkg.license !== canvas.license)
+    throw new Error(`Locked canvas platform license does not match: ${path}`);
+  const key = `${match[1]}@${pkg.version}`;
+  notices.set(
+    key,
+    `${key}\nDeclared license: ${pkg.license}\n\nLicense distributed with @napi-rs/canvas@${canvas.version}:\n${canvasLicense}`,
   );
 }
 const text =

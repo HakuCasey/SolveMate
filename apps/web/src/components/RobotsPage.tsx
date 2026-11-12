@@ -28,7 +28,6 @@ import styles from "./RobotsPage.module.css";
 interface RobotsPageProps {
   robots: Robot[];
   defaultRobotId: string | null;
-  activeRobotId: string | null;
   onChange: (robots: Robot[], defaultRobotId: string | null) => Promise<void>;
   onUse: (robot: Robot) => Promise<void>;
   disabled?: boolean;
@@ -56,7 +55,6 @@ function RobotAvatar({ icon }: { icon: Robot["icon"] }) {
 export function RobotsPage({
   robots,
   defaultRobotId,
-  activeRobotId,
   onChange,
   onUse,
   disabled = false,
@@ -292,9 +290,6 @@ export function RobotsPage({
                         ? resolveRobotAi(robot, aiSettings).label
                         : "AI 未配置"}
                     </span>
-                    {robot.id === activeRobotId && (
-                      <span className={styles.cardDescription}>当前使用</span>
-                    )}
                     {isRobotModified(robot, drafts[robot.id]) && (
                       <span className={styles.draftHint}>有未保存的修改</span>
                     )}

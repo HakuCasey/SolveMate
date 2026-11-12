@@ -1,14 +1,25 @@
-import { useEffect, useRef, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { NotebookPen, RefreshCw } from "lucide-react";
 import { conversationMetadata } from "@solvemate/contracts";
 import type {
   AppData,
+  Subject,
   Conversation,
   CourseId,
   ReadingSelection,
   Robot,
+  MaterialLocation,
+  ReadingReference,
 } from "@solvemate/contracts";
-import { sampleNotes, getCurrentContent } from "./data/catalog";
+import { applyNoteAction, noteTags } from "./state/notes";
 import { isRobotModified } from "./state/robots";
 import {
   resolveConversationAi,
@@ -17,6 +28,7 @@ import {
   type RobotAiConfig,
 } from "./ai/robot-config";
 import { useAiService } from "./ai/useAiService";
+import { localAi } from "./ai/local-api";
 import {
   useOfficialContent,
   type OfficialContent,
@@ -29,13 +41,23 @@ import {
   replaceRobots,
   latestConversation,
   conversationForReading,
+  conversationForMaterial,
   updateConversation,
   deleteConversation,
   applyRobotAi,
 } from "./state/conversations";
+import { NotebookList } from "./components/NotebookList";
 import { ConversationList } from "./components/ConversationList";
 import { Sidebar } from "./components/Sidebar";
-import { StudyOverview } from "./components/StudyOverview";
+import { SubjectDialog, type SubjectAction } from "./components/SubjectDialog";
+import {
+  addSubject,
+  renameSubject,
+  removeSubject,
+  createSubjectDirectory,
+} from "./state/subjects";
+import { SubjectContentList } from "./components/SubjectContentList";
+import { scopeForMaterial, type LibraryScope } from "./reading/library";
 import { Reader } from "./components/Reader";
 import { Markdown } from "./components/Markdown";
 import { ChatPanel } from "./components/ChatPanel";
@@ -46,13 +68,37 @@ import {
 } from "./components/ConversationSwitchDialog";
 import { RobotsPage } from "./components/RobotsPage";
 import { PwaControls } from "./components/PwaControls";
+import { useMaterials } from "./materials/useMaterials";
+const MaterialReader = lazy(() =>
+  import("./materials/MaterialReader").then((module) => ({
+    default: module.MaterialReader,
+  })),
+);
+import { locationKey } from "./materials/api";
+import { appendReference, readingKey } from "./reading/reference";
+import { useReadingState } from "./reading/useReadingState";
+import {
+  emptyReadingPosition,
+  readingDocumentKey,
+  restoreReadingLocation,
+  readingLocationForConversation,
+  type ReadingPositionState,
+} from "./reading/state";
+import type { SetStateAction } from "react";
 import { applyTheme } from "./theme/theme";
 import styles from "./App.module.css";
 import { clientRuntime } from "./version";
 import { useSaveFeedback } from "./components/SaveFeedback";
 
 type View =
-  "reading" | "conversations" | "notes" | "teaching" | "robots" | "content";
+  | "reading"
+  | "conversations"
+  | "notes"
+  | "teaching"
+  | "robots"
+  | "content"
+  | "materials"
+  | "library";
 
 export function App() {
   const content = useOfficialContent();
@@ -73,8 +119,15 @@ export function App() {
 
 function Workspace({ content }: { content: OfficialContent }) {
   const showSaved = useSaveFeedback();
-  const courses = content.snapshot.activeCourses;
-  const availableCourses = content.snapshot.allCourses;
+  const {
+    state: readingState,
+    updatePosition,
+    updateDocument,
+    updateReferences,
+    rememberLocation,
+  } = useReadingState();
+  const sourceCourses = content.snapshot.activeCourses;
+  const sourceAvailableCourses = content.snapshot.allCourses;
   const {
     data,
     setData,
@@ -83,8 +136,43 @@ function Workspace({ content }: { content: OfficialContent }) {
     conflict,
     retrySave,
     saveChanges,
-  } = useLocalData(availableCourses);
-  const [view, setView] = useState<View>("reading");
+    readData,
+  } = useLocalData(sourceAvailableCourses);
+  const subjectDirectory = useMemo(
+    () => createSubjectDirectory(sourceCourses, data?.subjects),
+    [sourceCourses, data?.subjects],
+  );
+  const subjects = subjectDirectory.active;
+  const courses = useMemo(
+    () =>
+      sourceCourses.map((item) => ({
+        ...item,
+        title: subjectDirectory.byId.get(item.id)?.title ?? item.title,
+      })),
+    [sourceCourses, subjectDirectory],
+  );
+  const availableCourses = useMemo(
+    () =>
+      sourceAvailableCourses.map((item) => ({
+        ...item,
+        title: subjectDirectory.byId.get(item.id)?.title ?? item.title,
+      })),
+    [sourceAvailableCourses, subjectDirectory],
+  );
+  const readSubjects = useCallback(() => {
+    const current = readData();
+    if (!current) throw new Error("学科目录尚未读取完成，请稍后重试。");
+    return createSubjectDirectory(sourceCourses, current.subjects);
+  }, [sourceCourses, readData]);
+  const materials = useMaterials(readSubjects);
+  const [subjectAction, setSubjectAction] = useState<SubjectAction | null>(
+    null,
+  );
+  const [view, setView] = useState<View>("conversations");
+  const [libraryScope, setLibraryScope] = useState<LibraryScope>({
+    courseId: "calculus",
+    kind: "textbooks",
+  });
   const [activeConversationId, setActiveConversationId] = useState<
     string | null
   >(null);
@@ -102,17 +190,75 @@ function Workspace({ content }: { content: OfficialContent }) {
     setData((previous) => (previous ? change(previous) : previous)),
   );
   const restoreAiConversation = ai.restore;
+  const quoteKey =
+    view === "materials" && data?.materialSelection
+      ? locationKey(data.materialSelection)
+      : view === "reading" && data?.selection
+        ? readingKey(data.selection)
+        : "";
+  const documentKey =
+    view === "materials" && data?.materialSelection
+      ? readingDocumentKey(data.materialSelection)
+      : view === "reading" && data?.selection
+        ? readingDocumentKey(data.selection)
+        : "";
+  const readingPosition =
+    readingState.positions[quoteKey] ?? emptyReadingPosition();
+  // PDF 的多个页码共享待发送引用；内置章节和题目分别对应各自的对话。
+  const referenceDraftKey = view === "materials" ? documentKey : quoteKey;
+  const draftReferences = readingState.references[referenceDraftKey] ?? [];
+  function addReference(reference: ReadingReference) {
+    const references = appendReference(
+      draftReferences,
+      reference,
+      crypto.randomUUID(),
+    );
+    updateReferences(referenceDraftKey, references);
+  }
+  const setReadingPosition = useCallback(
+    (change: SetStateAction<ReadingPositionState>) =>
+      updatePosition(quoteKey, change),
+    [quoteKey, updatePosition],
+  );
+  const setReadingZoom = useCallback(
+    (zoom: number) =>
+      updateDocument(documentKey, (previous) => ({ ...previous, zoom })),
+    [documentKey, updateDocument],
+  );
+  useEffect(() => {
+    const location =
+      view === "materials"
+        ? data?.materialSelection
+        : view === "reading"
+          ? data?.selection
+          : null;
+    if (location) rememberLocation(location);
+  }, [view, data?.materialSelection, data?.selection, rememberLocation]);
+
   const currentConversation = data
-    ? view === "reading"
-      ? conversationForReading(
-          data.conversations,
-          data.selection,
-          activeConversationId,
-        )
-      : data.conversations.find(
-          (item) =>
-            item.status !== "deleted" && item.id === activeConversationId,
-        )
+    ? view === "library"
+      ? undefined
+      : view === "materials"
+        ? data.materialSelection
+          ? conversationForMaterial(
+              data.conversations,
+              data.materialSelection,
+              activeConversationId,
+            )
+          : undefined
+        : view === "reading"
+          ? conversationForReading(
+              data.conversations,
+              data.selection,
+              activeConversationId,
+            )
+          : (data.conversations.find(
+              (item) =>
+                item.status !== "deleted" && item.id === activeConversationId,
+            ) ??
+            (view === "conversations" && activeConversationId === null
+              ? latestConversation(data.conversations)
+              : undefined))
     : undefined;
   const restoreConversationId = currentConversation?.id ?? null;
   const pendingAiIds =
@@ -127,7 +273,7 @@ function Workspace({ content }: { content: OfficialContent }) {
         pendingAiIds ? pendingAiIds.split(",") : [],
       );
   }, [restoreConversationId, pendingAiIds, restoreAiConversation]);
-  const [noteId, setNoteId] = useState(sampleNotes[0].id);
+  const [noteId, setNoteId] = useState<string | null>(null);
 
   const appearance = data?.settings.appearance;
   useEffect(() => {
@@ -159,6 +305,12 @@ function Workspace({ content }: { content: OfficialContent }) {
     );
 
   const selection = data.selection;
+  const resizable =
+    view === "reading" ||
+    view === "conversations" ||
+    view === "notes" ||
+    view === "materials" ||
+    view === "library";
   const currentRobotId =
     currentConversation?.robotId ?? activeRobotId ?? data.defaultRobotId;
   const currentRobot =
@@ -170,56 +322,147 @@ function Workspace({ content }: { content: OfficialContent }) {
     currentConversation,
     currentRobot,
   );
-  const note = sampleNotes.find((item) => item.id === noteId) ?? sampleNotes[0];
-  const noteCourse = courses.find((item) => item.id === note.courseId);
+  const noteLibrary = data.noteLibrary!;
+  const note =
+    noteLibrary.notes.find((item) => item.id === noteId) ??
+    noteLibrary.notes[0];
+  const noteCourse = availableCourses.find(
+    (item) => item.id === note?.courseId,
+  );
   const noteQuestion = noteCourse?.questions.find(
-    (item) => item.id === note.questionId,
+    (item) => item.id === note?.questionId,
   );
   // 阅读位置与会话关联分别保存，普通对话不能继承后台停留的题目。
   const chatSelection =
-    view === "reading" ? selection : (currentConversation?.selection ?? null);
-  const contextLabel = !chatSelection
-    ? null
-    : chatSelection.kind === "textbooks"
-      ? "已关联当前章节"
-      : `已关联 ${chatSelection.itemId}`;
+    view === "materials" || view === "library"
+      ? null
+      : view === "reading"
+        ? selection
+        : (currentConversation?.selection ?? null);
+  const materialLocation =
+    view === "materials"
+      ? (data.materialSelection ?? null)
+      : (currentConversation?.material ?? null);
+  const selectedMaterial = materials.items.find(
+    (item) => item.id === materialLocation?.materialId,
+  );
+  const contextLabel = materialLocation
+    ? `${selectedMaterial?.title ?? "用户资料"} · 第 ${materialLocation.pageNumber} 页`
+    : !chatSelection
+      ? null
+      : chatSelection.kind === "textbooks"
+        ? "已关联当前章节"
+        : `已关联 ${chatSelection.itemId}`;
+
+  function selectMaterial(next: MaterialLocation) {
+    const sameReader =
+      view === "materials" &&
+      data!.materialSelection?.materialId === next.materialId &&
+      data!.materialSelection.contentVersion === next.contentVersion;
+    const conversation = conversationForMaterial(
+      data!.conversations,
+      next,
+      activeConversationId,
+    );
+    updateData((previous) => ({ ...previous, materialSelection: { ...next } }));
+    setActiveConversationId(conversation?.id ?? null);
+    if (conversation || !sameReader)
+      setActiveRobotId(conversation?.robotId ?? null);
+    setView("materials");
+  }
+
+  function openReference(reference: ReadingReference) {
+    if (reference.material) {
+      updateData((previous) => ({
+        ...previous,
+        materialSelection: { ...reference.material! },
+      }));
+      setView("materials");
+    } else if (reference.selection) {
+      updateData((previous) => ({
+        ...previous,
+        selection: { ...reference.selection! },
+      }));
+      setView("reading");
+    }
+  }
 
   function selectContent(next: ReadingSelection) {
-    const conversation = conversationForReading(data!.conversations, next);
+    const sameReader =
+      view === "reading" &&
+      data!.selection.courseId === next.courseId &&
+      data!.selection.version === next.version &&
+      data!.selection.kind === "textbooks" &&
+      next.kind === "textbooks" &&
+      data!.selection.itemId === next.itemId;
+    const conversation = conversationForReading(
+      data!.conversations,
+      next,
+      activeConversationId,
+    );
     updateData((previous) => ({ ...previous, selection: next }));
     setActiveConversationId(conversation?.id ?? null);
-    setActiveRobotId(conversation?.robotId ?? null);
+    if (conversation || !sameReader)
+      setActiveRobotId(conversation?.robotId ?? null);
     setView("reading");
   }
 
-  function selectCourse(courseId: CourseId, kind: ReadingSelection["kind"]) {
-    const course = courses.find((item) => item.id === courseId)!;
-    if (selection.courseId === courseId && selection.kind === kind) {
-      selectContent(selection);
-      return;
-    }
-    const recent = latestConversation(
-      data!.conversations.filter(
-        (item) =>
-          item.selection?.courseId === courseId &&
-          item.selection.kind === kind &&
-          (item.selection.version ?? "example-1") === course.version,
-      ),
+  async function createSubject(title: string): Promise<Subject> {
+    const id = `subject-${crypto.randomUUID()}`;
+    const saved = await saveChanges((previous) =>
+      addSubject(previous, sourceCourses, title, id),
     );
-    if (recent?.selection) {
-      selectContent(recent.selection);
-      return;
-    }
-    const itemId =
-      kind === "textbooks" ? course.textbooks[0].id : course.questions[0].id;
-    selectContent({
-      courseId,
-      version: course.version,
-      kind,
-      itemId,
-      chapterIndex: 0,
-    });
+    showSaved("学科已创建");
+    return saved.subjects!.find((item) => item.id === id)!;
   }
+  async function changeSubjectName(id: string, title: string) {
+    await saveChanges((previous) =>
+      renameSubject(previous, sourceCourses, id, title),
+    );
+    showSaved("学科名称已保存");
+  }
+  async function deleteSubject(id: string) {
+    await saveChanges((previous) => removeSubject(previous, sourceCourses, id));
+    if (libraryScope.courseId === id)
+      setLibraryScope({ courseId: null, kind: "textbooks" });
+    showSaved("学科已删除");
+  }
+
+  function selectCourse(
+    courseId: CourseId | null,
+    kind: ReadingSelection["kind"],
+  ) {
+    setLibraryScope({ courseId, kind });
+    setView("library");
+  }
+
+  function returnToList() {
+    const scope =
+      view === "materials" && data!.materialSelection
+        ? scopeForMaterial(
+            data!.materialSelection,
+            materials.items,
+            subjectDirectory,
+          )
+        : subjects.some((item) => item.id === selection.courseId)
+          ? { courseId: selection.courseId, kind: selection.kind }
+          : { courseId: null, kind: "textbooks" as const };
+    setLibraryScope(scope);
+    setView("library");
+  }
+
+  const sidebarScope =
+    view === "library"
+      ? libraryScope
+      : view === "reading"
+        ? { courseId: selection.courseId, kind: selection.kind }
+        : view === "materials" && data.materialSelection
+          ? scopeForMaterial(
+              data.materialSelection,
+              materials.items,
+              subjectDirectory,
+            )
+          : null;
 
   function openConversation(
     conversation: Conversation,
@@ -238,17 +481,25 @@ function Workspace({ content }: { content: OfficialContent }) {
       return;
     }
     conversation = saved;
-    if (conversation.selection) {
-      const readingSelection = conversation.selection;
+    const target = returnToReading
+      ? readingLocationForConversation(readingState, conversation)
+      : conversation;
+    const nextSelection = target.selection;
+    const nextMaterial = target.material;
+    if (nextSelection || nextMaterial)
       updateData((previous) => ({
         ...previous,
-        selection: { ...readingSelection },
+        ...(nextSelection ? { selection: { ...nextSelection } } : {}),
+        ...(nextMaterial ? { materialSelection: { ...nextMaterial } } : {}),
       }));
-    }
     setActiveConversationId(conversation.id);
     setActiveRobotId(conversation.robotId);
     setView(
-      returnToReading && conversation.selection ? "reading" : "conversations",
+      returnToReading && conversation.material
+        ? "materials"
+        : returnToReading && conversation.selection
+          ? "reading"
+          : "conversations",
     );
   }
 
@@ -288,6 +539,7 @@ function Workspace({ content }: { content: OfficialContent }) {
         ai.settings,
         "teacher-switch",
         currentConversation?.id ?? null,
+        materialLocation,
       );
       return {
         ...previous,
@@ -330,21 +582,19 @@ function Workspace({ content }: { content: OfficialContent }) {
     try {
       const selected =
         currentConversation ??
-        createConversation(data!, chatSelection, currentRobot.id, ai.settings);
+        createConversation(
+          data!,
+          chatSelection,
+          currentRobot.id,
+          ai.settings,
+          "new",
+          null,
+          materialLocation,
+        );
       const turnId = crypto.randomUUID(),
         messageId = crypto.randomUUID(),
         createdAt = Date.now();
-      const currentContent = chatSelection
-        ? getCurrentContent(chatSelection, availableCourses)
-        : null;
-      const reference =
-        chatSelection && currentContent
-          ? {
-              title: `${currentContent.topic} · ${currentContent.title}`,
-              content: currentContent.content,
-              selection: structuredClone(chatSelection),
-            }
-          : null;
+      const references = draftReferences.map((item) => item.reference);
       const saved = await saveChanges((previous) => {
         const existing =
           previous.conversations.find((item) => item.id === selected.id) ??
@@ -373,6 +623,9 @@ function Workspace({ content }: { content: OfficialContent }) {
         const changed = {
           ...existing,
           revision: existing.revision + 1,
+          ...(view === "materials" && materialLocation
+            ? { material: { ...materialLocation } }
+            : {}),
           title,
           titleSource:
             existing.titleSource === "default"
@@ -390,7 +643,7 @@ function Workspace({ content }: { content: OfficialContent }) {
               role: "user" as const,
               content: text,
               createdAt,
-              ...(reference ? { reference } : {}),
+              ...(references.length ? { references } : {}),
             },
           ],
           turns: resolved.configured
@@ -422,6 +675,11 @@ function Workspace({ content }: { content: OfficialContent }) {
           ],
         };
       });
+      const sentIds = new Set(draftReferences.map((item) => item.id));
+      if (sentIds.size)
+        updateReferences(referenceDraftKey, (previous) =>
+          previous.filter((item) => !sentIds.has(item.id)),
+        );
       const conversation = saved.conversations.find(
         (item) => item.id === selected.id,
       )!;
@@ -458,7 +716,8 @@ function Workspace({ content }: { content: OfficialContent }) {
             icon: teacher.icon,
           },
           model: resolved.model,
-          reference,
+          reference: null,
+          references,
           history: selected.messages.slice(-24).map((item) => ({
             role: item.role,
             content: item.content.slice(-5000),
@@ -500,6 +759,7 @@ function Workspace({ content }: { content: OfficialContent }) {
             ai.settings,
             "service-switch",
             currentConversation.id,
+            materialLocation,
           );
           return { ...next, conversations: [fresh, ...next.conversations] };
         }
@@ -541,13 +801,21 @@ function Workspace({ content }: { content: OfficialContent }) {
 
   return (
     <main className={styles.app}>
+      <SubjectDialog
+        action={subjectAction}
+        onClose={() => setSubjectAction(null)}
+        onCreate={createSubject}
+        onRename={changeSubjectName}
+        onDelete={deleteSubject}
+      />
       <ConversationSwitchDialog
         pending={pendingSwitch}
         onClose={() => setPendingSwitch(null)}
       />
       <div className={styles.shell}>
         <Sidebar
-          subjects={courses}
+          subjects={subjects}
+          onSubjectAction={setSubjectAction}
           ai={ai}
           robot={currentRobot}
           robotAiConfig={chatDefaults}
@@ -555,12 +823,18 @@ function Workspace({ content }: { content: OfficialContent }) {
           aiSettingsSource={aiSettingsSource}
           onAiSettingsSourceChange={setAiSettingsSource}
           view={view}
-          selection={selection}
+          activeScope={sidebarScope}
           settings={data.settings}
           onNavigate={(next) => {
             if (next === "conversations") {
               const conversation =
-                currentConversation ?? latestConversation(data.conversations);
+                currentConversation ??
+                data.conversations.find(
+                  (item) =>
+                    item.id === activeConversationId &&
+                    item.status !== "deleted",
+                ) ??
+                latestConversation(data.conversations);
               if (conversation) {
                 openConversation(conversation);
                 return;
@@ -574,18 +848,16 @@ function Workspace({ content }: { content: OfficialContent }) {
           }
         />
         <section className={styles.workspace} aria-label="学习工作区">
-          <StudyOverview />
           <ResizableColumns
-            key={
-              view === "reading" || view === "conversations"
-                ? "split"
-                : "static"
-            }
+            key={resizable ? "split" : "static"}
             className={styles.columns}
             hidden={
               view === "robots" || view === "content" || view === "teaching"
             }
-            enabled={view === "reading" || view === "conversations"}
+            enabled={resizable}
+            separatorLabel={
+              view === "notes" ? "调整笔记列表与正文宽度" : undefined
+            }
             ratio={data.settings.readingPaneRatio ?? 0.5}
             onRatioChange={(readingPaneRatio) =>
               updateData((previous) => ({
@@ -605,11 +877,69 @@ function Workspace({ content }: { content: OfficialContent }) {
                 selection={selection}
                 fontSize={data.settings.fontSize}
                 onChange={selectContent}
+                onBack={returnToList}
+                position={readingPosition}
+                onAddReference={addReference}
+                onPositionChange={setReadingPosition}
               />
+            )}
+            {view === "materials" && (
+              <Suspense fallback={<p role="status">正在打开资料阅读器…</p>}>
+                <MaterialReader
+                  onAddReference={addReference}
+                  library={materials}
+                  location={data.materialSelection ?? null}
+                  onChange={selectMaterial}
+                  onBack={returnToList}
+                  position={readingPosition}
+                  onPositionChange={setReadingPosition}
+                  zoom={readingState.documents[documentKey]?.zoom ?? 1}
+                  onZoomChange={setReadingZoom}
+                />
+              </Suspense>
+            )}
+            {view === "library" && (
+              <SubjectContentList
+                scope={libraryScope}
+                directory={subjectDirectory}
+                onCreateSubject={createSubject}
+                onUploaded={(courseId) =>
+                  setLibraryScope({ courseId, kind: "textbooks" })
+                }
+                courses={courses}
+                library={materials}
+                selection={selection}
+                materialSelection={data.materialSelection ?? null}
+                onOpen={(location) =>
+                  selectContent(restoreReadingLocation(readingState, location))
+                }
+                onOpenMaterial={(location) =>
+                  selectMaterial(restoreReadingLocation(readingState, location))
+                }
+              />
+            )}
+            {view === "library" && (
+              <section
+                className={styles.libraryWelcome}
+                aria-label="学习讨论提示"
+              >
+                <NotebookPen aria-hidden="true" />
+                <h2>
+                  {libraryScope.kind === "textbooks"
+                    ? "打开学习资料，开始讨论"
+                    : "选择题目，开始讨论"}
+                </h2>
+                <p>
+                  {libraryScope.kind === "textbooks"
+                    ? "在左侧列表中打开资料，即可围绕阅读内容提问。"
+                    : "在左侧列表中打开题目，即可查看内容、参考答案并提问。"}
+                </p>
+              </section>
             )}
             {view === "conversations" && (
               <ConversationList
                 availableCourses={availableCourses}
+                materials={materials.items}
                 conversations={data.conversations.filter(
                   (item) => item.status !== "deleted",
                 )}
@@ -625,9 +955,35 @@ function Workspace({ content }: { content: OfficialContent }) {
                   )
                 }
                 onUpdate={async (id, change, revision) => {
+                  const binding = data.conversations.find(
+                    (item) => item.id === id,
+                  )?.binding;
                   await saveChanges((previous) =>
                     updateConversation(previous, id, change, revision),
                   );
+                  if (change.title !== undefined) {
+                    if (!binding?.externalSessionId) {
+                      showSaved("名称已保存");
+                      return;
+                    }
+                    try {
+                      const result = await localAi.renameSession(
+                        id,
+                        change.title,
+                        binding,
+                      );
+                      showSaved(
+                        result.status === "synced"
+                          ? "名称已保存，第三方会话已同步改名"
+                          : "名称已保存，当前服务不支持同步改名",
+                      );
+                    } catch (error) {
+                      throw new Error(
+                        `本地名称已保存。第三方同步失败：${error instanceof Error ? error.message : "请求失败。"}可再次保存重试。`,
+                        { cause: error },
+                      );
+                    }
+                  }
                 }}
                 onDelete={async (id) => {
                   for (const turn of Object.values(ai.turns))
@@ -642,48 +998,29 @@ function Workspace({ content }: { content: OfficialContent }) {
               />
             )}
             {view === "notes" && (
-              <>
-                <section className={styles.library} aria-label="笔记列表">
-                  <header className={styles.libraryHeading}>
-                    <div>
-                      <h2>笔记</h2>
-                      <span>{sampleNotes.length} 篇示例笔记</span>
-                    </div>
-                    <NotebookPen aria-hidden="true" />
-                  </header>
-                  <div className={styles.libraryList}>
-                    {sampleNotes.map((item) => (
-                      <button
-                        key={item.id}
-                        className={styles.libraryItem}
-                        aria-label={item.title}
-                        aria-pressed={note.id === item.id}
-                        onClick={() => setNoteId(item.id)}
-                      >
-                        <span className={styles.libraryIcon}>
-                          <NotebookPen aria-hidden="true" />
-                        </span>
-                        <span className={styles.libraryCopy}>
-                          <strong>{item.title}</strong>
-                          <small>
-                            {
-                              courses.find(
-                                (course) => course.id === item.courseId,
-                              )?.title
-                            }{" "}
-                            · {item.questionId}
-                          </small>
-                          <span>{item.summary}</span>
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </section>
-                <section
-                  className={styles.note}
-                  aria-label="笔记阅读区"
-                  key={note.id}
-                >
+              <NotebookList
+                library={noteLibrary}
+                directory={subjectDirectory}
+                activeNoteId={note?.id ?? null}
+                onSelect={setNoteId}
+                onAction={async (action) => {
+                  await saveChanges((previous) =>
+                    applyNoteAction(
+                      previous,
+                      createSubjectDirectory(sourceCourses, previous.subjects),
+                      action,
+                    ),
+                  );
+                }}
+              />
+            )}
+            {view === "notes" && (
+              <section
+                className={styles.note}
+                aria-label="笔记阅读区"
+                key={note?.id ?? "empty"}
+              >
+                {note ? (
                   <article
                     className={styles.notePaper}
                     aria-label="笔记正文"
@@ -692,27 +1029,52 @@ function Workspace({ content }: { content: OfficialContent }) {
                     <header className={styles.noteHeading}>
                       <h1>{note.title}</h1>
                       <p className={styles.noteSource}>
-                        <span>{noteCourse?.title ?? "课程不可用"}</span>
+                        <span>
+                          {noteCourse?.title ??
+                            subjectDirectory.byId.get(note.courseId)?.title ??
+                            "未分类"}
+                        </span>
                         <span aria-hidden="true">·</span>
                         <span>
                           关联题目：{noteQuestion?.title ?? note.questionId}
                         </span>
                       </p>
                     </header>
+                    {note.tagIds.length > 0 && (
+                      <div className={styles.noteTags}>
+                        {note.tagIds.map((id) => (
+                          <span key={id}>
+                            {noteTags(noteLibrary, subjectDirectory).find(
+                              (tag) => tag.id === id,
+                            )?.title ?? "标签不可用"}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                     <div className={styles.noteBody}>
                       <Markdown>{note.content}</Markdown>
                     </div>
                   </article>
-                </section>
-              </>
+                ) : (
+                  <div className={styles.noteEmpty}>
+                    <NotebookPen aria-hidden="true" />
+                    <h2>暂无笔记</h2>
+                    <p>可以在左侧展开笔记本查看内容。</p>
+                  </div>
+                )}
+              </section>
             )}
-            {(view === "reading" || view === "conversations") && (
+            {(view === "reading" ||
+              view === "conversations" ||
+              view === "materials") && (
               <ChatPanel
                 key={`chat:${
                   currentConversation?.id ??
                   (chatSelection
                     ? `${chatSelection.courseId}:${chatSelection.version}:${chatSelection.kind}:${chatSelection.itemId}:${chatSelection.chapterIndex}`
-                    : "ordinary-chat")
+                    : materialLocation
+                      ? `${materialLocation.materialId}:${materialLocation.contentVersion}`
+                      : "ordinary-chat")
                 }`}
                 robots={data.robots}
                 robotId={currentRobot?.id ?? null}
@@ -721,6 +1083,13 @@ function Workspace({ content }: { content: OfficialContent }) {
                 textbook={chatSelection?.kind === "textbooks"}
                 onRobotChange={changeRobot}
                 onSend={saveQuestion}
+                onOpenReference={openReference}
+                references={draftReferences}
+                onRemoveReference={(id) =>
+                  updateReferences(referenceDraftKey, (previous) =>
+                    previous.filter((item) => item.id !== id),
+                  )
+                }
                 ai={ai}
                 aiSettingsOpen={aiSettingsSource === "chat"}
                 onConfigure={() =>
@@ -754,7 +1123,6 @@ function Workspace({ content }: { content: OfficialContent }) {
             <RobotsPage
               robots={data.robots}
               defaultRobotId={data.defaultRobotId}
-              activeRobotId={currentRobot?.id ?? null}
               onChange={changeRobots}
               onUse={newConversation}
               aiSettings={ai.settings}

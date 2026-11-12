@@ -1,0 +1,93 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--sm-overlay);
+  z-index: 100;
+}
+.dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(420px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  padding: 24px;
+  border: 1px solid var(--sm-line);
+  border-radius: 16px;
+  color: var(--sm-ink);
+  background: var(--sm-paper);
+  box-shadow: var(--sm-shadow-dialog);
+  z-index: 101;
+}
+.dialog h2 {
+  margin: 0 0 12px;
+  font-size: 18px;
+  font-weight: 600;
+}
+.createTitle {
+  color: var(--sm-accent);
+}
+.dialog p {
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--sm-soft);
+}
+.dialog label {
+  display: block;
+  margin: 20px 0 8px;
+  font-size: 13px;
+}
+.dialog input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--sm-line);
+  border-radius: 8px;
+  background: var(--sm-ground);
+  color: var(--sm-ink);
+  font: inherit;
+  font-size: 14px;
+}
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 24px;
+}
+.actions button {
+  padding: 8px 18px;
+  border: 1px solid var(--sm-line);
+  border-radius: 8px;
+  background: var(--sm-paper);
+  color: var(--sm-ink);
+  font: inherit;
+  font-size: 13px;
+}
+.actions .primary {
+  background: var(--sm-accent);
+  color: var(--sm-on);
+  border-color: var(--sm-accent);
+}
+.actions .danger {
+  background: var(--sm-danger-background);
+  color: var(--sm-on-danger);
+  border-color: transparent;
+}
+.actions button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.dangerTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dangerTitle svg {
+  width: 20px;
+  height: 20px;
+  color: var(--sm-danger);
+}
+.dialog .warning,
+.dialog .error {
+  color: var(--sm-danger);
+}

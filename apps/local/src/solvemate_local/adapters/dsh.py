@@ -33,7 +33,7 @@ class DshAdapter(AcpAdapter):
         except ConnectionError as error:
             # DSH ACP 对不存在和不可恢复的会话返回同一种原生错误。
             if error.code == "harness_error":
-                message = str(error)
+                message = str(error) + "\n" + error.details
                 if "session is not resumable:" in message:
                     raise ConnectionError(
                         "DeepSeek Harness 未找到可恢复的原会话。请检查当前 Harness 的会话记录；SolveMate 中的记录仍保留，未创建新会话。",
@@ -44,9 +44,12 @@ class DshAdapter(AcpAdapter):
                         "DeepSeek Harness 要求恢复时使用原会话的工作目录，当前目录与其记录不一致。原记录仍保留，未创建新会话。",
                         "session_workspace_mismatch",
                     ) from error
-                if "session is already active:" in message:
+                if (
+                    "session is already active:" in message
+                    or "is already owned by an active write handle" in message
+                ):
                     raise ConnectionError(
-                        "原会话正在 DeepSeek Harness 的其他连接中使用。请结束该会话的其他连接后重试。",
+                        "原会话正在其他 DeepSeek Harness 进程中打开。请关闭占用它的会话，或退出对应的 DSH 进程后重试。",
                         "session_busy",
                     ) from error
             raise

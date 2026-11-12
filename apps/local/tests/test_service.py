@@ -1,4 +1,5 @@
 import asyncio
+import io
 import sys
 from time import sleep
 from types import SimpleNamespace
@@ -7,6 +8,7 @@ from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
+from pypdf import PdfWriter
 
 from solvemate_local.acp import ConnectionError, launch_spec, safe_error
 from solvemate_local.adapters import AdapterRegistry
@@ -220,7 +222,7 @@ def test_detection_does_not_invoke_model_and_settings_use_opaque_values(tmp_path
 def test_real_text_reference_teacher_and_custom_model_are_sent(tmp_path):
     with client_for(tmp_path) as client:
         connect(client)
-        body = payload()
+        body = payload("为什么这段代码输出 2.0？\n```c\ndouble b = 5 / 2;\n```")
         body["model"] = "opaque-model-b"
         body["reference"] = {
             "title": "C chapter",
@@ -243,6 +245,8 @@ def test_real_text_reference_teacher_and_custom_model_are_sent(tmp_path):
             for method, params in FakeAcp.calls
             if method == "session/prompt"
         )
+        assert prompt.startswith(body["text"] + "\n\n")
+        assert prompt.count(body["text"]) == 1
         assert all(
             part in prompt
             for part in [
@@ -307,6 +311,7 @@ def test_resume_after_service_restart_uses_same_external_session_without_replayi
             for method, params in FakeAcp.calls
             if method == "session/prompt"
         ][-1]
+        assert prompt.startswith(follow["text"] + "\n\n")
         assert "DO_NOT_REPLAY" not in prompt
 
 
@@ -599,3 +604,88 @@ def test_event_endpoint_requires_client_header_and_sends_finished_record(tmp_pat
         assert '"phase": "finished"' in response.text
         client.headers.pop("x-solvemate-client")
         assert client.get(f"/local-api/v1/turns/{body['id']}/events").status_code == 403
+
+
+def test_multiple_reference_fragments_keep_text_and_page_in_prompt(tmp_path):
+    with client_for(tmp_path) as client:
+        connect(client)
+        writer = PdfWriter()
+        writer.add_blank_page(width=600, height=800)
+        writer.add_blank_page(width=600, height=800)
+        stream = io.BytesIO()
+        writer.write(stream)
+        imported = client.post(
+            "/local-api/v1/materials",
+            params={"filename": "lesson.pdf"},
+            content=stream.getvalue(),
+            headers={"content-type": "application/octet-stream"},
+        )
+        assert imported.status_code == 202
+        for _ in range(200):
+            material = client.get("/local-api/v1/materials").json()[0]
+            if material["version"]["status"] != "processing":
+                break
+            sleep(0.01)
+        assert material["version"]["status"] == "ready"
+        body = payload("比较两个代码片段")
+        body["references"] = [
+            {
+                "title": f"C textbook · 第 {page} 页",
+                "content": text,
+                "selection": None,
+                "material": {
+                    "materialId": material["id"],
+                    "contentVersion": material["currentVersion"],
+                    "pageNumber": page,
+                },
+                "quoteKind": "selection",
+            }
+            for page, text in [(1, "int a = 5 / 2;"), (2, "double b = 5.0 / 2;")]
+        ]
+        assert client.post("/local-api/v1/turns", json=body).status_code == 202
+        turn = settled(client, body["id"])
+        assert turn["status"] == "completed"
+        assert turn["references"] == body["references"]
+        prompt = next(
+            params["prompt"][0]["text"]
+            for method, params in FakeAcp.calls
+            if method == "session/prompt"
+        )
+        assert prompt.startswith(body["text"])
+        for reference in body["references"]:
+            assert prompt.count(reference["content"]) == 1
+            assert f"资料页码：第 {reference['material']['pageNumber']} 页" in prompt
+        from copy import deepcopy
+
+        bad = deepcopy(body)
+        bad["id"] = str(uuid4())
+        bad["references"][1]["material"]["pageNumber"] = 3
+        assert client.post("/local-api/v1/turns", json=bad).status_code == 422
+        # 相同编号重试不重复执行；更改引用后重用编号必须拒绝。
+        assert client.post("/local-api/v1/turns", json=body).status_code == 202
+        assert sum(method == "session/prompt" for method, _ in FakeAcp.calls) == 1
+        body["references"].pop()
+        assert client.post("/local-api/v1/turns", json=body).status_code == 409
+
+
+def test_reference_list_rejects_excess_content_and_ambiguous_legacy_field(tmp_path):
+    with client_for(tmp_path) as client:
+        body = payload("引用校验")
+        reference = {
+            "title": "课程",
+            "content": "a" * 60000,
+            "selection": {
+                "courseId": "c-language",
+                "kind": "textbooks",
+                "itemId": "CB001",
+                "chapterIndex": 0,
+            },
+        }
+        body["references"] = [reference, reference]
+        assert client.post("/local-api/v1/turns", json=body).status_code == 422
+        body["references"] = [{**reference, "content": "片段"}] * 21
+        assert client.post("/local-api/v1/turns", json=body).status_code == 422
+        body["references"] = [{**reference, "content": "片段"}]
+        body["reference"] = reference
+        assert client.post("/local-api/v1/turns", json=body).status_code == 422
+        assert not any(method == "session/prompt" for method, _ in FakeAcp.calls)

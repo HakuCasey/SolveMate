@@ -4,12 +4,15 @@ import {
   courses,
   createInitialData,
   validateContentReferences,
+  sampleNotebooks,
+  sampleNotes,
 } from "../data/catalog";
 import { pinLegacyVersions } from "../content/selection";
 import { upgradeRobotCatalog } from "../state/robots";
 import { appStorage } from "./index";
 import { LocalDataController } from "./controller";
 import { logError } from "../logger";
+import { initializeNotes } from "../state/notes";
 
 let initialLoad: Promise<AppData> | undefined;
 function loadInitialData(available: Course[]): Promise<AppData> {
@@ -17,7 +20,11 @@ function loadInitialData(available: Course[]): Promise<AppData> {
     .load()
     .then(async (saved) => {
       if (saved) {
-        const upgraded = pinLegacyVersions(upgradeRobotCatalog(saved));
+        const upgraded = initializeNotes(
+          pinLegacyVersions(upgradeRobotCatalog(saved)),
+          sampleNotebooks,
+          sampleNotes,
+        );
         validateContentReferences(upgraded, available);
         if (upgraded !== saved) await appStorage.save(upgraded);
         return upgraded;
@@ -58,6 +65,7 @@ export function useLocalData(available: Course[] = courses) {
   }, [firstCourses, store]);
   return {
     ...snapshot,
+    readData: store.readData,
     setData: store.update,
     saveChanges: store.commit,
     retrySave: store.retry,

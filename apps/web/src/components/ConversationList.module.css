@@ -247,6 +247,61 @@
 .delete {
   color: var(--sm-danger);
 }
+.dialogOverlay {
+  position: fixed;
+  inset: 0;
+  background: var(--sm-overlay);
+  z-index: 100;
+}
+.deleteDialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(440px, calc(100vw - 40px));
+  padding: 24px;
+  border: 1px solid var(--sm-line);
+  border-radius: 16px;
+  background: var(--sm-paper);
+  color: var(--sm-ink);
+  box-shadow: var(--sm-shadow-dialog);
+  overflow-wrap: anywhere;
+  z-index: 101;
+}
+.deleteDialog h2 {
+  margin: 0 0 14px;
+  font-size: 18px;
+}
+.deleteDialog p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.deleteDialog [role="alert"] {
+  margin-top: 12px;
+}
+.dialogActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 24px;
+}
+.dialogActions button {
+  padding: 8px 20px;
+  border: 1px solid var(--sm-line);
+  border-radius: 8px;
+  background: var(--sm-paper);
+  color: var(--sm-ink);
+}
+.dialogActions .confirmDelete {
+  background: var(--sm-danger-background);
+  border-color: transparent;
+  color: var(--sm-on-danger);
+}
+.dialogActions button:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
 .popover {
   width: 220px;
   max-width: calc(100vw - 24px);

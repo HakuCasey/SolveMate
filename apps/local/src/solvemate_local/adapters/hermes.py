@@ -1,3 +1,4 @@
+import asyncio
 import os
 import shutil
 import sys
@@ -69,6 +70,7 @@ class HermesProcess(AcpTransport):
 
 
 class HermesAdapter(AcpAdapter):
+    supports_rename = True
     short_name = "Hermes"
     id = "hermes-local"
     provider = "hermes"
@@ -119,6 +121,43 @@ class HermesAdapter(AcpAdapter):
                 "prompt": [{"type": "text", "text": "/title SolveMate 连接测试"}],
             },
         )
+
+    async def rename_session(self, executable, sid, title, workspace):
+        # 使用官方管理命令；标题作为独立参数传递，不能拼接到 shell 命令中。
+        env = os.environ.copy()
+        env["HERMES_HOME"] = str(self.home())
+        process = await asyncio.create_subprocess_exec(
+            executable,
+            "sessions",
+            "rename",
+            sid,
+            "--",
+            title,
+            cwd=workspace,
+            env=env,
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.DEVNULL,
+        )
+        try:
+            try:
+                code = await asyncio.wait_for(process.wait(), 20)
+            except TimeoutError as error:
+                raise ConnectionError(
+                    "等待 Hermes 改名超时，无法确认是否完成。请查看原会话名称后重试。",
+                    "request_timeout",
+                ) from error
+            if code:
+                raise ConnectionError(
+                    "Hermes 未完成会话改名。请确认原会话存在、名称未被占用，且 CLI 支持 sessions rename。",
+                    "rename_failed",
+                )
+        finally:
+            if process.returncode is None:
+                try:
+                    process.kill()
+                except ProcessLookupError:
+                    pass
+                await process.wait()
 
     @staticmethod
     def describe(session):

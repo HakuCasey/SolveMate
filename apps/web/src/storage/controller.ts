@@ -26,6 +26,8 @@ export class LocalDataController {
   private deferred: Change[] = [];
   constructor(private readonly storage: AppStorage) {}
   snapshot = () => this.state;
+  /** 异步业务操作读取当前值，避免使用保存前的页面闭包。 */
+  readData = () => this.state.data;
   subscribe = (callback: () => void) => {
     this.listeners.add(callback);
     return () => {

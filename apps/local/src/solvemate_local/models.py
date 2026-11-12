@@ -41,6 +41,27 @@ class PreferenceChange(RequestModel):
     expectedRevision: int | None = Field(default=None, ge=0)
 
 
+class MaterialCourseChange(RequestModel):
+    courseId: str | None
+    expectedRevision: int = Field(ge=1)
+
+
+class MaterialRename(RequestModel):
+    title: str = Field(min_length=1, max_length=240)
+    expectedRevision: int = Field(ge=1)
+
+    @model_validator(mode="after")
+    def valid_title(self):
+        self.title = self.title.strip()
+        if not self.title or any(ord(char) < 32 for char in self.title):
+            raise ValueError("资料名称不能为空或包含控制字符。")
+        return self
+
+
+class MaterialDelete(RequestModel):
+    expectedRevision: int = Field(ge=1)
+
+
 class ConnectionState(RequestModel):
     expectedRevision: int = Field(ge=1)
     enabled: bool
@@ -63,6 +84,19 @@ class DetectRequest(RequestModel):
     model: str = Field(default="", max_length=1000)
 
 
+class SessionRename(RequestModel):
+    title: str = Field(min_length=1, max_length=100)
+    connectionId: str = Field(min_length=1, max_length=100)
+    externalSessionId: str = Field(min_length=1, max_length=1000)
+
+    @model_validator(mode="after")
+    def valid_title(self):
+        self.title = self.title.strip()
+        if not self.title or any(ord(char) < 32 for char in self.title):
+            raise ValueError("对话名称不能为空或包含控制字符。")
+        return self
+
+
 class Teacher(RequestModel):
     id: str = Field(min_length=1, max_length=200)
     name: str = Field(min_length=1, max_length=100)
@@ -73,7 +107,16 @@ class Teacher(RequestModel):
 class ReadingReference(RequestModel):
     title: str = Field(max_length=500)
     content: str = Field(max_length=100000)
-    selection: dict
+    selection: dict | None
+    material: dict | None = Field(default=None, exclude_if=lambda value: value is None)
+    quoteKind: Literal["page", "selection"] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+
+    @model_validator(mode="after")
+    def shared_reference(self):
+        validate_metadata("ReadingReference", self.model_dump())
+        return self
 
 
 class HistoryMessage(RequestModel):
@@ -97,6 +140,7 @@ class TurnRequest(RequestModel):
     model: str = Field(default="", max_length=1000)
     reasoningEffort: str = Field(default="", max_length=100)
     reference: ReadingReference | None = None
+    references: list[ReadingReference] = Field(default_factory=list, max_length=20)
     history: list[HistoryMessage] = Field(default_factory=list, max_length=100)
 
     @model_validator(mode="after")
@@ -107,6 +151,11 @@ class TurnRequest(RequestModel):
             self.conversationSnapshot = upgrade_conversation_metadata(
                 self.conversationSnapshot
             )
+        if self.references and self.reference:
+            raise ValueError("不能同时提交单条引用和引用列表。")
+        references = self.references or ([self.reference] if self.reference else [])
+        if sum(len(item.content) for item in references) > 100000:
+            raise ValueError("引用内容总长度过长，请先移除部分引用。")
         value = self.model_dump()
         for field in [
             "conversationSnapshot",

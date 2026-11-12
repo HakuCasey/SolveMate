@@ -24,6 +24,7 @@ interface ResizableColumnsProps {
   enabled: boolean;
   ratio: number;
   onRatioChange: (ratio: number) => void;
+  separatorLabel?: string;
 }
 
 export function ResizableColumns({
@@ -33,6 +34,7 @@ export function ResizableColumns({
   enabled,
   ratio,
   onRatioChange,
+  separatorLabel = "调整材料栏与会话栏宽度",
 }: ResizableColumnsProps) {
   const container = useRef<HTMLDivElement>(null);
   const drag = useRef<{
@@ -111,7 +113,7 @@ export function ResizableColumns({
           <div
             role="separator"
             tabIndex={0}
-            aria-label="调整材料栏与会话栏宽度"
+            aria-label={separatorLabel}
             aria-controls={primaryId}
             aria-orientation="vertical"
             aria-valuemin={Math.floor(min * 100)}

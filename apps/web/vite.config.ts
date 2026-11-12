@@ -1,7 +1,50 @@
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
+import { readFileSync, readdirSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { createRequire } from "node:module";
 import { defaultTheme } from "./src/theme/default";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
+
+// PDF 字符映射、字体与解码器随应用分发，离线阅读不请求 CDN。
+function pdfAssets(): Plugin {
+  const root = dirname(
+    createRequire(import.meta.url).resolve("pdfjs-dist/package.json"),
+  );
+  const files = new Map<string, string>();
+  for (const directory of ["cmaps", "standard_fonts", "wasm"]) {
+    for (const name of readdirSync(join(root, directory))) {
+      if (!name.toLowerCase().includes("license") && !name.endsWith(".map"))
+        files.set(`pdfjs/${directory}/${name}`, join(root, directory, name));
+    }
+  }
+  return {
+    name: "solvemate-pdf-assets",
+    configureServer(server) {
+      server.middlewares.use((request, response, next) => {
+        const file = files.get(
+          (request.url ?? "").split("?")[0].replace(/^\//, ""),
+        );
+        if (!file) return next();
+        response.setHeader(
+          "Content-Type",
+          file.endsWith(".wasm")
+            ? "application/wasm"
+            : "application/octet-stream",
+        );
+        response.end(readFileSync(file));
+      });
+    },
+    generateBundle() {
+      for (const [fileName, source] of files)
+        this.emitFile({
+          type: "asset",
+          fileName,
+          source: readFileSync(source),
+        });
+    },
+  };
+}
 
 export default defineConfig({
   server: {
@@ -18,6 +61,7 @@ export default defineConfig({
   },
   plugins: [
     react(),
+    pdfAssets(),
     VitePWA({
       registerType: "prompt",
       includeAssets: [
@@ -54,7 +98,10 @@ export default defineConfig({
       },
       workbox: {
         // 教材、题库及公式字体随应用缓存，离线启动不依赖外部字体服务。
-        globPatterns: ["**/*.{js,css,html,svg,png,woff,woff2,ttf}"],
+        globPatterns: [
+          "**/*.{js,mjs,css,html,svg,png,jpg,woff,woff2,ttf,bcmap,pfb,bin,wasm}",
+        ],
+        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         navigateFallback: "index.html",
         navigateFallbackDenylist: [/^\/api\//, /^\/local-api\//],
         cleanupOutdatedCaches: true,

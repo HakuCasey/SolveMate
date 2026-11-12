@@ -34,7 +34,9 @@ export type AiMetadataContract =
   | TurnInput
   | CapabilitySupport
   | AiSelection
-  | ConnectionCheck;
+  | ConnectionCheck
+  | Material
+  | MaterialVersion;
 export type ProviderId = "deepseek-harness" | "hermes" | "codex";
 export type HarnessProtocol =
   "acp" | "codex-app-server" | "opencode" | "openclaw" | "hermes" | "api";
@@ -107,7 +109,14 @@ export interface ReadingSelection {
 export interface ReadingReference {
   title: string;
   content: string;
-  selection: ReadingSelection;
+  selection: ReadingSelection | null;
+  material?: MaterialLocation;
+  quoteKind?: "page" | "selection";
+}
+export interface MaterialLocation {
+  materialId: string;
+  contentVersion: string;
+  pageNumber: number;
 }
 export interface ModelOption {
   value: string;
@@ -213,6 +222,7 @@ export interface ConversationMetadata {
   robotIdentity: RobotIdentity | null;
   selection: ReadingSelection | null;
   aiConfig: ConversationAiConfig;
+  material?: MaterialLocation | null;
 }
 export interface SessionBinding {
   conversationId: string;
@@ -292,6 +302,10 @@ export interface AiTurn {
   permissions: AiPermission[];
   binding?: SessionBinding;
   submissionStatus: "pending" | "accepted" | "uncertain" | "rejected";
+  /**
+   * @maxItems 20
+   */
+  references?: ReadingReference[];
 }
 export interface SessionTurn {
   id: string;
@@ -333,4 +347,36 @@ export interface TurnInput {
   connectionRevision?: number;
   robotRevision?: number;
   client?: ClientRuntime;
+  /**
+   * @maxItems 20
+   */
+  references?: ReadingReference[];
+}
+export interface Material {
+  id: string;
+  title: string;
+  courseId: string | null;
+  source: "personal";
+  currentVersion: string;
+  revision: number;
+  createdAt: number;
+  updatedAt: number;
+  version: MaterialVersion;
+  deletedAt?: number | null;
+}
+export interface MaterialVersion {
+  contentVersion: string;
+  mediaType:
+    | "application/pdf"
+    | "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+  originalAssetId: "original.pdf" | "original.pptx";
+  readerAssetId: "original.pdf" | "reader.pdf" | null;
+  filename: string;
+  sizeBytes: number;
+  sha256: string;
+  pageCount: number | null;
+  status: "processing" | "ready" | "failed";
+  error: string | null;
+  processor: string | null;
+  processorVersion: string | null;
 }

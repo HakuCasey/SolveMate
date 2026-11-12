@@ -1,7 +1,8 @@
 import type { AppData, Robot } from "@solvemate/contracts";
-import { createInitialData } from "../data/catalog";
+import { createInitialData, defaultTeacherPrompt } from "../data/catalog";
 import { upgradeRobot } from "../data/migrate-ai-metadata";
 import legacyRobots from "../data/legacy-robots.json";
+import legacyTeacherPrompts from "../data/legacy-teacher-prompts.json";
 
 export function createRobot(id: string = crypto.randomUUID()): Robot {
   return {
@@ -10,8 +11,7 @@ export function createRobot(id: string = crypto.randomUUID()): Robot {
     specialty: "",
     description: "定制你的学习伙伴",
     icon: "bot",
-    prompt:
-      "你是一位耐心的学习伙伴。请用清晰、准确的语言回答问题，说明必要的步骤。遇到不确定的内容时明确说明。",
+    prompt: defaultTeacherPrompt,
     schemaVersion: 3,
     revision: 1,
     aiDefaults: null,
@@ -54,7 +54,7 @@ export function isRobotModified(saved: Robot, draft?: Robot): boolean {
 
 /** 仅升级未经用户修改的旧预置，保留自定义配置、空列表及历史消息。 */
 export function upgradeRobotCatalog(data: AppData): AppData {
-  if (data.robotCatalogVersion === 1) return data;
+  if (data.robotCatalogVersion === 1) return upgradeTeacherPrompts(data);
   const presets = createInitialData().robots;
   const unchanged = new Set(
     data.robots
@@ -98,7 +98,7 @@ export function upgradeRobotCatalog(data: AppData): AppData {
   )
     ? data.defaultRobotId
     : (robots[0]?.id ?? null);
-  return {
+  return upgradeTeacherPrompts({
     ...data,
     robotCatalogVersion: 1,
     robots,
@@ -114,5 +114,19 @@ export function upgradeRobotCatalog(data: AppData): AppData {
             : session,
         )
       : data.conversations,
-  };
+  });
+}
+
+/** 仅替换仍与旧预置完全相同的指令，不覆盖用户编写的要求或其他配置。 */
+function upgradeTeacherPrompts(data: AppData): AppData {
+  const presets = createInitialData().robots;
+  let changed = false;
+  const robots = data.robots.map((robot) => {
+    const previous = (legacyTeacherPrompts as Record<string, string>)[robot.id];
+    const preset = presets.find((item) => item.id === robot.id);
+    if (!previous || !preset || robot.prompt !== previous) return robot;
+    changed = true;
+    return { ...robot, prompt: preset.prompt, revision: robot.revision + 1 };
+  });
+  return changed ? { ...data, robots } : data;
 }

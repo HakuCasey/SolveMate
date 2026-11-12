@@ -1,3 +1,4 @@
+import { assertMetadata } from "@solvemate/contracts";
 import type {
   Conversation,
   Message,
@@ -72,7 +73,11 @@ export function isMessage(value: unknown): value is Message {
       (isRecord(value.reference) &&
         typeof value.reference.title === "string" &&
         typeof value.reference.content === "string" &&
-        isSelection(value.reference.selection))) &&
+        validReference(value.reference))) &&
+    (value.references === undefined ||
+      (Array.isArray(value.references) &&
+        value.references.length <= 20 &&
+        value.references.every(validReference))) &&
     (value.botId === undefined ||
       value.botId === null ||
       typeof value.botId === "string") &&
@@ -224,5 +229,14 @@ export function assertLegacyAppData(value: unknown): void {
     throw new Error(
       "Local data has duplicate IDs or an invalid default robot.",
     );
+  }
+}
+
+function validReference(value: unknown): boolean {
+  try {
+    assertMetadata("ReadingReference", value);
+    return true;
+  } catch {
+    return false;
   }
 }

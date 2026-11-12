@@ -1,95 +1,68 @@
-.header {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  align-items: center;
-  min-height: 70px;
-  padding: 8px 24px;
-  border-bottom: 1px solid var(--sm-line);
-  color: var(--sm-ink);
-  flex-shrink: 0;
-}
-.header button {
-  font-family: inherit;
-  line-height: inherit;
-  cursor: pointer;
-}
-.identity {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
 .titleButton {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 7px 9px;
-  margin-left: -9px;
-  border: 0;
-  border-radius: 9px;
-  background: transparent;
-  color: var(--sm-ink);
-  font-size: 14px;
-  font-weight: 500;
+  gap: 4px;
+  padding: 3px 0;
+  border-radius: 5px;
+  color: var(--sm-soft);
+  font-size: 11px;
+  font-weight: 400;
   white-space: nowrap;
 }
 .titleButton:hover,
 .titleButton[data-state="open"] {
-  background: var(--sm-active);
-}
-.titleButton > svg {
   color: var(--sm-accent);
-  width: 19px;
-  height: 19px;
 }
 .titleButton > .chevron {
-  width: 12px;
-  height: 12px;
-  color: var(--sm-soft);
+  width: 10px;
+  height: 10px;
 }
 .medals {
   display: flex;
-  gap: 7px;
+  align-items: center;
+  gap: 6px;
 }
 .medal {
   display: grid;
   place-items: center;
-  width: 25px;
-  height: 25px;
+  width: 22px;
+  height: 22px;
   padding: 0;
-  border: 0;
   border-radius: 50%;
   color: var(--sm-accent);
   background: var(--sm-active);
 }
-.medal svg {
-  width: 14px;
-  height: 14px;
+.medals .medal svg {
+  width: 13px;
+  height: 13px;
 }
 .footprint {
   display: flex;
-  align-items: center;
-  gap: 12px;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 6px 0;
+  min-width: 0;
 }
 .mapLabel {
   display: flex;
-  flex-direction: column;
-  gap: 1px;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px;
   color: var(--sm-soft);
-  font-size: 11px;
+  font-size: 10px;
   white-space: nowrap;
 }
 .map {
   display: grid;
-  grid-template-columns: repeat(12, 6px);
-  grid-template-rows: repeat(7, 6px);
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-template-rows: repeat(7, auto);
   grid-auto-flow: column;
   gap: 2px;
 }
 .day {
   display: block;
-  width: 6px;
-  height: 6px;
+  width: 100%;
+  aspect-ratio: 1;
   border-radius: 2px;
   background: var(--sm-ground);
 }
@@ -180,38 +153,23 @@
   box-shadow: var(--sm-shadow-tooltip);
   font-size: 11px;
 }
-@media (max-width: 740px) {
-  .header {
-    flex-wrap: wrap;
-    gap: 8px;
-    padding: 10px 14px;
-  }
-}
-@media (max-width: 420px) {
-  .identity {
-    gap: 6px;
-  }
-  .titleButton {
-    gap: 6px;
-    padding: 6px;
-    margin-left: -6px;
-    font-size: 12px;
-  }
-  .titleButton > svg {
-    width: 17px;
-    height: 17px;
-  }
+@media (max-width: 480px) {
   .medals {
-    gap: 5px;
+    gap: 4px;
   }
   .medal {
-    width: 20px;
-    height: 20px;
+    width: 18px;
+    height: 18px;
   }
-  .medal svg {
+  .medals .medal svg {
     width: 12px;
     height: 12px;
   }
+  .footprint {
+    padding-inline: 4px;
+  }
+}
+@media (max-width: 420px) {
   .value {
     font-size: 17px;
   }

@@ -4,6 +4,7 @@ import { createInitialData } from "../data/catalog";
 import { assertAppData } from "../data/validation";
 import { upgradeRobot } from "../data/migrate-ai-metadata";
 import legacyRobots from "../data/legacy-robots.json";
+import legacyTeacherPrompts from "../data/legacy-teacher-prompts.json";
 import { createConversation } from "./conversations";
 import {
   createRobot,
@@ -34,6 +35,7 @@ describe("robot configuration drafts", () => {
       "高数教师",
       "C 语言教师",
     ]);
+    expect(createRobot().prompt).toBe(createInitialData().robots[0].prompt);
     const english = {
       ...createRobot(),
       name: "我的英语教师",
@@ -86,6 +88,62 @@ describe("robot configuration drafts", () => {
         (robot) => robot.id === "scholar",
       ),
     ).toBe(false);
+  });
+
+  it("updates unchanged preset instructions while keeping settings and historical records", () => {
+    const data = createInitialData();
+    data.robots = data.robots.map((robot) => ({
+      ...robot,
+      prompt: (legacyTeacherPrompts as Record<string, string>)[robot.id],
+      revision: 4,
+    }));
+    data.robots[0].name = "我的教师";
+    data.robots[0].aiDefaults = {
+      connectionId: "hermes-local",
+      modelId: "custom:school:model",
+    };
+    const upgraded = upgradeRobotCatalog(data);
+    const presets = createInitialData().robots;
+    upgraded.robots.forEach((robot, index) => {
+      expect(robot).toEqual({
+        ...data.robots[index],
+        prompt: presets[index].prompt,
+        revision: 5,
+      });
+    });
+    expect(upgraded.conversations).toBe(data.conversations);
+    expect(upgraded.defaultRobotId).toBe(data.defaultRobotId);
+    expect(data.robots[0].prompt).toBe(legacyTeacherPrompts.scholar);
+    expect(upgradeRobotCatalog(upgraded)).toBe(upgraded);
+    assertAppData(upgraded);
+  });
+
+  it("keeps custom instructions and removed presets when updating default instructions", () => {
+    const data = createInitialData();
+    data.robots = data.robots
+      .filter((robot) => robot.id !== "c-language-teacher")
+      .map((robot) => ({
+        ...robot,
+        prompt: (legacyTeacherPrompts as Record<string, string>)[robot.id],
+      }));
+    data.robots[0].prompt += "\n\n用户补充的讲解要求。";
+    const custom = {
+      ...createRobot("custom-teacher"),
+      prompt: legacyTeacherPrompts.scholar,
+    };
+    data.robots.push(custom);
+    const upgraded = upgradeRobotCatalog(data);
+    expect(upgraded.robots.map((robot) => robot.id)).toEqual(
+      data.robots.map((robot) => robot.id),
+    );
+    expect(upgraded.robots[0]).toBe(data.robots[0]);
+    expect(upgraded.robots.at(-1)).toBe(custom);
+    expect(upgraded.robots[1].prompt).toBe(
+      createInitialData().robots[1].prompt,
+    );
+    const empty = { ...data, robots: [], defaultRobotId: null };
+    expect(upgradeRobotCatalog(empty)).toBe(empty);
+    assertAppData(upgraded);
   });
   it("clears the dirty state when fields return to saved values", () => {
     const robot = createRobot();

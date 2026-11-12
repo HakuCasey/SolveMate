@@ -45,6 +45,9 @@ export function mergeAiTurn(data: AppData, turn: AiTurn): AppData {
         content: turn.text,
         createdAt: turn.startedAt,
         turnId: turn.id,
+        ...(turn.references
+          ? { references: structuredClone(turn.references) }
+          : {}),
         ...(turn.reference
           ? { reference: structuredClone(turn.reference) }
           : {}),

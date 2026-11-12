@@ -100,7 +100,20 @@ describe("conversation and robot changes", () => {
 
   it("marks a deleted session without deleting its external binding or affecting other sessions", () => {
     const data = createInitialData();
+    const original = data.conversations[0];
+    original.aiConfig = { connectionId: "deepseek-local", modelId: "model-a" };
+    original.binding = {
+      conversationId: original.id,
+      connectionId: "deepseek-local",
+      protocol: "acp",
+      externalSessionId: "preserved-native-session",
+      state: "bound",
+      revision: 1,
+    };
     const next = deleteConversation(data, data.conversations[0].id);
+    expect(next.conversations[0].status).toBe("deleted");
+    expect(next.conversations[0].binding).toBe(original.binding);
+    expect(next.conversations[0].aiConfig).toBe(original.aiConfig);
     expect(next.conversations[0].deletedAt).toBeTypeOf("number");
     expect(next.conversations[0].messages).toEqual(
       data.conversations[0].messages,

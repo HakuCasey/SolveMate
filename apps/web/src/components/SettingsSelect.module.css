@@ -74,6 +74,15 @@
   color: var(--sm-accent);
   background: var(--sm-active);
 }
+.item[data-emphasized="true"],
+.trigger[data-emphasized="true"] {
+  color: var(--sm-accent);
+  background: var(--sm-active);
+  font-weight: 500;
+}
+.trigger[data-emphasized="true"] .chevron {
+  color: inherit;
+}
 .item[data-highlighted] {
   color: var(--sm-accent);
   background: var(--sm-active);

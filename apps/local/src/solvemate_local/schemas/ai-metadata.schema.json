@@ -335,7 +335,23 @@
           "maxLength": 100000
         },
         "selection": {
-          "$ref": "#/$defs/ReadingSelection"
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ReadingSelection"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "material": {
+          "$ref": "#/$defs/MaterialLocation"
+        },
+        "quoteKind": {
+          "enum": [
+            "page",
+            "selection"
+          ]
         }
       },
       "required": [
@@ -344,7 +360,30 @@
         "selection"
       ],
       "additionalProperties": false,
-      "title": "ReadingReference"
+      "title": "ReadingReference",
+      "if": {
+        "properties": {
+          "selection": {
+            "type": "null"
+          }
+        },
+        "required": [
+          "selection"
+        ]
+      },
+      "then": {
+        "required": [
+          "material",
+          "quoteKind"
+        ]
+      },
+      "else": {
+        "not": {
+          "required": [
+            "material"
+          ]
+        }
+      }
     },
     "ModelOption": {
       "type": "object",
@@ -830,6 +869,16 @@
         },
         "aiConfig": {
           "$ref": "#/$defs/ConversationAiConfig"
+        },
+        "material": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MaterialLocation"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -855,7 +904,24 @@
         "aiConfig"
       ],
       "additionalProperties": false,
-      "title": "ConversationMetadata"
+      "title": "ConversationMetadata",
+      "if": {
+        "properties": {
+          "material": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "material"
+        ]
+      },
+      "then": {
+        "properties": {
+          "selection": {
+            "type": "null"
+          }
+        }
+      }
     },
     "SessionBinding": {
       "type": "object",
@@ -1304,6 +1370,13 @@
             "uncertain",
             "rejected"
           ]
+        },
+        "references": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ReadingReference"
+          },
+          "maxItems": 20
         }
       },
       "required": [
@@ -1531,6 +1604,13 @@
         },
         "client": {
           "$ref": "#/$defs/ClientRuntime"
+        },
+        "references": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ReadingReference"
+          },
+          "maxItems": 20
         }
       },
       "required": [
@@ -1675,6 +1755,202 @@
       ],
       "additionalProperties": false,
       "title": "ConnectionCheck"
+    },
+    "MaterialLocation": {
+      "type": "object",
+      "properties": {
+        "materialId": {
+          "type": "string",
+          "pattern": "^[a-f0-9-]{36}$"
+        },
+        "contentVersion": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "pageNumber": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "materialId",
+        "contentVersion",
+        "pageNumber"
+      ],
+      "additionalProperties": false
+    },
+    "MaterialVersion": {
+      "type": "object",
+      "properties": {
+        "contentVersion": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "mediaType": {
+          "enum": [
+            "application/pdf",
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+          ]
+        },
+        "originalAssetId": {
+          "enum": [
+            "original.pdf",
+            "original.pptx"
+          ]
+        },
+        "readerAssetId": {
+          "enum": [
+            "original.pdf",
+            "reader.pdf",
+            null
+          ]
+        },
+        "filename": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sizeBytes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "pageCount": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "status": {
+          "enum": [
+            "processing",
+            "ready",
+            "failed"
+          ]
+        },
+        "error": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "processor": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "processorVersion": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "contentVersion",
+        "mediaType",
+        "originalAssetId",
+        "readerAssetId",
+        "filename",
+        "sizeBytes",
+        "sha256",
+        "pageCount",
+        "status",
+        "error",
+        "processor",
+        "processorVersion"
+      ],
+      "additionalProperties": false,
+      "title": "MaterialVersion",
+      "if": {
+        "properties": {
+          "status": {
+            "const": "ready"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "readerAssetId": {
+            "enum": [
+              "original.pdf",
+              "reader.pdf"
+            ]
+          },
+          "pageCount": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      }
+    },
+    "Material": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-f0-9-]{36}$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "courseId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source": {
+          "const": "personal"
+        },
+        "currentVersion": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "createdAt": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "updatedAt": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "version": {
+          "$ref": "#/$defs/MaterialVersion"
+        },
+        "deletedAt": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "courseId",
+        "source",
+        "currentVersion",
+        "revision",
+        "createdAt",
+        "updatedAt",
+        "version"
+      ],
+      "additionalProperties": false,
+      "title": "Material"
     }
   },
   "anyOf": [
@@ -1779,6 +2055,12 @@
     },
     {
       "$ref": "#/$defs/ConnectionCheck"
+    },
+    {
+      "$ref": "#/$defs/Material"
+    },
+    {
+      "$ref": "#/$defs/MaterialVersion"
     }
   ]
 }

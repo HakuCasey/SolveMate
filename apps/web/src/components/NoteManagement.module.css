@@ -1,0 +1,187 @@
+.menu {
+  z-index: 90;
+  min-width: 160px;
+  padding: 6px;
+  border: 1px solid var(--sm-line);
+  border-radius: 10px;
+  color: var(--sm-ink);
+  background: var(--sm-paper);
+  box-shadow: var(--sm-shadow-menu);
+}
+.menuItem {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  outline: none;
+  cursor: default;
+}
+.menuItem svg {
+  width: 15px;
+  height: 15px;
+}
+.menuItem[data-highlighted] {
+  background: var(--sm-active);
+  color: var(--sm-accent);
+}
+.menuItem[data-disabled] {
+  opacity: 0.45;
+}
+.dangerText,
+.dangerText[data-highlighted] {
+  color: var(--sm-danger);
+}
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  background: var(--sm-overlay);
+}
+.dialog {
+  position: fixed;
+  z-index: 75;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(420px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  padding: 24px;
+  border: 1px solid var(--sm-line);
+  border-radius: 16px;
+  background: var(--sm-paper);
+  color: var(--sm-ink);
+  box-shadow: var(--sm-shadow-dialog);
+}
+.dialog h2 {
+  margin: 0 0 12px;
+  font-size: 18px;
+  font-weight: 600;
+}
+.dialog p {
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--sm-soft);
+}
+.dialog label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 20px;
+  font-size: 13px;
+}
+.dialog input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--sm-line);
+  border-radius: 8px;
+  background: var(--sm-ground);
+  color: var(--sm-ink);
+  font: inherit;
+  font-size: 14px;
+}
+.dialog .error {
+  color: var(--sm-danger);
+}
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 24px;
+}
+.actions button {
+  padding: 8px 18px;
+  border: 1px solid var(--sm-line);
+  border-radius: 8px;
+  font-size: 13px;
+}
+.actions .primary {
+  background: var(--sm-accent);
+  color: var(--sm-on);
+  border-color: var(--sm-accent);
+}
+.actions .danger {
+  background: var(--sm-danger-background);
+  color: var(--sm-on-danger);
+  border-color: transparent;
+}
+.actions button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.dialog .warning,
+.dialog .error {
+  color: var(--sm-danger);
+}
+.name {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 18px;
+  font-size: 13px;
+}
+.deleteChoice {
+  display: grid;
+  gap: 12px;
+  margin: 18px 0 0;
+  padding: 14px;
+  border: 1px solid var(--sm-line);
+  border-radius: 8px;
+}
+.deleteChoice legend {
+  padding: 0 4px;
+  font-size: 13px;
+}
+.deleteChoice label,
+.tagChoices label {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 13px;
+}
+.deleteChoice input,
+.tagChoices input {
+  width: auto;
+  margin: 0;
+  accent-color: var(--sm-accent);
+}
+.tagChoices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  max-height: 240px;
+  overflow: auto;
+  margin-top: 18px;
+}
+.tagChoices label {
+  padding: 8px 10px;
+  border: 1px solid var(--sm-line);
+  border-radius: 8px;
+  overflow-wrap: anywhere;
+}
+.tagChoices label:has(input:checked) {
+  background: var(--sm-active);
+  border-color: var(--sm-accent);
+}
+.newTag {
+  display: flex;
+  gap: 8px;
+}
+.name > label {
+  margin: 0;
+}
+.newTag input {
+  min-width: 0;
+  flex: 1;
+}
+.newTag button {
+  flex-shrink: 0;
+  padding: 8px 12px;
+  border: 1px solid var(--sm-line);
+  border-radius: 8px;
+  color: var(--sm-accent);
+}

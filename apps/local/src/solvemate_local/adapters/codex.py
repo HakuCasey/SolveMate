@@ -78,6 +78,23 @@ class CodexAdapter(HarnessAdapter):
     protocol = "codex-app-server"
     name = short_name = "Codex"
     requires_probe_session = False
+    supports_rename = True
+
+    async def rename_session(self, executable, sid, title, workspace):
+        process = self.process(executable, workspace)
+        try:
+            await process.start()
+            await process.call("thread/name/set", {"threadId": sid, "name": title})
+        except ConnectionError as error:
+            detail = (str(error) + "\n" + error.details).lower()
+            if "method not found" in detail or "unknown method" in detail:
+                raise ConnectionError(
+                    "当前 Codex 不支持会话改名，请更新 CLI 后重试。",
+                    "rename_unsupported",
+                ) from error
+            raise
+        finally:
+            await process.close()
 
     def public_capabilities(self, raw):
         result = super().public_capabilities(raw)

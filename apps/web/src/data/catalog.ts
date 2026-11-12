@@ -4,6 +4,7 @@ import type {
   CourseId,
   CurrentContent,
   Note,
+  Notebook,
   ReadingSelection,
 } from "@solvemate/contracts";
 import calculusQuestions from "../../../../data/calculus/questions/questions.json";
@@ -17,6 +18,12 @@ import cDiscussion from "../../../../data/c-language/memory/discussion-points.js
 import seedData from "./seed-data.json";
 import { parseTextbook } from "./textbooks";
 import { migrateAiMetadata } from "./migrate-ai-metadata";
+import { initializeNotes } from "../state/notes";
+
+// 全科教师的指令同时用于新建机器人，保持通用要求一致。
+export const defaultTeacherPrompt = seedData.robots.find(
+  (robot) => robot.id === "scholar",
+)!.prompt;
 
 // 数据随首版应用一起构建，应用缓存完成后不再依赖内容服务器读取这些示例。
 export const courses: Course[] = [
@@ -56,10 +63,22 @@ export function getCourse(
   return course;
 }
 
+export const sampleNotebooks: Notebook[] = seedData.notebooks.map((item) => ({
+  ...item,
+  revision: 1,
+}));
+
 export const sampleNotes: Note[] = seedData.notes.map((note) => {
+  if (!sampleNotebooks.some((notebook) => notebook.id === note.notebookId))
+    throw new Error(`Sample note has an unknown notebook: ${note.id}`);
   const course = courses.find((item) => item.id === note.courseId);
   if (!course) throw new Error(`Sample note has an unknown course: ${note.id}`);
-  return { ...note, courseId: course.id };
+  return {
+    ...note,
+    courseId: course.id,
+    revision: 1,
+    tagIds: [`subject:${course.id}`],
+  };
 });
 
 export function createInitialData(): AppData {
@@ -90,7 +109,7 @@ export function createInitialData(): AppData {
   initial.conversations.forEach((session) => {
     if (session.selection) session.selection.version = "example-1";
   });
-  return initial;
+  return initializeNotes(initial, sampleNotebooks, sampleNotes);
 }
 
 export function getCurrentContent(
@@ -122,7 +141,7 @@ export function getCurrentContent(
     kind: "textbooks",
     title: chapter.title,
     topic: book.title,
-    difficulty: "教材",
+    difficulty: "学习资料",
     content: chapter.content,
     answer: "",
     explanation: "",

@@ -11,13 +11,19 @@ import {
   Pencil,
   CornerUpLeft,
 } from "lucide-react";
-import { ContextMenu, Popover } from "radix-ui";
-import type { Course, Conversation, Robot } from "@solvemate/contracts";
+import { AlertDialog, ContextMenu, Popover } from "radix-ui";
+import type {
+  Course,
+  Conversation,
+  Robot,
+  Material,
+} from "@solvemate/contracts";
 import type { ConversationChange } from "../state/conversations";
 import styles from "./ConversationList.module.css";
 
 interface Props {
   availableCourses: Course[];
+  materials: Material[];
   conversations: Conversation[];
   robots: Robot[];
   activeId: string | null;
@@ -36,6 +42,7 @@ const presetLabels = ["重要", "一般", "无标签"];
 
 export function ConversationList({
   availableCourses,
+  materials,
   conversations,
   robots,
   activeId,
@@ -54,6 +61,8 @@ export function ConversationList({
   const [renameTarget, setRenameTarget] = useState<string | null>(null);
   const [renameTitle, setRenameTitle] = useState("");
   const [renameError, setRenameError] = useState("");
+  const [renameSaving, setRenameSaving] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const customLabels = [
     ...new Set(
       conversations
@@ -91,9 +100,14 @@ export function ConversationList({
             ?.chapters[selection.chapterIndex]?.title
         : course?.questions.find((item) => item.id === selection.itemId)?.title
       : null;
-    const context = selection
-      ? `${course?.title ?? "课程不可用"} · ${contentTitle ?? "关联内容不可用"}`
-      : "普通对话";
+    const material = materials.find(
+      (item) => item.id === conversation.material?.materialId,
+    );
+    const context = conversation.material
+      ? `${material?.title ?? "用户资料"} · 第 ${conversation.material.pageNumber} 页`
+      : selection
+        ? `${course?.title ?? "课程不可用"} · ${contentTitle ?? "关联内容不可用"}`
+        : "普通对话";
     // 直接显示最近一次提问的原文，省略只由样式处理，不生成或保存摘要。
     const lastQuestion =
       conversation.messages.filter((item) => item.role === "user").at(-1)
@@ -105,7 +119,7 @@ export function ConversationList({
         key={conversation.id}
         open={labelTarget === conversation.id || renaming}
         onOpenChange={(open) => {
-          if (!open) {
+          if (!open && !renameSaving) {
             setLabelTarget(null);
             setRenameTarget(null);
           }
@@ -167,6 +181,7 @@ export function ConversationList({
             >
               <ContextMenu.Item
                 className={styles.menuItem}
+                disabled={renameSaving}
                 onSelect={() => {
                   setLabelTarget(null);
                   setRenameTitle(conversation.title);
@@ -216,9 +231,7 @@ export function ConversationList({
               <ContextMenu.Item
                 className={`${styles.menuItem} ${styles.delete}`}
                 onSelect={() => {
-                  void onDelete(conversation.id).catch((error) =>
-                    setLabelError(String(error)),
-                  );
+                  setDeleteTarget(conversation.id);
                 }}
               >
                 <Trash2 aria-hidden="true" />
@@ -243,11 +256,13 @@ export function ConversationList({
                   className={styles.renameForm}
                   onSubmit={async (event) => {
                     event.preventDefault();
+                    if (renameSaving) return;
                     const title = renameTitle.trim();
                     if (!title) {
                       setRenameError("请输入对话名称。");
                       return;
                     }
+                    setRenameSaving(true);
                     try {
                       await onUpdate(
                         conversation.id,
@@ -261,6 +276,8 @@ export function ConversationList({
                           ? error.message
                           : "名称未能保存。",
                       );
+                    } finally {
+                      setRenameSaving(false);
                     }
                   }}
                 >
@@ -268,6 +285,7 @@ export function ConversationList({
                     对话名称
                     <input
                       value={renameTitle}
+                      disabled={renameSaving}
                       maxLength={100}
                       onFocus={(event) => event.currentTarget.select()}
                       onChange={(event) => {
@@ -279,10 +297,16 @@ export function ConversationList({
                   </label>
                   {renameError && <p role="alert">{renameError}</p>}
                   <div className={styles.renameActions}>
-                    <button type="button" onClick={() => setRenameTarget(null)}>
+                    <button
+                      type="button"
+                      disabled={renameSaving}
+                      onClick={() => setRenameTarget(null)}
+                    >
                       取消
                     </button>
-                    <button type="submit">保存</button>
+                    <button type="submit" disabled={renameSaving}>
+                      {renameSaving ? "保存中…" : "保存"}
+                    </button>
                   </div>
                 </form>
               </>
@@ -426,6 +450,76 @@ export function ConversationList({
           </div>
         </section>
       </div>
+      {deleteTarget && (
+        <DeleteConversationDialog
+          key={deleteTarget}
+          conversationId={deleteTarget}
+          onDelete={onDelete}
+          onClose={() => setDeleteTarget(null)}
+        />
+      )}
     </section>
+  );
+}
+
+function DeleteConversationDialog({
+  conversationId,
+  onDelete,
+  onClose,
+}: {
+  conversationId: string;
+  onDelete: (id: string) => Promise<void>;
+  onClose: () => void;
+}) {
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState("");
+  return (
+    <AlertDialog.Root
+      open
+      onOpenChange={(open) => {
+        if (!open && !deleting) onClose();
+      }}
+    >
+      <AlertDialog.Portal>
+        <AlertDialog.Overlay className={styles.dialogOverlay} />
+        <AlertDialog.Content className={styles.deleteDialog}>
+          <AlertDialog.Title>删除对话</AlertDialog.Title>
+          <AlertDialog.Description>
+            当前操作仅删除本对话记录，原会话仍可在第三方 AI Harness 软件中查看。
+          </AlertDialog.Description>
+          {error && (
+            <p className={styles.delete} role="alert">
+              {error}
+            </p>
+          )}
+          <div className={styles.dialogActions}>
+            <AlertDialog.Cancel disabled={deleting}>取消</AlertDialog.Cancel>
+            <AlertDialog.Action
+              className={styles.confirmDelete}
+              disabled={deleting}
+              onClick={async (event) => {
+                event.preventDefault();
+                if (deleting) return;
+                setDeleting(true);
+                setError("");
+                try {
+                  await onDelete(conversationId);
+                  onClose();
+                } catch (failure) {
+                  setError(
+                    failure instanceof Error
+                      ? failure.message
+                      : "删除失败，请重试。",
+                  );
+                  setDeleting(false);
+                }
+              }}
+            >
+              {deleting ? "正在删除…" : "删除对话"}
+            </AlertDialog.Action>
+          </div>
+        </AlertDialog.Content>
+      </AlertDialog.Portal>
+    </AlertDialog.Root>
   );
 }

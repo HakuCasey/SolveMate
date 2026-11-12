@@ -1,6 +1,6 @@
 # SolveMate 本机 AI 服务
 
-本服务在用户电脑上连接已安装的 DeepSeek Harness、Hermes 或 Codex，负责 Harness 进程、模型选项、会话绑定、执行记录和权限确认。官方内容服务仍位于 `apps/server/`，个人问题和资料不经过官方内容服务。
+本服务在用户电脑上连接已安装的 DeepSeek Harness、Hermes 或 Codex，负责 Harness 进程、模型选项、会话绑定、执行记录和权限确认，并提供用户资料的本机保存与处理。官方内容服务仍位于 `apps/server/`，个人问题和资料不经过官方内容服务。
 
 ## 启动
 
@@ -95,7 +95,7 @@ DeepSeek Harness `0.2.2-rc.1` 在本机声明 ACP v1、会话创建/恢复/关�
 
 程序位置和配置目录变化不直接阻止恢复；删除后重新配置同一服务也使用原生会话编号继续查找。DSH 未找到可恢复会话、原会话被其他连接占用和原生工作目录不匹配分别提示；连接断开、超时和账号错误保留实际原因。Hermes 使用严格的 `session/load`，不使用找不到会话时可能另建会话的恢复入口。
 
-专用连接测试会话丢失时可明确重建该测试会话，不将已有正式对话一并设为不可用。连接本身故障仍记录为检测失败，保留原配置供用户检查。
+专用连接测试会话丢失时可明确重建该测试会话，不将已有正式对话一并设为不可用。如果该测试会话在 DSH 桌面中打开，可能被桌面进程占用；关闭占用的会话或退出对应进程后重新检测，继续使用原测试会话。此类占用不使其他正式会话失效。连接本身故障仍记录为检测失败，保留原配置供用户检查。
 
 `GET /local-api/v1/turns/{id}/events` 通过 SSE 发送完整执行快照，保留读接口的客户端请求头校验。状态和正文变化后推送，每 5 秒发送心跳；客户端断线后查询同一请求并重连，旧服务不支持该接口时使用查询。关闭网页连接不会取消模型执行，停止由独立接口处理。
 
@@ -136,3 +136,24 @@ Codex 的接口映射、适配边界及验证结果见 [005 设计](../../docs/f
 左下角管理外部连接、启用状态及检测结果；全局默认独立引用一项连接。教师与对话只选择已配置且启用的连接与模型，不处理安装与检测。教师未单独配置时使用全局默认，新对话保存明确的服务与模型。每轮执行独立保存请求快照、提交信息与结果版本；没有取得原生实际模型时保留为空。配置更新携带期望版本，发生冲突返回 HTTP 409，客户端重新读取配置。
 
 SQLite 首次打开旧数据库时，在同一事务中备份旧记录并迁移至格式 3，原生会话编号保持不变。浏览器个人数据库也通过事务迁移并保留旧格式备份，课程内容数据库保持原格式。具体约束与验证见 [006 设计](../../docs/features/006-ai-conversation-metadata/design.md)。
+
+## 用户资料
+
+网页科目下的“学习资料”列表支持 PDF 和 PPTX，单文件上限 100 MiB。原件先保存到 `user/materials/<资料编号>/<SHA-256 版本>/`；资料编号目录中的 `record.json` 记录处理状态和阅读文件。PPTX 由 LibreOffice 转换为 PDF，PDF.js 在网页显示原页面；每页文字通过 pypdf 提取。官方服务不接收这些文件。
+
+PDF 无需安装办公软件。PPTX 需安装 [LibreOffice](https://www.libreoffice.org/download/download-libreoffice/)：macOS 可执行 `brew install --cask libreoffice`；Windows 使用官方安装程序。服务优先查找 PATH，再检查 macOS 应用目录或 Windows Program Files 目录。非默认路径可在启动前设置 `SOLVEMATE_LIBREOFFICE`，值为 `soffice`、`soffice.com` 或 `soffice.exe` 的完整路径。macOS 无界面转换会同时加载系统与 LibreOffice 自带字体；未安装课件使用的字体时，转换后的排版可能与原课件不同，要求原版排版时可导入课件导出的 PDF。
+
+转换使用独立配置目录，最多同时处理两份资料，超过两分钟会停止本次转换；缺少转换器或文件损坏时保留原件，可在网页点击“重试处理”。重启服务会将中断任务标为失败，等待用户重试。在同一科目重复导入同一文件复用原资料；不同科目分别保留资料记录。调整所属科目只改变归属，不改变文件编号和历史引用。原件或阅读文件丢失时可重新导入原文件恢复。
+
+`SOLVEMATE_MATERIALS_DIR` 可指定资料目录，默认与 `user/ai/` 并列。测试应显式指定独立目录，不使用正式资料。
+
+| 接口 | 用途 |
+| --- | --- |
+| `GET /local-api/v1/materials` | 资料列表；`X-SolveMate-Material-Errors` 记录未能读取的元数据数量 |
+| `POST /local-api/v1/materials?filename=...&courseId=...` | 上传原件，正文为 `application/octet-stream`；课程可不填写 |
+| `PATCH /local-api/v1/materials/{id}/course` | 通过 `courseId` 与 `expectedRevision` 调整归属，原编号和版本不变 |
+| `POST /local-api/v1/materials/{id}/retry` | 重试失败的处理，不重复上传 |
+| `GET /local-api/v1/materials/{id}/{version}/reader` | 读取固定资料版本的 PDF |
+| `GET /local-api/v1/materials/{id}/{version}/pages/{page}` | 取得对应页面文字 |
+
+所有资料接口沿用本机服务的 Host、Origin 和 `X-SolveMate-Client` 检查。文件名只作显示，不参与磁盘目录拼接。网页引用保存资料编号、固定版本、页码和文字快照；文字随问题直接进入现有 Harness 请求。当前不提供扫描件 OCR、图片理解、跨页选区或整本书检索。

@@ -66,12 +66,13 @@ class HarnessAdapter:
     """
 
     requires_probe_session = True
+    supports_rename = False
 
     def is_running(self, process):
         return process.is_running()
 
     def public_capabilities(self, raw):
-        return {
+        result = {
             key: "unknown"
             for key in [
                 "models",
@@ -83,6 +84,12 @@ class HarnessAdapter:
                 "attachments",
             ]
         }
+        result["rename"] = "supported" if self.supports_rename else "unsupported"
+        return result
+
+    async def rename_session(self, executable, sid, title, workspace):
+        """按原生编号改名，不创建会话、不向模型发送改名指令。"""
+        raise ConnectionError("当前适配器不支持会话改名。", "rename_unsupported")
 
     async def prompt(self, process, sid, text):
         raise NotImplementedError

@@ -4,6 +4,7 @@ import type {
   ReadingSelection,
   Robot,
   AiSettings,
+  MaterialLocation,
   RobotAiDefaults,
 } from "@solvemate/contracts";
 import { clientRuntime } from "../version";
@@ -64,6 +65,7 @@ export function createConversation(
   settings: AiSettings | null = null,
   reason: Conversation["creationReason"] = "new",
   sourceId: string | null = null,
+  material: MaterialLocation | null = null,
 ): Conversation {
   const robot = data.robots.find((item) => item.id === robotId),
     now = Date.now();
@@ -89,6 +91,7 @@ export function createConversation(
       ? { id: robot.id, name: robot.name, icon: robot.icon }
       : null,
     selection: selection ? structuredClone(selection) : null,
+    ...(material ? { material: structuredClone(material) } : {}),
     aiConfig: initialConversationAi(robot, settings),
     binding: null,
     turns: [],
@@ -262,4 +265,22 @@ export function replaceRobots(
       };
     }),
   };
+}
+
+/** 翻页不新建会话；同一资料固定版本继续最近的未归档对话。 */
+export function conversationForMaterial(
+  conversations: Conversation[],
+  location: MaterialLocation,
+  preferredId: string | null = null,
+) {
+  const matching = conversations.filter(
+    (item) =>
+      item.status === "active" &&
+      item.material?.materialId === location.materialId &&
+      item.material.contentVersion === location.contentVersion,
+  );
+  return (
+    matching.find((item) => item.id === preferredId) ??
+    latestConversation(matching)
+  );
 }

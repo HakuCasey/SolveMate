@@ -12,6 +12,7 @@ interface SettingsSelectProps {
     name: string;
     group?: string;
     disabled?: boolean;
+    emphasized?: boolean;
   }[];
   onValueChange: (value: string) => void;
   disabled?: boolean;
@@ -40,6 +41,7 @@ export function SettingsSelect({
           value={option.value}
           disabled={option.disabled}
           className={styles.item}
+          data-emphasized={option.emphasized || undefined}
         >
           <Select.ItemText>{option.name}</Select.ItemText>
           <Select.ItemIndicator className={styles.indicator}>
@@ -57,7 +59,15 @@ export function SettingsSelect({
         onValueChange={onValueChange}
         disabled={disabled}
       >
-        <Select.Trigger id={id} aria-label={label} className={styles.trigger}>
+        <Select.Trigger
+          id={id}
+          aria-label={label}
+          className={styles.trigger}
+          data-emphasized={
+            options.find((option) => option.value === value)?.emphasized ||
+            undefined
+          }
+        >
           <Select.Value placeholder={placeholder} />
           <Select.Icon className={styles.chevron}>
             <ChevronDown aria-hidden="true" />

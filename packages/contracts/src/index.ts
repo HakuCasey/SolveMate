@@ -55,6 +55,15 @@ export interface Course {
   };
 }
 
+/** 学科分类独立于官方课程包；删除标记用于保留原资料和历史记录的关联。 */
+export interface Subject {
+  id: CourseId;
+  title: string;
+  deleted: boolean;
+  /** 同时移除上传资料条目；缺少此字段的旧记录仍按仅删除分类处理。 */
+  materialsDeleted?: boolean;
+}
+
 export type * from "./ai-metadata.generated";
 export {
   assertMetadata,
@@ -67,6 +76,8 @@ import type {
   ConversationMetadata,
   SessionBinding,
   SessionTurn,
+  ReadingReference,
+  MaterialLocation,
 } from "./ai-metadata.generated";
 
 export interface Message {
@@ -80,7 +91,8 @@ export interface Message {
   botName?: string;
   botIcon?: Robot["icon"];
   example?: boolean;
-  reference?: { title: string; content: string; selection: ReadingSelection };
+  reference?: ReadingReference;
+  references?: ReadingReference[];
   model?: string;
 }
 
@@ -91,13 +103,33 @@ export interface Conversation extends ConversationMetadata {
   example: boolean;
 }
 
+export interface Notebook {
+  id: string;
+  title: string;
+  revision: number;
+}
+
 export interface Note {
   id: string;
+  notebookId: string;
   courseId: CourseId;
   questionId: string;
   title: string;
   summary: string;
   content: string;
+  revision: number;
+  tagIds: string[];
+}
+
+export interface NoteTag {
+  id: string;
+  title: string;
+}
+
+export interface NoteLibrary {
+  notebooks: Notebook[];
+  notes: Note[];
+  customTags: NoteTag[];
 }
 
 export interface Settings {
@@ -115,6 +147,9 @@ export interface AppData {
   conversations: Conversation[];
   settings: Settings;
   selection: ReadingSelection;
+  materialSelection?: MaterialLocation | null;
+  subjects?: Subject[];
+  noteLibrary?: NoteLibrary;
 }
 
 export interface CurrentContent {

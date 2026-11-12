@@ -199,19 +199,107 @@ def test_probe_preserves_connection_failures_instead_of_reporting_missing_sessio
         ("session is not resumable: original", "session_missing"),
         ("session cwd does not match: /original", "session_workspace_mismatch"),
         ("session is already active: original", "session_busy"),
+        (
+            'session "original" is already owned by an active write handle',
+            "session_busy",
+        ),
         ("Authentication required", "harness_error"),
     ],
 )
-def test_dsh_distinguishes_native_restore_failures(native_error, code):
+@pytest.mark.parametrize("in_details", [False, True])
+def test_dsh_distinguishes_native_restore_failures(native_error, code, in_details):
     class Process:
         capabilities: ClassVar[dict] = {"sessionCapabilities": {"resume": {}}}
 
         async def call(self, method, params):
-            raise ConnectionError("Harness 返回错误：" + native_error, "harness_error")
+            raise ConnectionError(
+                "Harness 返回错误："
+                + ("Internal error" if in_details else native_error),
+                "harness_error",
+                details=native_error if in_details else "",
+            )
 
     with pytest.raises(ConnectionError) as failed:
         asyncio.run(DshAdapter().resume(Process(), "original", "/original"))
     assert failed.value.code == code
+
+
+@pytest.mark.parametrize("previous_status", ["ready", "unknown", "error"])
+def test_disable_enable_and_busy_probe_do_not_block_original_formal_session(
+    harness, monkeypatch, tmp_path, previous_status
+):
+    adapter, factory, model, _ = harness
+
+    async def exercise():
+        store = Store(tmp_path / "store")
+        service = AiService(store, registry=AdapterRegistry([adapter]))
+        try:
+            await service.save_settings(
+                ConnectionConfig(
+                    provider=adapter.provider,
+                    executablePath=sys.executable,
+                    model=model,
+                )
+            )
+            first = question(connection=adapter.id, model=model)
+            service.create_turn(first)
+            original = deepcopy(await completed(service, first.id))
+            probe_sid = store.db.execute("SELECT session_id FROM probes").fetchone()[0]
+            for enabled in [False, True]:
+                await service.set_connection_state(
+                    adapter.id, enabled, store.connections()[adapter.id]["revision"]
+                )
+            store.record_connection_check(
+                adapter.id,
+                previous_status,
+                "Old detection failure." if previous_status == "error" else None,
+            )
+            saved = deepcopy(store.connections()[adapter.id])
+            request = DetectRequest(
+                provider=adapter.provider,
+                executablePath=saved["config"]["executablePath"],
+                model=model,
+            )
+            original_call = factory.call
+
+            async def busy_probe(process, method, params, timeout=40):
+                if (
+                    method in {"session/resume", "session/load"}
+                    and params["sessionId"] == probe_sid
+                ):
+                    raise ConnectionError(
+                        "Test session is open elsewhere.", "session_busy"
+                    )
+                return await original_call(process, method, params, timeout)
+
+            before = len(factory.calls)
+            monkeypatch.setattr(factory, "call", busy_probe)
+            with pytest.raises(ConnectionError) as failed:
+                await service.probe(request)
+            assert failed.value.code == "probe_busy"
+            current = store.connections()[adapter.id]
+            assert current["check"]["status"] == (
+                "ready" if previous_status == "ready" else "unknown"
+            )
+            assert current["config"] == saved["config"]
+            assert current["detection"] == saved["detection"]
+            follow = question(connection=adapter.id, model=model)
+            service.create_turn(follow)
+            result = await completed(service, follow.id)
+            assert result["status"] == "completed"
+            assert result["externalSessionId"] == original["externalSessionId"]
+            assert store.turn(first.id) == original
+            monkeypatch.setattr(factory, "call", original_call)
+            assert (await service.probe(request))["models"]
+            assert store.connections()[adapter.id]["check"]["status"] == "ready"
+            assert not any(
+                method == "session/new" for method, _ in factory.calls[before:]
+            )
+        finally:
+            await service.close()
+            store.close()
+
+    asyncio.run(exercise())
 
 
 @pytest.mark.parametrize(

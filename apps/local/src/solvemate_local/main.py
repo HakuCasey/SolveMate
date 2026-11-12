@@ -8,6 +8,9 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from .acp import ConnectionError
+from .material_converter import MaterialError
+from .material_routes import router as material_router
+from .materials import Materials
 from .metadata import SCHEMA
 from .models import (
     ConnectionConfig,
@@ -17,6 +20,7 @@ from .models import (
     DetectRequest,
     PermissionDecision,
     PreferenceChange,
+    SessionRename,
     TurnRequest,
 )
 from .service import AiService
@@ -25,7 +29,9 @@ from .store import Store
 ROOT = Path(__file__).resolve().parents[4]
 
 
-def create_app(directory=None, registry=None, allowed_origins=None):
+def create_app(
+    directory=None, registry=None, allowed_origins=None, materials_directory=None
+):
     directory = Path(
         directory or os.environ.get("SOLVEMATE_LOCAL_DATA", ROOT / "user/ai")
     )
@@ -41,13 +47,30 @@ def create_app(directory=None, registry=None, allowed_origins=None):
     async def lifespan(app):
         store = Store(directory)
         app.state.ai = AiService(store, registry=registry)
+        app.state.materials = None
         try:
+            app.state.materials = Materials(
+                materials_directory
+                or os.environ.get(
+                    "SOLVEMATE_MATERIALS_DIR", directory.parent / "materials"
+                )
+            )
             yield
         finally:
+            if app.state.materials is not None:
+                await app.state.materials.close()
             await app.state.ai.close()
             store.close()
 
     app = FastAPI(title="SolveMate Local AI", lifespan=lifespan)
+
+    app.include_router(material_router)
+
+    @app.exception_handler(MaterialError)
+    async def material_error(request, error):
+        return JSONResponse(
+            {"detail": str(error), "code": error.code}, status_code=error.status
+        )
 
     @app.middleware("http")
     async def local_browser_boundary(request: Request, call_next):
@@ -73,12 +96,14 @@ def create_app(directory=None, registry=None, allowed_origins=None):
                     {"detail": "请求缺少本机网页访问凭据。", "code": "client_required"},
                     status_code=403,
                 )
-            if (
-                request.headers.get("content-type", "").split(";")[0]
-                != "application/json"
-            ):
+            upload = (
+                request.method == "POST"
+                and request.url.path == "/local-api/v1/materials"
+            )
+            expected_type = "application/octet-stream" if upload else "application/json"
+            if request.headers.get("content-type", "").split(";")[0] != expected_type:
                 return JSONResponse(
-                    {"detail": "该接口仅接受 JSON 请求。"}, status_code=415
+                    {"detail": "请求内容格式不符合接口要求。"}, status_code=415
                 )
         elif (
             request.url.path != "/healthz"
@@ -146,8 +171,17 @@ def create_app(directory=None, registry=None, allowed_origins=None):
             ident, body.expectedRevision, body.expectedPreferencesRevision
         )
 
+    @app.put("/local-api/v1/conversations/{ident}/native-title")
+    async def rename_session(ident: str, body: SessionRename, request: Request):
+        return await request.app.state.ai.rename_session(ident, body)
+
     @app.post("/local-api/v1/turns", status_code=202)
     async def start_turn(body: TurnRequest, request: Request):
+        for reference in body.references or (
+            [body.reference] if body.reference else []
+        ):
+            if reference.material:
+                request.app.state.materials.validate_reference(reference)
         return request.app.state.ai.create_turn(body)
 
     @app.get("/local-api/v1/turns/{ident}")

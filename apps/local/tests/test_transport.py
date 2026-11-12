@@ -43,6 +43,11 @@ for raw in sys.stdin.buffer:
         sys.stdout.buffer.write(b"[]\\n")
         sys.stdout.buffer.flush()
         continue
+    elif method == "test/error":
+        send({"jsonrpc": "2.0", "id": request["id"], "error": {
+            "code": -32603, "message": "Internal error", "data": request["params"].get("data")
+        }})
+        continue
     send({"jsonrpc": "2.0", "id": request["id"], "result": result})
 """
 
@@ -93,6 +98,40 @@ def test_subprocess_timeout_and_disconnect_fail_pending_request(tmp_path):
             with pytest.raises(ConnectionError) as disconnect:
                 await client.call("test/disconnect", {})
             assert disconnect.value.code == "process_stopped"
+            assert not client.pending
+        finally:
+            await client.close()
+
+    asyncio.run(exercise())
+
+
+@pytest.mark.parametrize(
+    ("data", "expected"),
+    [
+        (
+            {
+                "details": 'session "original" is already owned by an active write handle'
+            },
+            'session "original" is already owned by an active write handle',
+        ),
+        ({"details": "api_key=private-value"}, "api_key=[redacted]"),
+        ({"details": {"password": "private-value"}}, ""),
+        ("private-value", ""),
+        (None, ""),
+    ],
+)
+def test_rpc_error_keeps_safe_details_for_adapter_without_exposing_them(
+    tmp_path, data, expected
+):
+    async def exercise():
+        client = client_at(tmp_path / "agent")
+        try:
+            await client.start()
+            with pytest.raises(ConnectionError) as failed:
+                await client.call("test/error", {"data": data})
+            assert failed.value.code == "harness_error"
+            assert failed.value.details == expected
+            assert str(failed.value) == "Harness 返回错误：Internal error"
             assert not client.pending
         finally:
             await client.close()

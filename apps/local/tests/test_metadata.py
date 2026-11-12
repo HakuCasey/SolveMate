@@ -378,6 +378,7 @@ def test_migrated_v2_retry_returns_existing_turn_without_dispatching_again(tmp_p
         service = client.app.state.ai
         old = TurnRequest(**body).model_dump(
             exclude={
+                "references",  # 旧版请求不含多选段数组。
                 "connectionRevision",
                 "robotRevision",
                 "client",

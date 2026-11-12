@@ -4,6 +4,7 @@ import type {
   AiConfig,
   Detection,
   TurnInput,
+  SessionBinding,
 } from "@solvemate/contracts";
 export type {
   ModelOption,
@@ -193,6 +194,20 @@ async function streamTurn(
 }
 
 export const localAi = {
+  renameSession: async (id: string, title: string, binding: SessionBinding) => {
+    const result = await request<{ status: "synced" | "unsupported" }>(
+      `/conversations/${encodeURIComponent(id)}/native-title`,
+      "PUT",
+      {
+        title,
+        connectionId: binding.connectionId,
+        externalSessionId: binding.externalSessionId,
+      },
+    );
+    if (result?.status !== "synced" && result?.status !== "unsupported")
+      throw new LocalAiError("本机服务未确认改名结果。", "protocol_invalid");
+    return result;
+  },
   settings: async () => decodeAiSettings(await request<unknown>("/settings")),
   detect: (
     executablePath: string,

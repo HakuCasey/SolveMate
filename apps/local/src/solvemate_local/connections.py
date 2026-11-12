@@ -108,6 +108,11 @@ class ConnectionManager:
                     try:
                         session = await adapter.resume(process, sid, self.workspace)
                     except ConnectionError as error:
+                        if error.code == "session_busy":
+                            raise ConnectionError(
+                                "连接测试会话正被其他 Harness 进程占用。请关闭对应的测试会话，或退出占用它的进程后重新检测。未创建新的测试会话，其他正式对话仍可尝试使用。",
+                                "probe_busy",
+                            ) from error
                         if error.code != "session_missing":
                             raise
                         raise ConnectionError(

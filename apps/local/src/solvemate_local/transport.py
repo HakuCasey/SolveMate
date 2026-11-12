@@ -172,10 +172,13 @@ class JsonRpcProcess:
             )
             item = await asyncio.wait_for(future, timeout)
             if "error" in item:
+                data = item["error"].get("data")
+                details = data.get("details") if isinstance(data, dict) else None
                 raise ConnectionError(
                     "Harness 返回错误："
                     + safe_error(item["error"].get("message", "未知错误")),
                     "harness_error",
+                    details=safe_error(details) if isinstance(details, str) else "",
                 )
             return item.get("result", {})
         except TimeoutError as error:

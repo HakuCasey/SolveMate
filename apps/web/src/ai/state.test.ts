@@ -63,6 +63,31 @@ describe("AI conversation results", () => {
     expect(result.conversations[0]?.messages[1]?.model).toBe("a");
   });
 
+  it("restores multiple reference snapshots and validates the saved messages", () => {
+    const { data, turn } = setup();
+    turn.references = [
+      {
+        title: "第一段",
+        content: "int a = 5 / 2;",
+        selection: { ...data.selection },
+      },
+      {
+        title: "第二段",
+        content: "double b = 5.0 / 2;",
+        selection: { ...data.selection },
+      },
+    ];
+    const restored = mergeAiTurn(data, turn);
+    expect(restored.conversations[0]?.messages[0]?.references).toEqual(
+      turn.references,
+    );
+    assertAppData(restored);
+    turn.references[0].content = "changed";
+    expect(
+      restored.conversations[0]?.messages[0]?.references?.[0].content,
+    ).toBe("int a = 5 / 2;");
+  });
+
   it("does not resurrect deleted conversations or move a completed run back to running", () => {
     const { data, turn } = setup();
     const finished = mergeAiTurn(data, {
