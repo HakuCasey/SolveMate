@@ -4,9 +4,13 @@ import { format } from "prettier";
 import { compile } from "json-schema-to-typescript";
 
 const root = new URL("../", import.meta.url);
-const source = await readFile(
-  new URL("packages/contracts/ai-metadata.schema.json", root),
-  "utf8",
+// Windows 检出或编辑器保存为 CRLF 时，换行差异不代表共享结构发生变化。
+const normalizeLineEndings = (value) => value.replace(/\r\n/g, "\n");
+const source = normalizeLineEndings(
+  await readFile(
+    new URL("packages/contracts/ai-metadata.schema.json", root),
+    "utf8",
+  ),
 );
 const schema = JSON.parse(source);
 const generated = await compile(schema, "AiMetadataContract", {
@@ -16,22 +20,30 @@ const generated = await compile(schema, "AiMetadataContract", {
   additionalProperties: false,
   unknownAny: true,
 });
-const output = await format(generated, { parser: "typescript" });
+const output = await format(generated, {
+  parser: "typescript",
+  endOfLine: "lf",
+});
 const files = [
   ["packages/contracts/src/ai-metadata.generated.ts", output],
   ["apps/local/src/solvemate_local/schemas/ai-metadata.schema.json", source],
   [
     "apps/local/src/solvemate_local/schemas/ai-metadata-v2.schema.json",
-    await readFile(
-      new URL("packages/contracts/legacy/ai-metadata-v2.schema.json", root),
-      "utf8",
+    normalizeLineEndings(
+      await readFile(
+        new URL("packages/contracts/legacy/ai-metadata-v2.schema.json", root),
+        "utf8",
+      ),
     ),
   ],
 ];
 for (const [path, value] of files) {
   const target = new URL(path, root);
   if (process.argv.includes("--check")) {
-    if ((await readFile(target, "utf8").catch(() => "")) !== value)
+    if (
+      normalizeLineEndings(await readFile(target, "utf8").catch(() => "")) !==
+      value
+    )
       throw new Error(`Generated AI contract is outdated: ${path}`);
   } else {
     await mkdir(fileURLToPath(new URL("./", target)), { recursive: true });
