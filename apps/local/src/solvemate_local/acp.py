@@ -6,7 +6,8 @@ from tempfile import TemporaryDirectory
 
 from .errors import ConnectionError
 from .model_config import desktop_overlay, resolve_home
-from .transport import AcpTransport, process_options, safe_error  # noqa: F401
+from .processes import process_options
+from .transport import AcpTransport, safe_error  # noqa: F401
 
 
 def find_executable(value=""):

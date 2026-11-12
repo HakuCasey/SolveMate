@@ -7,10 +7,14 @@ from importlib.resources import files
 from jsonschema import Draft202012Validator
 
 SCHEMA = json.loads(
-    files("solvemate_local").joinpath("schemas/ai-metadata.schema.json").read_text()
+    files("solvemate_local")
+    .joinpath("schemas/ai-metadata.schema.json")
+    .read_text(encoding="utf-8")
 )
 LEGACY_SCHEMA = json.loads(
-    files("solvemate_local").joinpath("schemas/ai-metadata-v2.schema.json").read_text()
+    files("solvemate_local")
+    .joinpath("schemas/ai-metadata-v2.schema.json")
+    .read_text(encoding="utf-8")
 )
 UNKNOWN_CLIENT = {"appVersion": None, "buildId": None, "clientKind": None}
 LEGACY_CONNECTIONS = {

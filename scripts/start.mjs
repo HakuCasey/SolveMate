@@ -169,6 +169,8 @@ async function main() {
       "Web port must be an integer from 1 to 65535 and must differ from content port 8000 and local AI port 8765.",
     );
   }
+  const npmCli = process.env.npm_execpath;
+  if (!npmCli) throw new Error("Run the startup script with npm start.");
   const serverDirectory = join(root, "apps/server");
   const python = join(
     serverDirectory,
@@ -209,12 +211,11 @@ async function main() {
       "-c",
       "import fastapi, uvicorn, solvemate_server, yaml",
     ]);
-    const npmCli = process.env.npm_execpath;
-    await manager.run(
-      "Building web application",
-      npmCli ? process.execPath : "npm",
-      npmCli ? [npmCli, "run", "build"] : ["run", "build"],
-    );
+    await manager.run("Building web application", process.execPath, [
+      npmCli,
+      "run",
+      "build",
+    ]);
     await manager.run(
       "Publishing official content",
       python,

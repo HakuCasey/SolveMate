@@ -15,7 +15,7 @@ FIXTURES = json.loads(
     (
         Path(__file__).resolve().parents[3]
         / "packages/contracts/fixtures/ai-metadata.json"
-    ).read_text()
+    ).read_text(encoding="utf-8")
 )
 
 

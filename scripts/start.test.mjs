@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
@@ -131,4 +131,17 @@ test("invalid CLI options fail before starting services", async () => {
   const code = await new Promise((accept) => child.once("exit", accept));
   assert.equal(code, 1);
   assert.match(stderr, /must differ from content port 8000/);
+});
+
+test("direct startup without npm explains the required command before preparation", () => {
+  const env = { ...process.env };
+  delete env.npm_execpath;
+  const result = spawnSync(
+    process.execPath,
+    [fileURLToPath(new URL("./start.mjs", import.meta.url))],
+    { env, encoding: "utf8", timeout: 5000 },
+  );
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Run the startup script with npm start/);
+  assert.equal(result.stdout, "");
 });

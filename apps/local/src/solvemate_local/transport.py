@@ -1,12 +1,11 @@
 import asyncio
 import json
 import logging
-import os
 import re
 import signal
-import sys
 
 from .errors import ConnectionError
+from .processes import process_options, stop_process_tree
 
 logger = logging.getLogger(__name__)
 
@@ -20,12 +19,6 @@ def safe_error(message):
         text,
     )
     return text[:600]
-
-
-def process_options():
-    if sys.platform == "win32":
-        return {"creationflags": 0x00000200}  # CREATE_NEW_PROCESS_GROUP
-    return {"start_new_session": True}
 
 
 class UnsupportedClientMethod(Exception):
@@ -206,12 +199,12 @@ class JsonRpcProcess:
         try:
             await asyncio.wait_for(self.process.wait(), 5)
         except TimeoutError:
-            await self._stop_process_tree(signal.SIGTERM)
+            await stop_process_tree(self.process, signal.SIGTERM)
             try:
                 await asyncio.wait_for(self.process.wait(), 3)
             except TimeoutError:
-                await self._stop_process_tree(
-                    getattr(signal, "SIGKILL", signal.SIGTERM)
+                await stop_process_tree(
+                    self.process, getattr(signal, "SIGKILL", signal.SIGTERM)
                 )
                 await self.process.wait()
         self.closed = True
@@ -223,24 +216,6 @@ class JsonRpcProcess:
 
     def cleanup_launch(self):
         pass
-
-    async def _stop_process_tree(self, sig):
-        if sys.platform == "win32":
-            child = await asyncio.create_subprocess_exec(
-                "taskkill",
-                "/PID",
-                str(self.process.pid),
-                "/T",
-                "/F",
-                stdout=asyncio.subprocess.DEVNULL,
-                stderr=asyncio.subprocess.DEVNULL,
-            )
-            await child.wait()
-        else:
-            try:
-                os.killpg(self.process.pid, sig)
-            except ProcessLookupError:
-                pass
 
 
 class AcpTransport(JsonRpcProcess):
