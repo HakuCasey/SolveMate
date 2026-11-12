@@ -1,6 +1,6 @@
-# SolveMate 本机 AI 服务
+# SolveMate 本机服务
 
-本服务在用户电脑上连接已安装的 DeepSeek Harness、Hermes 或 Codex，负责 Harness 进程、模型选项、会话绑定、执行记录和权限确认，并提供用户资料的本机保存与处理。官方内容服务仍位于 `apps/server/`，个人问题和资料不经过官方内容服务。
+本服务在用户电脑上连接已安装的 DeepSeek Harness、Hermes 或 Codex，负责 Harness 进程、模型选项、会话绑定、执行记录和权限确认，并提供个人记录、上传资料和已下载课程的本机保存与处理。官方内容服务仍位于 `apps/server/`，个人问题和资料不经过官方内容服务。
 
 ## 启动
 
@@ -139,13 +139,13 @@ SQLite 首次打开旧数据库时，在同一事务中备份旧记录并迁移�
 
 ## 用户资料
 
-网页科目下的“学习资料”列表支持 PDF 和 PPTX，单文件上限 100 MiB。原件先保存到 `user/materials/<资料编号>/<SHA-256 版本>/`；资料编号目录中的 `record.json` 记录处理状态和阅读文件。PPTX 由 LibreOffice 转换为 PDF，PDF.js 在网页显示原页面；每页文字通过 pypdf 提取。官方服务不接收这些文件。
+网页科目下的“学习资料”列表支持 PDF 和 PPTX，单文件上限 100 MiB。原件先保存到 `user/uploads/<资料编号>/<SHA-256 版本>/`；资料编号目录中的 `record.json` 记录处理状态和阅读文件。PPTX 由 LibreOffice 转换为 PDF，PDF.js 在网页显示原页面；每页文字通过 pypdf 提取。官方服务不接收这些文件。
 
 PDF 无需安装办公软件。PPTX 需安装 [LibreOffice](https://www.libreoffice.org/download/download-libreoffice/)：macOS 可执行 `brew install --cask libreoffice`；Windows 使用官方安装程序。服务优先查找 PATH，再检查 macOS 应用目录或 Windows Program Files 目录。非默认路径可在启动前设置 `SOLVEMATE_LIBREOFFICE`，值为 `soffice`、`soffice.com` 或 `soffice.exe` 的完整路径。macOS 无界面转换会同时加载系统与 LibreOffice 自带字体；未安装课件使用的字体时，转换后的排版可能与原课件不同，要求原版排版时可导入课件导出的 PDF。
 
 转换使用独立配置目录，最多同时处理两份资料，超过两分钟会停止本次转换；缺少转换器或文件损坏时保留原件，可在网页点击“重试处理”。重启服务会将中断任务标为失败，等待用户重试。在同一科目重复导入同一文件复用原资料；不同科目分别保留资料记录。调整所属科目只改变归属，不改变文件编号和历史引用。原件或阅读文件丢失时可重新导入原文件恢复。
 
-`SOLVEMATE_MATERIALS_DIR` 可指定资料目录，默认与 `user/ai/` 并列。测试应显式指定独立目录，不使用正式资料。
+`SOLVEMATE_USER_DIR` 可指定本机数据根目录；默认使用项目的 `user/`。`SOLVEMATE_MATERIALS_DIR` 可单独指定上传资料目录，默认是数据根目录下的 `uploads/`；已有 `SOLVEMATE_LOCAL_DATA` 仍指定 AI 数据目录。测试应显式指定独立目录，不使用正式资料。
 
 | 接口 | 用途 |
 | --- | --- |
@@ -157,3 +157,13 @@ PDF 无需安装办公软件。PPTX 需安装 [LibreOffice](https://www.libreoff
 | `GET /local-api/v1/materials/{id}/{version}/pages/{page}` | 取得对应页面文字 |
 
 所有资料接口沿用本机服务的 Host、Origin 和 `X-SolveMate-Client` 检查。文件名只作显示，不参与磁盘目录拼接。网页引用保存资料编号、固定版本、页码和文字快照；文字随问题直接进入现有 Harness 请求。当前不提供扫描件 OCR、图片理解、跨页选区或整本书检索。
+
+## 个人记录与浏览器迁移
+
+`user/app.sqlite3` 保存对话、消息、笔记本、笔记、机器人、学科、标签、设置、提问草稿及阅读进度。`user/community/` 保存下载包和清单，数据库保存版本索引与当前指针；`user/ai/` 继续保存已有连接、原生绑定和执行。接口位于 `/local-api/v1/user/`，沿用本机地址、网页来源及客户端标识检查，个人记录不发送到官方服务。
+
+首次升级使用原浏览器、原访问地址打开新版，先关闭其他旧版页面。程序读取原始 IndexedDB 记录及下载包，将完整信封（含旧格式备份）备份到 `user/backups/`，校验后导入；原数据库不删除。已有正式记录时提供“使用本机记录”或“导入浏览器记录”；替换需要确认，并先用 SQLite 备份接口保存本机记录。相同来源与内容重复打开不会重复导入；旧页面后续改动过的记录会再次提示选择。
+
+默认上传目录从 `user/materials/` 复制到 `user/uploads/`，复制后逐文件核对 SHA-256，再启用新目录并写入迁移回执。旧目录保留，程序只读写新目录。复制或回执写入中断可重试；两目录存在差异且无回执时拒绝覆盖。显式指定的资料目录保持原位。
+
+本机服务不可达时，网页可查看已有缓存；修改未能保存时保留未确认副本并提示重试，重新打开后可选择恢复。缓存不充当正式记录。需要备份整个用户目录时，先停止应用，再复制 `user/`；恢复前保留当前目录。跨设备同步、自动定期备份及备份导入界面未提供。结构和失败处理详见 [012 本机用户数据保存](../../docs/features/012-local-user-storage/design.md)。

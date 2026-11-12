@@ -21,7 +21,7 @@ SolveMate 是一款面向学生的学习应用，支持教材与题目阅读、A
 ### 环境要求
 
 - Git、Node.js 24 和 npm 11。
-- Python 3.12 或以上版本，用于运行本机 AI 连接及官方内容服务。
+- Python 3.12 或以上版本，用于运行本机数据保存、AI 连接及官方内容服务。
 - 使用 AI 时，需要安装并配置 DeepSeek Harness、Hermes 或 Codex。macOS 已进行真实调用验证；Windows 已提供启动适配和自动测试，仍需实机验收。
 
 导入 PPTX 需要安装 [LibreOffice](https://www.libreoffice.org/download/download-libreoffice/)，PDF 导入不需要此依赖。macOS 可使用 `brew install --cask libreoffice`；Windows 安装到默认目录即可。自定义程序位置见[本机服务说明](apps/local/README.md#用户资料)。
@@ -73,7 +73,7 @@ npm start
 
 打开网页后，在“设置 → AI 配置”中选择 DeepSeek Harness、Hermes 或 Codex，检测连接并选择模型。配置和独立启动方式见[本机 AI 服务说明](apps/local/README.md)。
 
-只启动网页时，仍可依次执行 `npm run build`、`npm run preview`。内容服务的单独启动和配置见[后端说明](apps/server/README.md)。
+本机服务负责个人记录的读取和保存，即使不使用 AI 也需要启动。单独预览网页可执行 `npm run build`、`npm run preview`，并按[本机服务说明](apps/local/README.md#启动)启动本机服务；服务未启动时只能查看已有浏览器缓存。内容服务的单独启动和配置见[后端说明](apps/server/README.md)。
 
 ### 部署到服务器
 
@@ -87,7 +87,7 @@ npm start
 VITE_CONTENT_API_URL=https://content.example.com/api/v1
 ```
 
-`npm run preview` 用于本地查看构建结果；对外部署时，用静态托管服务或 Web 服务器提供网页。当前 Harness 接入用于本机启动方式；公网网页连接用户本机 Harness 的配对方式尚未实现，本机 AI 接口不能公开转发到互联网。
+`npm run preview` 用于本地查看构建结果；对外部署时，用静态托管服务或 Web 服务器提供网页。个人记录和 Harness 接入均通过本机服务提供，完整使用请采用上方的本地启动方式。公网网页与用户本机服务的连接和配对尚未实现；不能将个人数据接口和本机 AI 接口公开转发到互联网。
 
 后端目录与来源配置见[后端部署说明](apps/server/README.md#配置与部署)。
 
@@ -95,7 +95,7 @@ VITE_CONTENT_API_URL=https://content.example.com/api/v1
 
 打开网页，等待“离线资源已就绪”。浏览器提供“安装应用”入口时，按提示安装；不安装也可继续通过浏览器访问。需要离线阅读的官方课程应先下载并保存。
 
-课程和网页记录保存在当前浏览器的当前站点，清理站点数据会将其移除。本机 AI 配置、会话绑定和执行记录另存于项目下的 `user/ai/`。用户资料的原件与处理结果保存在 `user/materials/`，浏览器会缓存已打开的阅读文件。目前不支持跨设备同步或备份导出。
+对话、笔记、机器人、学科和设置保存在项目的 `user/app.sqlite3`；上传资料位于 `user/uploads/`，获取的官方和社区资料位于 `user/community/`，AI 连接和原生会话关联继续保存在 `user/ai/`。浏览器只保存缓存，连接同一个本机服务即可换浏览器继续使用。清理浏览器缓存不会删除这些正式记录，但尚未保存的修改仍需先处理。首次升级请使用原来的浏览器和访问地址完成迁移，原浏览器数据和旧资料目录保留，迁移备份位于 `user/backups/`。
 
 完成安装或部署后，页面操作见[用户指南](docs/product/manual/README.md)。
 
@@ -107,7 +107,7 @@ VITE_CONTENT_API_URL=https://content.example.com/api/v1
 npm run dev
 ```
 
-通过终端显示的地址访问页面，修改代码后可即时查看结果。需要联调课程下载或 AI 时，分别启动内容服务或[本机 AI 服务](apps/local/README.md#启动)。
+通过终端显示的地址访问页面，修改代码后可即时查看结果。开发时同时启动[本机服务](apps/local/README.md#启动)，用于读取和保存个人记录；联调官方课程下载时再启动内容服务。
 
 提交代码前执行：
 

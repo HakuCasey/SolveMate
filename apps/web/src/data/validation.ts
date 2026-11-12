@@ -3,6 +3,7 @@ import {
   assertMetadata,
   conversationMetadata,
   type AppData,
+  assertUserData,
 } from "@solvemate/contracts";
 import { isSelection, isMessage } from "./legacy-validation";
 import { assertNoteLibrary } from "../state/notes";
@@ -94,4 +95,5 @@ export function assertAppData(value: unknown): asserts value is AppData {
         settings.readingPaneRatio >= 1))
   )
     throw new Error("Local data has invalid settings or duplicate IDs.");
+  assertUserData(value);
 }

@@ -20,6 +20,7 @@ export type {
 import { decodeAiSettings, decodeAiTurn } from "./metadata";
 
 import { LocalAiError } from "./errors";
+import { dataRefresh } from "../refresh/coordinator";
 export { LocalAiError } from "./errors";
 
 async function request<T>(
@@ -54,12 +55,15 @@ async function request<T>(
   }
   if (!response.ok) {
     const failure = result as { detail?: unknown; code?: string };
-    throw new LocalAiError(
+    const error = new LocalAiError(
       typeof failure.detail === "string"
         ? failure.detail
         : "AI 请求未能完成，请检查连接设置。",
       failure.code ?? `http_${response.status}`,
+      response.status,
     );
+    if (method !== "GET") dataRefresh.recover(error, ["ai", "records"]);
+    throw error;
   }
   return result as T;
 }

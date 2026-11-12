@@ -1,3 +1,4 @@
+import { ResourceUnavailable } from "../refresh/ResourceUnavailable";
 import { useId, useRef, type Dispatch, type SetStateAction } from "react";
 import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
 import type {
@@ -103,7 +104,21 @@ function ReadingBody({
   );
 }
 
-export function Reader({
+export function Reader(props: ReaderProps) {
+  try {
+    getCurrentContent(props.selection, props.availableCourses);
+  } catch {
+    return (
+      <ResourceUnavailable
+        message="对应的内容或版本暂不可用，原阅读位置、对话和草稿仍保留，请恢复文件或重新下载后刷新。"
+        onBack={props.onBack}
+      />
+    );
+  }
+  return <AvailableReader {...props} />;
+}
+
+function AvailableReader({
   selection,
   fontSize,
   onChange,

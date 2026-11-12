@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
-import { useRegisterSW } from "virtual:pwa-register/react";
+import { useAppUpdate } from "../pwa/useAppUpdate";
+import { useSaveFeedback } from "./SaveFeedback";
+import { RefreshCw } from "lucide-react";
+import styles from "./PwaControls.module.css";
 import { logError } from "../logger";
 
 interface InstallPrompt extends Event {
@@ -7,33 +10,30 @@ interface InstallPrompt extends Event {
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 }
 
-export function PwaControls({ saved }: { saved: boolean }) {
+export function PwaControls({ prepareReload }: { prepareReload: () => void }) {
   const [installPrompt, setInstallPrompt] = useState<InstallPrompt | null>(
     null,
   );
-  const [ready, setReady] = useState(false);
-  const [registrationFailed, setRegistrationFailed] = useState(false);
-  const {
-    needRefresh: [needRefresh],
-    updateServiceWorker,
-  } = useRegisterSW({
-    onRegisterError(error: unknown) {
-      logError("Failed to register the offline service worker.", error);
-      setRegistrationFailed(true);
-    },
-  });
-
-  useEffect(() => {
-    if (import.meta.env.PROD && "serviceWorker" in navigator) {
-      let cancelled = false;
-      void navigator.serviceWorker.ready.then(() => {
-        if (!cancelled) setReady(true);
-      });
-      return () => {
-        cancelled = true;
-      };
-    }
-  }, []);
+  const showNotice = useSaveFeedback();
+  const { state, offlineReady, supported, check, reload } = useAppUpdate(
+    prepareReload,
+    () => showNotice("新版已就绪，可在右下角点击“更新应用”"),
+  );
+  const busy = ["checking", "downloading", "reloading"].includes(state.status);
+  const label =
+    state.status === "checking"
+      ? "正在检查更新…"
+      : state.status === "downloading"
+        ? "正在下载更新…"
+        : state.status === "current"
+          ? "已是最新版本"
+          : state.status === "reloading"
+            ? "正在更新应用…"
+            : state.status === "ready"
+              ? "更新应用"
+              : state.status === "error"
+                ? "重试"
+                : "检查更新";
 
   useEffect(() => {
     const capturePrompt = (event: Event) => {
@@ -61,23 +61,32 @@ export function PwaControls({ saved }: { saved: boolean }) {
       <span role="status">
         {!import.meta.env.PROD
           ? "开发预览"
-          : registrationFailed
-            ? "离线资源准备失败，请重新打开页面"
-            : ready
-              ? "离线资源已就绪"
-              : "正在准备离线资源…"}
+          : offlineReady
+            ? "离线资源已就绪"
+            : !supported
+              ? "当前浏览器不支持离线应用"
+              : state.status === "error"
+                ? "离线资源尚未就绪"
+                : "正在准备离线资源…"}
       </span>
-      {needRefresh && (
-        <button
-          disabled={!saved}
-          onClick={() => {
-            void updateServiceWorker(true).catch((error: unknown) =>
-              logError("Failed to update the application.", error),
-            );
-          }}
-        >
-          更新应用
-        </button>
+      {supported && (
+        <span className={styles.update} aria-label="应用更新">
+          {state.status === "ready" && <span role="status">新版已就绪</span>}
+          {state.error && <span role="alert">{state.error}</span>}
+          <button
+            type="button"
+            disabled={busy}
+            aria-label={label}
+            aria-busy={busy}
+            onClick={state.status === "ready" ? reload : check}
+          >
+            <RefreshCw
+              aria-hidden="true"
+              className={busy ? styles.spinning : undefined}
+            />
+            <span role="status">{label}</span>
+          </button>
+        </span>
       )}
       {installPrompt && (
         <button

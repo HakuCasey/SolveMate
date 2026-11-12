@@ -1,3 +1,4 @@
+import { DataRequestError } from "../refresh/errors";
 import type { AppData, Subject } from "@solvemate/contracts";
 
 type OfficialSubject = { id: string; title: string };
@@ -28,7 +29,11 @@ export function requireActiveSubject(
   if (id === null) return null;
   const subject = directory.byId.get(id);
   if (!subject || subject.deleted)
-    throw new Error("所选学科已删除或不可用，请重新选择。");
+    throw new DataRequestError(
+      "所选学科已删除或不可用，输入仍保留，请刷新后重新选择。",
+      "subject_unavailable",
+      409,
+    );
   return subject;
 }
 

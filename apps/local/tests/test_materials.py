@@ -550,3 +550,67 @@ def test_assignment_during_processing_is_preserved(tmp_path, monkeypatch):
             result["version"]["status"] == "ready"
             and result["courseId"] == "c-language"
         )
+
+
+def test_refresh_reports_missing_files_without_changing_material_or_history(tmp_path):
+    app = create_app(tmp_path / "ai", materials_directory=tmp_path / "materials")
+    with TestClient(app, headers=HEADERS) as client:
+        record = finished(client, upload(client).json()["id"])
+        service = app.state.materials
+        folder = service.folder(record)
+        original = folder / record["version"]["originalAssetId"]
+        raw = original.read_bytes()
+        metadata = (folder.parent / "record.json").read_bytes()
+        original.unlink()
+        listed = client.get("/local-api/v1/materials").json()[0]
+        assert listed["availability"]["originalAvailable"] is False
+        assert listed["revision"] == record["revision"]
+        assert "缺失" in listed["availability"]["error"]
+        assert (folder.parent / "record.json").read_bytes() == metadata
+        original.write_bytes(raw)
+        restored = client.get("/local-api/v1/materials").json()[0]
+        assert restored["availability"]["originalAvailable"] is True
+        assert restored["availability"]["readerAvailable"] is True
+        assert restored["availability"]["error"] is None
+        assert restored["id"] == record["id"]
+        assert restored["currentVersion"] == record["currentVersion"]
+
+
+def test_refresh_keeps_corrupt_metadata_for_repair_and_other_materials_available(
+    tmp_path,
+):
+    app = create_app(tmp_path / "ai", materials_directory=tmp_path / "materials")
+    with TestClient(app, headers=HEADERS) as client:
+        record = finished(client, upload(client).json()["id"])
+        metadata = app.state.materials.folder(record).parent / "record.json"
+        raw = metadata.read_bytes()
+        metadata.write_text("broken", encoding="utf-8")
+        listing = client.get("/local-api/v1/materials")
+        assert listing.status_code == 200
+        assert listing.headers["X-SolveMate-Material-Errors"] == "1"
+        assert (
+            client.get(
+                f"/local-api/v1/materials/{record['id']}/{record['currentVersion']}/reader"
+            ).status_code
+            == 422
+        )
+        assert metadata.read_text(encoding="utf-8") == "broken"
+        metadata.write_bytes(raw)
+        assert client.get("/local-api/v1/materials").json()[0]["id"] == record["id"]
+
+
+def test_retry_rebuilds_missing_reader_from_unchanged_original(tmp_path):
+    app = create_app(tmp_path / "ai", materials_directory=tmp_path / "materials")
+    with TestClient(app, headers=HEADERS) as client:
+        record = finished(client, upload(client).json()["id"])
+        service = app.state.materials
+        record["version"]["readerAssetId"] = "reader.pdf"
+        service.save(record)
+        available = service.get(record["id"])["availability"]
+        assert available["originalAvailable"] is True
+        assert available["readerAvailable"] is False
+        response = client.post(f"/local-api/v1/materials/{record['id']}/retry", json={})
+        assert response.status_code == 202, response.text
+        restored = finished(client, record["id"])
+        assert restored["availability"]["readerAvailable"] is True
+        assert restored["currentVersion"] == record["currentVersion"]

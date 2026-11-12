@@ -1,3 +1,4 @@
+import { requireCurrentRecord } from "../refresh/errors";
 import type {
   AppData,
   Conversation,
@@ -108,6 +109,13 @@ export function updateConversation(
   change: ConversationChange,
   expectedRevision?: number,
 ): AppData {
+  requireCurrentRecord(
+    data.conversations.find(
+      (item) => item.id === id && item.status !== "deleted",
+    ),
+    expectedRevision,
+    "对话",
+  );
   const title = change.title?.trim(),
     label = change.label?.trim();
   if (title !== undefined && (!title || title.length > 100))
@@ -118,8 +126,7 @@ export function updateConversation(
     ...data,
     conversations: data.conversations.map((item) => {
       if (item.id !== id || item.status === "deleted") return item;
-      if (expectedRevision !== undefined && item.revision !== expectedRevision)
-        throw new Error("对话已更新，请重新打开后再修改。");
+      requireCurrentRecord(item, expectedRevision, "对话");
       if (change.status === "deleted") throw new Error("请使用删除对话操作。");
       return {
         ...item,
@@ -165,9 +172,7 @@ export function applyRobotAi(
   expectedRevision?: number,
 ): AppData {
   const robot = data.robots.find((item) => item.id === robotId);
-  if (!robot) throw new Error("此教师已删除，请重新选择。");
-  if (expectedRevision !== undefined && robot.revision !== expectedRevision)
-    throw new Error("教师配置已更新，请重新打开后再保存。");
+  requireCurrentRecord(robot, expectedRevision, "教师配置");
   const effective = resolveDefaults(config, settings);
   if (effective.error) throw new Error(effective.error);
   return {
@@ -233,7 +238,7 @@ export function replaceRobots(
         isRobotModified(saved, robot) &&
         saved.revision !== robot.revision
       )
-        throw new Error("教师配置已更新，请重新读取后再保存。");
+        requireCurrentRecord(saved, robot.revision, "教师配置");
       return saved && isRobotModified(saved, robot)
         ? { ...robot, revision: saved.revision + 1 }
         : robot;

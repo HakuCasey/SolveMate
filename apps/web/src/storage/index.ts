@@ -2,13 +2,25 @@ import Dexie, { type Table } from "dexie";
 import type { AppData } from "@solvemate/contracts";
 import { migrateAiMetadata } from "../data/migrate-ai-metadata";
 import { assertAppData } from "../data/validation";
+import { DataRequestError } from "../refresh/errors";
+
+export interface UnsavedRecord {
+  id: string;
+  createdAt: number;
+  base: AppData;
+  value: AppData;
+}
 
 export interface AppStorage {
   load(): Promise<AppData | null>;
   save(data: AppData): Promise<void>;
+  refresh?(): Promise<AppData | null>;
+  preserve?(record: UnsavedRecord): Promise<void>;
+  recoveries?(): Promise<UnsavedRecord[]>;
+  forget?(id: string): Promise<void>;
 }
 
-interface SavedState {
+export interface SavedState {
   id: "main";
   value: AppData;
   revision?: number;
@@ -16,9 +28,13 @@ interface SavedState {
   metadataBackups?: Record<string, unknown>;
 }
 
-export class LocalDataConflictError extends Error {
+export class LocalDataConflictError extends DataRequestError {
   constructor() {
-    super("Local data changed in another page. Reload it before saving.");
+    super(
+      "其他窗口已更新记录，本页更改尚未保存，请刷新后核对。",
+      "revision_conflict",
+      409,
+    );
     this.name = "LocalDataConflictError";
   }
 }
@@ -147,6 +163,9 @@ export class DexieStorage implements AppStorage {
   close(): void {
     this.database.close();
   }
-}
 
-export const appStorage: AppStorage = new DexieStorage();
+  /** 迁移读取原始信封，包含历次备份；不修改旧数据库。 */
+  rawRecord(): Promise<SavedState | undefined> {
+    return this.database.state.get("main");
+  }
+}

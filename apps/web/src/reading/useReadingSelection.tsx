@@ -57,10 +57,7 @@ export function useReadingSelection(
     setPending({
       selection,
       left: Math.max(8, Math.min(rect.left, window.innerWidth - 200)),
-      top:
-        rect.bottom + 48 < window.innerHeight
-          ? rect.bottom + 8
-          : Math.max(8, rect.top - 44),
+      top: Math.max(8, rect.top - 44),
     });
   }
   return {
@@ -99,7 +96,7 @@ export function useReadingSelection(
                 }}
               >
                 <MessageSquarePlus aria-hidden="true" />
-                添加到侧边聊天
+                添加到侧边对话
               </button>
               {error && <p role="alert">{error}</p>}
             </div>,

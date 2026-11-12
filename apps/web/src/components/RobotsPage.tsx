@@ -1,3 +1,4 @@
+import { useEditRevision } from "../refresh/useEditRevision";
 import { useRef, useState, type Dispatch, type SetStateAction } from "react";
 import {
   Bot,
@@ -79,9 +80,21 @@ export function RobotsPage({
   const nameInput = useRef<HTMLInputElement>(null);
   const promptInput = useRef<HTMLTextAreaElement>(null);
 
-  const selected = robots.find((robot) => robot.id === selectedId) ?? robots[0];
+  const selected =
+    robots.find((robot) => robot.id === selectedId) ??
+    (selectedId ? drafts[selectedId] : undefined) ??
+    robots[0];
+  const removed =
+    !!selected && !robots.some((robot) => robot.id === selected.id);
   const draft = selected ? (drafts[selected.id] ?? selected) : undefined;
-  const hasChanges = !!selected && isRobotModified(selected, draft);
+  const getRevision = useEditRevision(
+    draft ?? { revision: 0 },
+    removed ? undefined : selected,
+    selected?.id,
+  );
+
+  const hasChanges =
+    removed || (!!selected && isRobotModified(selected, draft));
 
   function setDraft(next: Robot) {
     if (!selected) return;
@@ -138,7 +151,7 @@ export function RobotsPage({
   }
 
   async function saveRobot(): Promise<Robot | null> {
-    if (!draft) return null;
+    if (!draft || removed) return null;
     const next = {
       ...draft,
       name: draft.name.trim(),
@@ -167,6 +180,7 @@ export function RobotsPage({
     }
     setSaving(true);
     try {
+      next.revision = getRevision();
       await onChange(
         robots.map((robot) => (robot.id === next.id ? next : robot)),
         defaultRobotId,
@@ -356,7 +370,7 @@ export function RobotsPage({
             <button
               type="button"
               className={styles.secondaryButton}
-              disabled={disabled}
+              disabled={disabled || removed}
               title="保存当前配置并新建对话"
               onClick={async () => {
                 const saved = await saveRobot();
@@ -489,7 +503,11 @@ export function RobotsPage({
               className={invalidField ? styles.error : styles.status}
               role={invalidField ? "alert" : "status"}
             >
-              {hasChanges && !invalidField ? "有未保存的修改" : status}
+              {removed
+                ? "机器人已删除，当前输入仍保留，可从“未保存内容”中复制。"
+                : hasChanges && !invalidField
+                  ? "有未保存的修改"
+                  : status}
             </p>
             <div className={styles.actions}>
               <button
@@ -511,7 +529,7 @@ export function RobotsPage({
               <button
                 type="button"
                 className={styles.primaryButton}
-                disabled={disabled || !hasChanges}
+                disabled={disabled || removed || !hasChanges}
                 onClick={saveRobot}
               >
                 {saving ? "保存中…" : "保存配置"}

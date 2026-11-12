@@ -1,0 +1,386 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://solvemate.local/schemas/app-data.schema.json",
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "const": 3
+    },
+    "robotCatalogVersion": {
+      "const": 1
+    },
+    "robots": {
+      "type": "array",
+      "items": {
+        "$ref": "urn:solvemate:ai-metadata:3#/$defs/Robot"
+      }
+    },
+    "defaultRobotId": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "conversations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Conversation"
+      }
+    },
+    "settings": {
+      "type": "object",
+      "properties": {
+        "fontSize": {
+          "type": "integer",
+          "minimum": 12,
+          "maximum": 21
+        },
+        "appearance": {
+          "enum": ["light", "dark"]
+        },
+        "globalModel": {
+          "type": "string"
+        },
+        "readingPaneRatio": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "exclusiveMaximum": 1
+        }
+      },
+      "required": ["fontSize", "appearance", "globalModel"],
+      "additionalProperties": false
+    },
+    "selection": {
+      "$ref": "urn:solvemate:ai-metadata:3#/$defs/ReadingSelection"
+    },
+    "materialSelection": {
+      "anyOf": [
+        {
+          "$ref": "urn:solvemate:ai-metadata:3#/$defs/MaterialLocation"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "subjects": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40
+          },
+          "deleted": {
+            "type": "boolean"
+          },
+          "materialsDeleted": {
+            "type": "boolean"
+          }
+        },
+        "required": ["id", "title", "deleted"],
+        "additionalProperties": false
+      }
+    },
+    "noteLibrary": {
+      "type": "object",
+      "properties": {
+        "notebooks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 80
+              },
+              "revision": {
+                "type": "integer",
+                "minimum": 1
+              }
+            },
+            "required": ["id", "title", "revision"],
+            "additionalProperties": false
+          }
+        },
+        "notes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "notebookId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "courseId": {
+                "type": "string"
+              },
+              "questionId": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "summary": {
+                "type": "string"
+              },
+              "content": {
+                "type": "string"
+              },
+              "revision": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "tagIds": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "uniqueItems": true
+              }
+            },
+            "required": [
+              "id",
+              "notebookId",
+              "courseId",
+              "questionId",
+              "title",
+              "summary",
+              "content",
+              "revision",
+              "tagIds"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "customTags": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": ["id", "title"],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": ["notebooks", "notes", "customTags"],
+      "additionalProperties": false
+    },
+    "readingProgress": {
+      "type": "object",
+      "properties": {
+        "positions": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "scroll": {
+                "type": "object",
+                "properties": {
+                  "top": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "left": {
+                    "type": "number",
+                    "minimum": 0
+                  }
+                },
+                "required": ["top", "left"],
+                "additionalProperties": false
+              },
+              "answerVisible": {
+                "type": "boolean"
+              }
+            },
+            "required": ["scroll", "answerVisible"],
+            "additionalProperties": false
+          }
+        },
+        "documents": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "zoom": {
+                "type": "number",
+                "minimum": 0.5,
+                "maximum": 3
+              },
+              "location": {
+                "anyOf": [
+                  {
+                    "$ref": "urn:solvemate:ai-metadata:3#/$defs/ReadingSelection"
+                  },
+                  {
+                    "$ref": "urn:solvemate:ai-metadata:3#/$defs/MaterialLocation"
+                  }
+                ]
+              }
+            },
+            "required": ["zoom"],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": ["positions", "documents"],
+      "additionalProperties": false
+    },
+    "drafts": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string",
+        "maxLength": 10000
+      }
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "robots",
+    "defaultRobotId",
+    "conversations",
+    "settings",
+    "selection"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "Message": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "role": {
+          "enum": ["user", "assistant"]
+        },
+        "content": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "number",
+          "minimum": 0
+        },
+        "turnId": {
+          "type": "string"
+        },
+        "externalItemId": {
+          "type": "string"
+        },
+        "botId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "botName": {
+          "type": "string"
+        },
+        "botIcon": {
+          "enum": ["graduation-cap", "sparkles", "bot"]
+        },
+        "example": {
+          "type": "boolean"
+        },
+        "reference": {
+          "$ref": "urn:solvemate:ai-metadata:3#/$defs/ReadingReference"
+        },
+        "references": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:solvemate:ai-metadata:3#/$defs/ReadingReference"
+          },
+          "maxItems": 20
+        },
+        "model": {
+          "type": "string"
+        }
+      },
+      "required": ["id", "role", "content"],
+      "additionalProperties": false
+    },
+    "Conversation": {
+      "type": "object",
+      "properties": {
+        "binding": {
+          "anyOf": [
+            {
+              "$ref": "urn:solvemate:ai-metadata:3#/$defs/SessionBinding"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "turns": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:solvemate:ai-metadata:3#/$defs/SessionTurn"
+          }
+        },
+        "messages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Message"
+          }
+        },
+        "example": {
+          "type": "boolean"
+        }
+      },
+      "required": ["binding", "turns", "messages", "example"],
+      "additionalProperties": true,
+      "title": "ConversationMetadata",
+      "if": {
+        "properties": {
+          "material": {
+            "type": "object"
+          }
+        },
+        "required": ["material"]
+      },
+      "then": {
+        "properties": {
+          "selection": {
+            "type": "null"
+          }
+        }
+      },
+      "description": "AI 会话字段由同一份 ConversationMetadata Schema 校验，此处只定义应用附加记录。"
+    }
+  }
+}

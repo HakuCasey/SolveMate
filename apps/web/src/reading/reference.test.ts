@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { assertMetadata } from "@solvemate/contracts";
+import { assertMetadata, assertUserData } from "@solvemate/contracts";
 import { createInitialData, getCurrentContent } from "../data/catalog";
 import {
   appendReference,
+  REFERENCE_LIMIT_MESSAGE,
+  validateReferenceCount,
   messageReferences,
   referencePreview,
   makeReadingReference,
@@ -55,11 +57,21 @@ describe("reading quotes", () => {
     expect(() =>
       appendReference(one, { ...first, content: "x".repeat(100000) }, "c"),
     ).toThrow("总长度");
-    const twenty = Array.from({ length: 20 }, (_, index) => ({
+    const four = Array.from({ length: 4 }, (_, index) => ({
       id: String(index),
       reference: { ...first, content: String(index) },
     }));
-    expect(() => appendReference(twenty, first, "next")).toThrow("20");
+    expect(() => appendReference(four, first, "next")).toThrow(
+      REFERENCE_LIMIT_MESSAGE,
+    );
+    expect(four).toHaveLength(4);
+    expect(appendReference(four, four[0].reference, "duplicate")).toBe(four);
+    const removed = four.filter((item) => item.id !== "0");
+    expect(appendReference(removed, first, "replacement")).toHaveLength(4);
+    expect(() => validateReferenceCount(four)).not.toThrow();
+    expect(() => validateReferenceCount([...four, four[0]])).toThrow(
+      REFERENCE_LIMIT_MESSAGE,
+    );
   });
   it("previews 15 characters without splitting emoji and reads old single-reference messages", () => {
     expect(referencePreview("一二三四五六七八九十一二三四五六")).toBe(
@@ -82,4 +94,18 @@ describe("reading quotes", () => {
       readingKey(reference.selection!),
     );
   });
+});
+
+it("keeps historical messages with more than four references readable", () => {
+  const data = createInitialData();
+  const references = Array.from({ length: 5 }, (_, index) => ({
+    title: "历史引用",
+    content: String(index),
+    selection: { ...data.selection },
+  }));
+  data.conversations[0].messages[0].references = references;
+  expect(messageReferences(data.conversations[0].messages[0])).toEqual(
+    references,
+  );
+  assertUserData(data);
 });

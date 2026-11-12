@@ -27,6 +27,8 @@ import { Markdown } from "./Markdown";
 import styles from "./ChatPanel.module.css";
 
 interface ChatPanelProps {
+  draft: string;
+  onDraftChange: (draft: string) => void;
   robots: Robot[];
   robotId: string | null;
   conversation?: Conversation;
@@ -43,6 +45,8 @@ interface ChatPanelProps {
 }
 
 export function ChatPanel({
+  draft,
+  onDraftChange: setDraft,
   robots,
   robotId,
   conversation,
@@ -57,7 +61,6 @@ export function ChatPanel({
   onConfigure,
   aiSettingsOpen,
 }: ChatPanelProps) {
-  const [draft, setDraft] = useState("");
   const [notice, setNotice] = useState("");
   const [sending, setSending] = useState(false);
   const history = useRef<HTMLDivElement>(null);
@@ -473,7 +476,7 @@ export function ChatPanel({
               )}
               <textarea
                 aria-label="向阅读助手提问"
-                placeholder="选中内容，添加到侧边聊天后提问。"
+                placeholder="选中内容，添加到侧边对话后提问。"
                 rows={2}
                 maxLength={10000}
                 disabled={!robot || busy}

@@ -683,7 +683,7 @@ def test_reference_list_rejects_excess_content_and_ambiguous_legacy_field(tmp_pa
         }
         body["references"] = [reference, reference]
         assert client.post("/local-api/v1/turns", json=body).status_code == 422
-        body["references"] = [{**reference, "content": "片段"}] * 21
+        body["references"] = [{**reference, "content": "片段"}] * 5
         assert client.post("/local-api/v1/turns", json=body).status_code == 422
         body["references"] = [{**reference, "content": "片段"}]
         body["reference"] = reference

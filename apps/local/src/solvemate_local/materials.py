@@ -41,13 +41,14 @@ def read_pdf(path):
 
 
 class Materials:
-    def __init__(self, directory):
+    def __init__(self, directory, subject_check=None):
         self.directory = Path(directory)
         self.directory.mkdir(parents=True, exist_ok=True)
         self.lock = threading.RLock()
         self.tasks = {}
         self.runtime_errors = {}
         self.processing_slots = asyncio.Semaphore(2)
+        self.subject_check = subject_check
         # 服务退出时未完成的转换不能一直显示为处理中，也不能自动重复提交。
         for record in self.list():
             if record["version"]["status"] == "processing":
@@ -59,6 +60,9 @@ class Materials:
 
     def save(self, record):
         with self.lock:
+            record.pop(
+                "availability", None
+            )  # 文件可用性按实际文件计算，不保存到正式元数据。
             record["revision"] += 1
             record["updatedAt"] = int(time.time() * 1000)
             validate_metadata("Material", record)
@@ -98,9 +102,13 @@ class Materials:
                 (self.directory / ident / "record.json").read_text(encoding="utf-8")
             )
             validate_metadata("Material", record)
-        except (OSError, ValueError) as error:
+        except FileNotFoundError as error:
             raise MaterialError(
                 "没有找到资料记录，请重新打开资料列表。", status=404
+            ) from error
+        except (OSError, ValueError) as error:
+            raise MaterialError(
+                "资料记录暂时无法读取，请恢复文件后刷新。", status=422
             ) from error
         if record["id"] != ident:
             raise MaterialError("资料记录与编号不一致，原文件未改动。", status=409)
@@ -110,6 +118,26 @@ class Materials:
         error = self.runtime_errors.get(record["id"])
         if error:
             record["version"].update(status="failed", error=error)
+        folder = self.folder(record)
+        original = (folder / record["version"]["originalAssetId"]).is_file()
+        reader = record["version"]["readerAssetId"]
+        available = bool(reader and (folder / reader).is_file())
+        missing = (
+            "阅读文件缺失，请恢复文件后刷新；原件仍在时可重新处理。"
+            if not available
+            else None
+        )
+        if not original:
+            missing = (
+                "原文件缺失，请恢复文件后刷新。"
+                if not available
+                else "原文件缺失，当前阅读副本仍可使用，请恢复原文件。"
+            )
+        record["availability"] = {
+            "originalAvailable": original,
+            "readerAvailable": available,
+            "error": missing if record["version"]["status"] == "ready" else None,
+        }
         return record
 
     def folder(self, record):
@@ -144,6 +172,9 @@ class Materials:
                     stream.write(block)
             if not size:
                 raise MaterialError("文件为空，请重新选择。")
+            if self.subject_check:
+                # 上传期间其他浏览器可能删除学科，正式建立资料记录前重新检查。
+                self.subject_check(course_id)
             version = digest.hexdigest()
             with self.lock:
                 for existing in self.list():
@@ -237,6 +268,8 @@ class Materials:
             r"[a-z0-9]+(?:-[a-z0-9]+)*", course_id
         ):
             raise MaterialError("科目编号无效，请重新选择。")
+        if self.subject_check:
+            self.subject_check(course_id)
         with self.lock:
             record = self.editable(ident, revision)
             if record["courseId"] != course_id:
@@ -342,8 +375,27 @@ class Materials:
 
     def retry(self, ident):
         record = self.get(ident)
-        if ident in self.tasks or record["version"]["status"] == "ready":
+        if (
+            ident in self.tasks
+            or record["version"]["status"] == "ready"
+            and record["availability"]["readerAvailable"]
+        ):
             return record
+        original = self.folder(record) / record["version"]["originalAssetId"]
+        if not original.is_file():
+            raise MaterialError(
+                "原文件缺失，请恢复文件后刷新。", "original_missing", 404
+            )
+        with original.open("rb") as source:
+            if (
+                hashlib.file_digest(source, "sha256").hexdigest()
+                != record["currentVersion"]
+            ):
+                raise MaterialError(
+                    "原文件与保存的版本不一致，请重新导入，原记录仍保留。",
+                    "original_changed",
+                    409,
+                )
         self.runtime_errors.pop(ident, None)
         record["version"].update(status="processing", error=None)
         self.save(record)

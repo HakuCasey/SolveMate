@@ -46,10 +46,10 @@ describe("conversation and robot changes", () => {
     for (const title of ["", "  ", "x".repeat(101)])
       expect(() => updateConversation(data, original.id, { title })).toThrow();
     const deleted = deleteConversation(data, original.id);
-    const renamed = updateConversation(deleted, original.id, {
-      title: "已改名",
-    });
-    expect(renamed.conversations[0]).toBe(deleted.conversations[0]);
+    expect(() =>
+      updateConversation(deleted, original.id, { title: "已改名" }),
+    ).toThrow("已删除");
+    expect(deleted.conversations[0].title).toBe(original.title);
     const manual = updateConversation(data, original.id, { title: "新对话" });
     expect(manual.conversations[0].titleSource).toBe("manual");
   });
@@ -119,10 +119,9 @@ describe("conversation and robot changes", () => {
       data.conversations[0].messages,
     );
     expect(next.conversations[1]).toBe(data.conversations[1]);
-    expect(
-      updateConversation(next, next.conversations[0].id, { label: "一般" })
-        .conversations[0],
-    ).toBe(next.conversations[0]);
+    expect(() =>
+      updateConversation(next, next.conversations[0].id, { label: "一般" }),
+    ).toThrow("已删除");
     expect(() =>
       updateConversation(data, data.conversations[0].id, { label: "  " }),
     ).toThrow();

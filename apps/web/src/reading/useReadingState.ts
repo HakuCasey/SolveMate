@@ -1,6 +1,10 @@
 import { useCallback, useState } from "react";
 import type { DraftReference } from "./reference";
-import type { ReadingSelection, MaterialLocation } from "@solvemate/contracts";
+import type {
+  ReadingSelection,
+  MaterialLocation,
+  ReadingProgress,
+} from "@solvemate/contracts";
 import {
   updateReadingDocument,
   updateReadingPosition,
@@ -13,12 +17,14 @@ import {
 } from "./state";
 
 /** 阅读现场由应用层持有，阅读器卸载只释放 DOM 和 PDF 渲染资源。 */
-export function useReadingState() {
-  const [state, setState] = useState<ReadingState>({
-    positions: {},
-    documents: {},
-    references: {},
-  });
+export function useReadingState(initial?: ReadingState) {
+  const [state, setState] = useState<ReadingState>(
+    initial ?? {
+      positions: {},
+      documents: {},
+      references: {},
+    },
+  );
   const updatePosition = useCallback(
     (key: string, change: ReadingChange<ReadingPositionState>) =>
       setState((previous) => updateReadingPosition(previous, key, change)),
@@ -39,11 +45,19 @@ export function useReadingState() {
       setState((previous) => rememberReadingLocation(previous, location)),
     [],
   );
+  const restoreProgress = useCallback((progress: ReadingProgress) => {
+    setState((previous) => ({
+      ...previous,
+      positions: { ...progress.positions, ...previous.positions },
+      documents: { ...progress.documents, ...previous.documents },
+    }));
+  }, []);
   return {
     state,
     updatePosition,
     updateDocument,
     updateReferences,
     rememberLocation,
+    restoreProgress,
   };
 }

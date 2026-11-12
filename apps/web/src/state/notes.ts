@@ -6,6 +6,7 @@ import type {
   NoteTag,
 } from "@solvemate/contracts";
 import type { SubjectDirectory } from "./subjects";
+import { requireCurrentRecord } from "../refresh/errors";
 
 export const unclassifiedNotebookId = "notebook-unclassified";
 const systemNotebook: Notebook = {
@@ -98,9 +99,7 @@ function revision<T extends { revision: number }>(
   item: T | undefined,
   expected: number,
 ): asserts item is T {
-  if (!item) throw new Error("记录已删除，请关闭窗口后重新选择。");
-  if (item.revision !== expected)
-    throw new Error("记录已更新，请关闭窗口后重新操作。");
+  requireCurrentRecord(item, expected);
 }
 function libraryOf(data: AppData) {
   if (!data.noteLibrary) throw new Error("笔记尚未读取完成，请稍后重试。");

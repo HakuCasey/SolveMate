@@ -75,7 +75,11 @@ const MaterialReader = lazy(() =>
   })),
 );
 import { locationKey } from "./materials/api";
-import { appendReference, readingKey } from "./reading/reference";
+import {
+  appendReference,
+  readingKey,
+  validateReferenceCount,
+} from "./reading/reference";
 import { useReadingState } from "./reading/useReadingState";
 import {
   emptyReadingPosition,
@@ -86,9 +90,21 @@ import {
 } from "./reading/state";
 import type { SetStateAction } from "react";
 import { applyTheme } from "./theme/theme";
+import { teachingActivities, type TeachingActivityId } from "./data/teaching";
 import styles from "./App.module.css";
 import { clientRuntime } from "./version";
+import {
+  loadReloadCheckpoint,
+  saveReloadCheckpoint,
+  clearReloadCheckpoint,
+} from "./pwa/reload-checkpoint";
+import { RefreshControls } from "./refresh/RefreshControls";
+import { useDraftBackup } from "./refresh/drafts";
 import { useSaveFeedback } from "./components/SaveFeedback";
+import {
+  UserStorageGate,
+  useUserStorageStatus,
+} from "./storage/UserStorageGate";
 
 type View =
   | "reading"
@@ -101,6 +117,14 @@ type View =
   | "library";
 
 export function App() {
+  return (
+    <UserStorageGate>
+      <LocalWorkspace />
+    </UserStorageGate>
+  );
+}
+
+function LocalWorkspace() {
   const content = useOfficialContent();
   if (!content.ready)
     return (
@@ -118,14 +142,20 @@ export function App() {
 }
 
 function Workspace({ content }: { content: OfficialContent }) {
+  const storageStatus = useUserStorageStatus();
   const showSaved = useSaveFeedback();
+  const [reloadCheckpoint] = useState(loadReloadCheckpoint);
+  const [chatDrafts, setChatDrafts] = useState<Record<string, string>>(
+    reloadCheckpoint.value?.drafts ?? {},
+  );
   const {
     state: readingState,
     updatePosition,
     updateDocument,
     updateReferences,
     rememberLocation,
-  } = useReadingState();
+    restoreProgress,
+  } = useReadingState(reloadCheckpoint.value?.reading);
   const sourceCourses = content.snapshot.activeCourses;
   const sourceAvailableCourses = content.snapshot.allCourses;
   const {
@@ -137,7 +167,63 @@ function Workspace({ content }: { content: OfficialContent }) {
     retrySave,
     saveChanges,
     readData,
+    readSaveState,
+    refreshError,
+    saveError,
+    conflicts,
+    recoveries,
+    resolveConflict,
   } = useLocalData(sourceAvailableCourses);
+  const checkpointRestored = useRef(false);
+  const progressRestored = useRef(false);
+  useEffect(() => {
+    if (!data || progressRestored.current) return;
+    progressRestored.current = true;
+    if (data.readingProgress) restoreProgress(data.readingProgress);
+    setChatDrafts((current) => ({ ...data.drafts, ...current }));
+  }, [data, restoreProgress]);
+  const previousDrafts = useRef<Record<string, string> | undefined>(undefined);
+  useEffect(() => {
+    if (!data) return;
+    const old = previousDrafts.current;
+    previousDrafts.current = data.drafts;
+    if (!old) return;
+    setChatDrafts((current) => {
+      const next = { ...current, ...data.drafts };
+      for (const key of Object.keys(old))
+        if (!(key in (data.drafts ?? {}))) delete next[key];
+      return next;
+    });
+  }, [data?.drafts, data]);
+  const hasData = !!data;
+  useEffect(() => {
+    if (!hasData || !progressRestored.current) return;
+    // 滚动位置合并保存，避免每个滚动事件都写一次数据库。
+    const timer = window.setTimeout(() => {
+      setData((current) => {
+        if (!current) return current;
+        const progress = {
+          positions: readingState.positions,
+          documents: readingState.documents,
+        };
+        if (
+          (!Object.keys(progress.positions).length &&
+            !Object.keys(progress.documents).length &&
+            !current.readingProgress) ||
+          JSON.stringify(current.readingProgress) === JSON.stringify(progress)
+        )
+          return current;
+        return { ...current, readingProgress: progress };
+      });
+    }, 400);
+    return () => window.clearTimeout(timer);
+  }, [hasData, readingState.positions, readingState.documents, setData]);
+  useEffect(() => {
+    if (data && reloadCheckpoint.value && !checkpointRestored.current) {
+      clearReloadCheckpoint();
+      checkpointRestored.current = true;
+    }
+  }, [data, reloadCheckpoint]);
   const subjectDirectory = useMemo(
     () => createSubjectDirectory(sourceCourses, data?.subjects),
     [sourceCourses, data?.subjects],
@@ -169,18 +255,30 @@ function Workspace({ content }: { content: OfficialContent }) {
     null,
   );
   const [view, setView] = useState<View>("conversations");
+  const [teachingActivity, setTeachingActivity] = useState<TeachingActivityId>(
+    teachingActivities[0].id,
+  );
+  const selectedTeachingActivity = teachingActivities.find(
+    (activity) => activity.id === teachingActivity,
+  )!;
   const [libraryScope, setLibraryScope] = useState<LibraryScope>({
     courseId: "calculus",
     kind: "textbooks",
   });
   const [activeConversationId, setActiveConversationId] = useState<
     string | null
-  >(null);
+  >(reloadCheckpoint.value?.conversationId ?? null);
   const [activeRobotId, setActiveRobotId] = useState<string | null>(null);
   const [aiSettingsSource, setAiSettingsSource] = useState<
     "chat" | "sidebar" | null
   >(null);
   const [robotDrafts, setRobotDrafts] = useState<Record<string, Robot>>({});
+  useDraftBackup(
+    "robot-configurations",
+    "机器人配置草稿",
+    robotDrafts,
+    Object.keys(robotDrafts).length > 0,
+  );
   const submitting = useRef(false);
   const [commandError, setCommandError] = useState("");
   const [pendingSwitch, setPendingSwitch] = useState<ConversationSwitch | null>(
@@ -291,7 +389,7 @@ function Workspace({ content }: { content: OfficialContent }) {
         {loadFailed ? (
           <>
             <p role="alert">
-              无法读取本地学习记录。原有数据没有被清除，请检查浏览器存储权限后重试。
+              无法读取本机学习记录。原有数据已保留，请确认本机服务已启动后重试。
             </p>
             <button onClick={() => window.location.reload()}>
               <RefreshCw aria-hidden="true" />
@@ -346,6 +444,37 @@ function Workspace({ content }: { content: OfficialContent }) {
   const selectedMaterial = materials.items.find(
     (item) => item.id === materialLocation?.materialId,
   );
+  const draftConversationId =
+    currentConversation?.id ??
+    (view === "conversations" ? activeConversationId : null);
+  const chatDraftKey = draftConversationId
+    ? `conversation:${draftConversationId}`
+    : chatSelection
+      ? readingKey(chatSelection)
+      : materialLocation
+        ? readingDocumentKey(materialLocation)
+        : "ordinary-chat";
+  function prepareReload() {
+    const currentSaveState = readSaveState();
+    if (currentSaveState !== "saved" || submitting.current)
+      throw new Error(
+        currentSaveState === "saving" || submitting.current
+          ? "正在保存当前内容，请稍后再更新应用。"
+          : "本页更改尚未保存，请先重试保存。",
+      );
+    if (
+      data!.robots.some((robot) =>
+        isRobotModified(robot, robotDrafts[robot.id]),
+      )
+    )
+      throw new Error("机器人配置尚未保存，请先保存或取消修改，再更新应用。");
+    saveReloadCheckpoint({
+      schemaVersion: 1,
+      conversationId: currentConversation?.id ?? null,
+      drafts: chatDrafts,
+      reading: readingState,
+    });
+  }
   const contextLabel = materialLocation
     ? `${selectedMaterial?.title ?? "用户资料"} · 第 ${materialLocation.pageNumber} 页`
     : !chatSelection
@@ -571,6 +700,7 @@ function Workspace({ content }: { content: OfficialContent }) {
       currentConversation?.turns.some((turn) => turn.status === "running")
     )
       return;
+    validateReferenceCount(draftReferences);
     const effective = resolveConversationAi(
       currentConversation,
       currentRobot,
@@ -802,6 +932,7 @@ function Workspace({ content }: { content: OfficialContent }) {
   return (
     <main className={styles.app}>
       <SubjectDialog
+        subjects={subjects}
         action={subjectAction}
         onClose={() => setSubjectAction(null)}
         onCreate={createSubject}
@@ -825,6 +956,8 @@ function Workspace({ content }: { content: OfficialContent }) {
           view={view}
           activeScope={sidebarScope}
           settings={data.settings}
+          teachingActivity={teachingActivity}
+          onSelectTeachingActivity={setTeachingActivity}
           onNavigate={(next) => {
             if (next === "conversations") {
               const conversation =
@@ -1068,14 +1201,18 @@ function Workspace({ content }: { content: OfficialContent }) {
               view === "conversations" ||
               view === "materials") && (
               <ChatPanel
-                key={`chat:${
-                  currentConversation?.id ??
-                  (chatSelection
-                    ? `${chatSelection.courseId}:${chatSelection.version}:${chatSelection.kind}:${chatSelection.itemId}:${chatSelection.chapterIndex}`
-                    : materialLocation
-                      ? `${materialLocation.materialId}:${materialLocation.contentVersion}`
-                      : "ordinary-chat")
-                }`}
+                key={`chat:${chatDraftKey}`}
+                draft={chatDrafts[chatDraftKey] ?? ""}
+                onDraftChange={(draft) => {
+                  setChatDrafts((previous) => ({
+                    ...previous,
+                    [chatDraftKey]: draft,
+                  }));
+                  updateData((previous) => ({
+                    ...previous,
+                    drafts: { ...previous.drafts, [chatDraftKey]: draft },
+                  }));
+                }}
                 robots={data.robots}
                 robotId={currentRobot?.id ?? null}
                 conversation={currentConversation}
@@ -1115,8 +1252,11 @@ function Workspace({ content }: { content: OfficialContent }) {
             />
           )}
           {view === "teaching" && (
-            <section className={styles.teachingRoom} aria-label="教研室">
-              <h1>教研室</h1>
+            <section
+              className={styles.teachingRoom}
+              aria-label={selectedTeachingActivity.title}
+            >
+              <h1>{selectedTeachingActivity.title}</h1>
             </section>
           )}
           <div className={styles.robots} hidden={view !== "robots"}>
@@ -1134,23 +1274,63 @@ function Workspace({ content }: { content: OfficialContent }) {
       </div>
       <footer className={styles.footer}>
         {commandError && <span role="alert">{commandError}</span>}
-        <span role={saveState === "error" ? "alert" : "status"}>
+        <span
+          role={
+            saveState === "error" || !storageStatus.online ? "alert" : "status"
+          }
+        >
           {conflict
-            ? "另一窗口已更新记录，本页更改尚未保存，请重新读取"
+            ? "最新记录已变化，未保存内容仍保留，请核对修改冲突"
             : saveState === "saving"
               ? "正在保存到本地…"
               : saveState === "error"
-                ? "本次更改尚未保存，请重试"
-                : "已保存在当前浏览器"}
+                ? saveError || "本次更改尚未保存，请重试"
+                : !storageStatus.online
+                  ? "本机服务未连接，正在查看缓存"
+                  : "已保存在 user 目录"}
         </span>
-        {saveState === "error" && (
-          <button
-            onClick={conflict ? () => window.location.reload() : retrySave}
-          >
-            {conflict ? "重新读取" : "重试保存"}
-          </button>
+        {storageStatus.warning && (
+          <span role="alert">{storageStatus.warning}</span>
         )}
-        <PwaControls saved={saveState === "saved"} />
+        {refreshError && <span role="alert">{refreshError}</span>}
+        {saveState === "error" && !conflict && (
+          <button onClick={retrySave}>重试保存</button>
+        )}
+        {reloadCheckpoint.error && (
+          <span role="alert">{reloadCheckpoint.error}</span>
+        )}
+        {view === "conversations" &&
+          activeConversationId &&
+          data.conversations.some(
+            (item) =>
+              item.id === activeConversationId && item.status === "deleted",
+          ) && (
+            <span role="alert">
+              原对话已删除，输入草稿仍保留；继续提问将创建新对话。
+            </span>
+          )}
+        <RefreshControls
+          data={data}
+          conflicts={conflicts}
+          recoveries={recoveries}
+          onResolve={(index, choice) => {
+            const item = conflicts[index];
+            resolveConflict(index, choice);
+            if (choice === "remote" && item?.path[0] === "drafts") {
+              setChatDrafts((previous) => {
+                const next = { ...previous };
+                const key = item.path[1];
+                if (key) {
+                  if (typeof item.remote === "string") next[key] = item.remote;
+                  else delete next[key];
+                }
+                return next;
+              });
+            }
+          }}
+          chatDrafts={chatDrafts}
+        />
+        <PwaControls prepareReload={prepareReload} />
       </footer>
     </main>
   );

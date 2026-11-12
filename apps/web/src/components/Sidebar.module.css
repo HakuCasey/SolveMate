@@ -105,6 +105,10 @@
 .chevron[data-open="false"] {
   transform: rotate(-90deg);
 }
+.teaching {
+  min-width: 0;
+  flex-shrink: 0;
+}
 .subjects {
   display: flex;
   flex-direction: column;

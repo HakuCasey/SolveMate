@@ -1,3 +1,5 @@
+import { useDraftBackup } from "../refresh/drafts";
+import { useEditRevision } from "../refresh/useEditRevision";
 import { useId, useRef, useState } from "react";
 import { Dialog } from "radix-ui";
 import type { Note, Notebook, NoteLibrary } from "@solvemate/contracts";
@@ -22,7 +24,7 @@ export function NoteManagementDialog({
   library,
   directory,
   onAction,
-  onClose,
+  onClose: finish,
 }: {
   target: NoteManagementTarget;
   library: NoteLibrary;
@@ -51,6 +53,27 @@ export function NoteManagementDialog({
     target.kind === "tags" ? target.item.tagIds : [],
   );
 
+  const release = useDraftBackup(
+    `note:${target.kind}:${target.item.id}`,
+    headings[target.kind] + "草稿",
+    { name, tagIds, newNames, tagName },
+    !deleting &&
+      (name !== target.item.title ||
+        newNames.length > 0 ||
+        !!tagName ||
+        (target.kind === "tags" &&
+          JSON.stringify(tagIds) !== JSON.stringify(target.item.tagIds))),
+  );
+  const onClose = () => {
+    release();
+    finish();
+  };
+  const getRevision = useEditRevision(
+    target.item,
+    (target.kind.endsWith("Notebook") ? library.notebooks : library.notes).find(
+      (item) => item.id === target.item.id,
+    ),
+  );
   function addTag() {
     const value = tagName.trim();
     if (
@@ -77,7 +100,16 @@ export function NoteManagementDialog({
   }
   async function save() {
     if (saving) return;
-    const base = { id: target.item.id, revision: target.item.revision };
+    let revision: number;
+    try {
+      revision = getRevision();
+    } catch (failure) {
+      setError(
+        failure instanceof Error ? failure.message : "记录已变化，请刷新。",
+      );
+      return;
+    }
+    const base = { id: target.item.id, revision };
     let action: NoteAction;
     if (target.kind === "renameNotebook" || target.kind === "renameNote")
       action = { ...base, kind: target.kind, title: name };

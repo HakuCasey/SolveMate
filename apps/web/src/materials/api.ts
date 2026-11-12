@@ -4,6 +4,8 @@ import {
   type Material,
   type MaterialLocation,
 } from "@solvemate/contracts";
+import { DataRequestError } from "../refresh/errors";
+import { dataRefresh } from "../refresh/coordinator";
 
 class MaterialCache extends Dexie {
   materials!: Table<Material, string>;
@@ -30,19 +32,30 @@ async function request(path = "", options: RequestInit = {}) {
       signal: AbortSignal.timeout(120000),
     });
   } catch {
-    throw new Error(
+    throw new DataRequestError(
       "无法连接本机资料服务，请使用 npm start 启动 SolveMate 后重试。",
+      "unavailable",
     );
   }
   if (!response.ok) {
     const error = (await response.json().catch(() => ({}))) as {
       detail?: unknown;
+      code?: string;
     };
-    throw new Error(
+    const failure = new DataRequestError(
       typeof error.detail === "string"
         ? error.detail
         : "资料请求失败，请重试。",
+      error.code ?? `http_${response.status}`,
+      response.status,
     );
+    if (
+      (options.method && options.method !== "GET") ||
+      path.endsWith("/reader") ||
+      path.includes("/pages/")
+    )
+      dataRefresh.recover(failure, ["records", "materials"]);
+    throw failure;
   }
   return response;
 }
@@ -71,7 +84,7 @@ export const materialApi = {
     const values: unknown = await response.json();
     if (!Array.isArray(values))
       throw new Error("资料列表格式无效，请重新读取。");
-    const items = values.map(material);
+    let items = values.map(material);
     // 本机记录是原件保存结果，浏览器缓存失败不能把原件标为保存失败。
     const unreadable = Number(
       response.headers.get("X-SolveMate-Material-Errors") || 0,
@@ -80,6 +93,31 @@ export const materialApi = {
       unreadable > 0
         ? `有 ${unreadable} 份资料记录无法读取，原文件仍保留。请检查本机服务日志。`
         : "";
+    if (unreadable > 0) {
+      const previous = await cache.materials.toArray().catch(() => []);
+      items = [
+        ...items,
+        ...previous
+          .filter((old) => !items.some((item) => item.id === old.id))
+          .map((old) => ({
+            ...old,
+            availability: {
+              originalAvailable: false,
+              readerAvailable: false,
+              error: "资料记录暂时无法读取，请恢复文件后刷新。",
+            },
+          })),
+      ];
+    }
+    dataRefresh.reportIssue(
+      "materials",
+      warning ||
+        items
+          .map((item) => item.availability?.error)
+          .filter(Boolean)
+          .slice(0, 1)
+          .join(""),
+    );
     try {
       await cache.transaction("rw", cache.materials, async () => {
         // 修改完成后，较早发出的列表请求不能覆盖已缓存的新名称或删除标记。
@@ -192,6 +230,11 @@ export const materialApi = {
       await cache.pages.put({ key, text }).catch(() => undefined);
       return text;
     } catch (error) {
+      if (
+        !(error instanceof DataRequestError) ||
+        (error.code !== "unavailable" && error.status < 500)
+      )
+        throw error;
       const saved = await cache.pages.get(key).catch(() => undefined);
       if (saved) return saved.text;
       throw error;

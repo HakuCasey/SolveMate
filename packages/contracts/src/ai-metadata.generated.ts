@@ -348,7 +348,7 @@ export interface TurnInput {
   robotRevision?: number;
   client?: ClientRuntime;
   /**
-   * @maxItems 20
+   * @maxItems 4
    */
   references?: ReadingReference[];
 }
@@ -363,6 +363,11 @@ export interface Material {
   updatedAt: number;
   version: MaterialVersion;
   deletedAt?: number | null;
+  availability?: {
+    originalAvailable: boolean;
+    readerAvailable: boolean;
+    error: string | null;
+  };
 }
 export interface MaterialVersion {
   contentVersion: string;

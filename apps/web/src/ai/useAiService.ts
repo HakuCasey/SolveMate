@@ -9,6 +9,7 @@ import {
 } from "./local-api";
 import { decodeAiTurn } from "./metadata";
 import { mergeAiTurn } from "./state";
+import { useRefreshResource } from "../refresh/useDataRefresh";
 
 type Update = (change: (data: AppData) => AppData) => void;
 
@@ -173,6 +174,9 @@ export function useAiService(update: Update) {
     }
   }, []);
 
+  useRefreshResource("ai", async () => {
+    if (!(await refresh())) throw new Error("AI 连接未能刷新。");
+  });
   useEffect(() => {
     mounted.current = true;
     void refresh();

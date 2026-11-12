@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import type { CourseId, Settings, Robot, Subject } from "@solvemate/contracts";
 import type { LibraryScope } from "../reading/library";
+import { teachingActivities, type TeachingActivityId } from "../data/teaching";
 import type { AiService } from "../ai/useAiService";
 import { RobotAiConfiguration } from "./RobotAiConfiguration";
 import type { RobotAiConfig } from "../ai/robot-config";
@@ -49,6 +50,8 @@ interface SidebarProps {
   subjects: Subject[];
   onSubjectAction: (action: SubjectAction) => void;
   view: View;
+  teachingActivity: TeachingActivityId;
+  onSelectTeachingActivity: (id: TeachingActivityId) => void;
   activeScope: LibraryScope | null;
   settings: Settings;
   onNavigate: (view: View) => void;
@@ -97,6 +100,8 @@ const accountActions = [
 export function Sidebar({
   subjects,
   view,
+  teachingActivity,
+  onSelectTeachingActivity,
   activeScope,
   onSubjectAction,
   settings,
@@ -121,6 +126,7 @@ export function Sidebar({
     return () => media.removeEventListener("change", changed);
   }, []);
   const [subjectsOpen, setSubjectsOpen] = useState(false);
+  const [teachingOpen, setTeachingOpen] = useState(false);
   const [expandedSubjects, setExpandedSubjects] = useState<
     Record<CourseId, boolean>
   >({});
@@ -453,16 +459,51 @@ export function Sidebar({
         <NotebookPen aria-hidden="true" />
         <span>笔记</span>
       </button>
-      <button
-        className={styles.primaryButton}
-        type="button"
-        aria-pressed={view === "teaching"}
-        disabled={disabled}
-        onClick={() => navigate("teaching")}
-      >
-        <School aria-hidden="true" />
-        <span>教研室</span>
-      </button>
+      <div className={styles.teaching}>
+        <button
+          className={styles.primaryButton}
+          type="button"
+          aria-expanded={teachingOpen}
+          aria-controls="teaching-navigation"
+          aria-pressed={view === "teaching"}
+          disabled={disabled}
+          onClick={() => setTeachingOpen((open) => !open)}
+        >
+          <School aria-hidden="true" />
+          <span>教研室</span>
+          <ChevronDown
+            className={styles.chevron}
+            data-open={teachingOpen}
+            aria-hidden="true"
+          />
+        </button>
+        {teachingOpen && (
+          <div
+            id="teaching-navigation"
+            className={styles.subjectLeaves}
+            role="group"
+            aria-label="教研室功能"
+          >
+            {teachingActivities.map((activity) => (
+              <button
+                key={activity.id}
+                type="button"
+                className={styles.contentButton}
+                disabled={disabled}
+                aria-pressed={
+                  view === "teaching" && teachingActivity === activity.id
+                }
+                onClick={() => {
+                  navigate("teaching");
+                  onSelectTeachingActivity(activity.id);
+                }}
+              >
+                <span>{activity.title}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
       <button
         className={styles.primaryButton}
         type="button"

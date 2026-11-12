@@ -1,3 +1,5 @@
+import { ResourceUnavailable } from "../refresh/ResourceUnavailable";
+import { dataRefresh } from "../refresh/coordinator";
 import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
 import {
   ArrowLeft,
@@ -40,7 +42,9 @@ export function MaterialReader({
   const selected = library.items.find(
     (item) => item.id === location?.materialId,
   );
-  const ready = selected?.version.status === "ready";
+  const ready =
+    selected?.version.status === "ready" &&
+    selected.availability?.readerAvailable !== false;
   const pageCount = selected?.version.pageCount ?? 1;
   useEffect(() => {
     setPageInput(String(location?.pageNumber ?? 1));
@@ -75,25 +79,33 @@ export function MaterialReader({
         </span>
       </header>
       {!selected ? (
-        <div className={styles.empty}>
-          <FileText aria-hidden="true" />
-          <h2>暂时无法打开这份资料</h2>
-          <p>
-            {library.error ||
-              "资料不在当前列表中，请返回学习资料列表重新读取。"}
-          </p>
-        </div>
+        <ResourceUnavailable
+          message={
+            library.error || "资料不在当前列表中，请刷新数据或返回列表。"
+          }
+          onBack={onBack}
+        />
       ) : !ready ? (
         <div className={styles.empty}>
           <FileText aria-hidden="true" />
           <h2>{selected.title}</h2>
           <p role={selected.version.status === "failed" ? "alert" : "status"}>
-            {selected.version.error ||
+            {selected.availability?.error ||
+              selected.version.error ||
               (selected.version.mediaType === "application/pdf"
                 ? "原件已保存，正在读取 PDF…"
                 : "原件已保存，正在转换课件…")}
           </p>
-          {selected.version.status === "failed" && (
+          {selected.availability?.error && (
+            <button
+              onClick={() => void dataRefresh.refresh(undefined, false, true)}
+            >
+              刷新数据
+            </button>
+          )}
+          {(selected.version.status === "failed" ||
+            (selected.availability?.readerAvailable === false &&
+              selected.availability?.originalAvailable)) && (
             <button onClick={() => void library.retry(selected.id)}>
               重试处理
             </button>
@@ -102,6 +114,9 @@ export function MaterialReader({
       ) : (
         location && (
           <>
+            {selected.availability?.error && (
+              <p role="alert">{selected.availability.error}</p>
+            )}
             <div className={styles.pageToolbar}>
               <span>
                 {selected.version.mediaType === "application/pdf"

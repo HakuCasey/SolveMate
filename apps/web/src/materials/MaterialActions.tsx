@@ -1,3 +1,5 @@
+import { useDraftBackup } from "../refresh/drafts";
+import { useEditRevision } from "../refresh/useEditRevision";
 import { useRef, useState, type ReactElement } from "react";
 import { ContextMenu, Dialog } from "radix-ui";
 import { FolderInput, Pencil, Trash2 } from "lucide-react";
@@ -76,7 +78,7 @@ function MaterialActionDialog({
   action,
   directory,
   library,
-  onClose,
+  onClose: finish,
 }: {
   action: { kind: Action; item: Material };
   directory: SubjectDirectory;
@@ -92,6 +94,22 @@ function MaterialActionDialog({
   const saved = useSaveFeedback();
   const cancel = useRef<HTMLButtonElement>(null);
   const deleting = action.kind === "delete";
+  const release = useDraftBackup(
+    `material:${action.kind}:${action.item.id}`,
+    "资料修改草稿",
+    { title, courseId },
+    !deleting &&
+      (title !== action.item.title ||
+        courseId !== (materialCourse(action.item, directory) ?? unclassified)),
+  );
+  const onClose = () => {
+    release();
+    finish();
+  };
+  const getRevision = useEditRevision(
+    action.item,
+    library.items.find((item) => item.id === action.item.id && !item.deletedAt),
+  );
   async function submit() {
     if (saving) return;
     if (
@@ -104,14 +122,14 @@ function MaterialActionDialog({
     setSaving(true);
     setError("");
     try {
-      if (action.kind === "rename")
-        await library.rename(action.item, title.trim());
+      const item = { ...action.item, revision: getRevision() };
+      if (action.kind === "rename") await library.rename(item, title.trim());
       else if (action.kind === "move")
         await library.assignCourse(
-          action.item,
+          item,
           courseId === unclassified ? null : courseId,
         );
-      else await library.remove(action.item);
+      else await library.remove(item);
       saved(
         action.kind === "rename"
           ? "资料已重命名"

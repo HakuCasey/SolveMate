@@ -404,3 +404,26 @@ def test_migrated_v2_retry_returns_existing_turn_without_dispatching_again(tmp_p
         assert response.json()["externalSessionId"] == before["externalSessionId"]
         assert response.json()["content"] == before["content"]
         assert not service.jobs
+
+
+def test_new_questions_allow_four_references_and_reject_five():
+    from pydantic import ValidationError
+
+    from solvemate_local.models import TurnRequest
+
+    body = payload("引用数量")
+    reference = {
+        "title": "学习资料",
+        "content": "引用片段",
+        "selection": {
+            "courseId": "c-language",
+            "kind": "textbooks",
+            "itemId": "CB001",
+            "chapterIndex": 0,
+        },
+    }
+    body["references"] = [reference] * 4
+    assert len(TurnRequest.model_validate(body).references) == 4
+    body["references"].append(reference)
+    with pytest.raises(ValidationError):
+        TurnRequest.model_validate(body)

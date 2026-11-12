@@ -9,10 +9,11 @@ import {
 } from "../data/catalog";
 import { pinLegacyVersions } from "../content/selection";
 import { upgradeRobotCatalog } from "../state/robots";
-import { appStorage } from "./index";
+import { appStorage, userStorageStatus } from "./local-service";
 import { LocalDataController } from "./controller";
 import { logError } from "../logger";
 import { initializeNotes } from "../state/notes";
+import { useRefreshResource } from "../refresh/useDataRefresh";
 
 let initialLoad: Promise<AppData> | undefined;
 function loadInitialData(available: Course[]): Promise<AppData> {
@@ -25,8 +26,16 @@ function loadInitialData(available: Course[]): Promise<AppData> {
           sampleNotebooks,
           sampleNotes,
         );
-        validateContentReferences(upgraded, available);
-        if (upgraded !== saved) await appStorage.save(upgraded);
+        try {
+          validateContentReferences(upgraded, available);
+        } catch (error) {
+          logError(
+            "Saved reading content is unavailable; preserving its references.",
+            error,
+          );
+        }
+        if (upgraded !== saved && userStorageStatus.snapshot().online)
+          await appStorage.save(upgraded);
         return upgraded;
       }
       const initial = createInitialData();
@@ -54,6 +63,12 @@ export function useLocalData(available: Course[] = courses) {
     void loadInitialData(firstCourses)
       .then((saved) => {
         if (!cancelled) store.initialize(saved);
+        if (!cancelled)
+          void store
+            .restoreRecoveries()
+            .catch((error: unknown) =>
+              logError("Failed to restore retained changes.", error),
+            );
       })
       .catch((error: unknown) => {
         logError("Failed to open local learning data.", error);
@@ -63,11 +78,14 @@ export function useLocalData(available: Course[] = courses) {
       cancelled = true;
     };
   }, [firstCourses, store]);
+  useRefreshResource("records", store.refresh);
   return {
     ...snapshot,
     readData: store.readData,
+    readSaveState: () => store.snapshot().saveState,
     setData: store.update,
     saveChanges: store.commit,
     retrySave: store.retry,
+    resolveConflict: store.resolve,
   };
 }

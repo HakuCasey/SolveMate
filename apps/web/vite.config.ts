@@ -64,6 +64,8 @@ export default defineConfig({
     pdfAssets(),
     VitePWA({
       registerType: "prompt",
+      // 注册、检测与重载由应用统一控制，避免生成脚本重复注册。
+      injectRegister: false,
       includeAssets: [
         "icon.svg",
         "icon-192.png",

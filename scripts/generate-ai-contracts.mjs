@@ -27,6 +27,15 @@ const output = await format(generated, {
   endOfLine: "lf",
 });
 const files = [
+  [
+    "apps/local/src/solvemate_local/schemas/app-data.schema.json",
+    normalizeLineEndings(
+      await readFile(
+        new URL("packages/contracts/app-data.schema.json", root),
+        "utf8",
+      ),
+    ),
+  ],
   ["packages/contracts/src/ai-metadata.generated.ts", output],
   ["apps/local/src/solvemate_local/schemas/ai-metadata.schema.json", source],
   [

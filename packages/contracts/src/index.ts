@@ -69,6 +69,7 @@ export {
   assertMetadata,
   assertLegacyMetadataV2,
   aiMetadataSchema,
+  assertUserData,
 } from "./metadata";
 import type {
   ReadingSelection,
@@ -150,6 +151,20 @@ export interface AppData {
   materialSelection?: MaterialLocation | null;
   subjects?: Subject[];
   noteLibrary?: NoteLibrary;
+  readingProgress?: ReadingProgress;
+  drafts?: Record<string, string>;
+}
+
+/** 跨浏览器保存的阅读位置；选区、弹窗和当前页面由窗口自己管理。 */
+export interface ReadingProgress {
+  positions: Record<
+    string,
+    { scroll: { top: number; left: number }; answerVisible: boolean }
+  >;
+  documents: Record<
+    string,
+    { zoom: number; location?: ReadingSelection | MaterialLocation }
+  >;
 }
 
 export interface CurrentContent {

@@ -140,7 +140,10 @@ class TurnRequest(RequestModel):
     model: str = Field(default="", max_length=1000)
     reasoningEffort: str = Field(default="", max_length=100)
     reference: ReadingReference | None = None
-    references: list[ReadingReference] = Field(default_factory=list, max_length=20)
+    references: list[ReadingReference] = Field(
+        default_factory=list,
+        max_length=SCHEMA["$defs"]["TurnInput"]["properties"]["references"]["maxItems"],
+    )
     history: list[HistoryMessage] = Field(default_factory=list, max_length=100)
 
     @model_validator(mode="after")

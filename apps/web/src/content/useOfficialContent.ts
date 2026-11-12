@@ -6,12 +6,14 @@ import {
   type UpdateResponse,
 } from "./contracts";
 import {
-  contentStorage,
   makeSnapshot,
   type ContentSnapshot,
   type InstalledCourse,
 } from "./storage";
+import { contentStorage } from "./local-storage";
 import { logError } from "../logger";
+import { useRefreshResource } from "../refresh/useDataRefresh";
+import { dataRefresh } from "../refresh/coordinator";
 
 type Phase =
   "downloading" | "verifying" | "saving" | "done" | "error" | "cancelled";
@@ -63,7 +65,9 @@ export function useOfficialContent() {
         logError("Failed to restore downloaded courses.", error);
         if (active)
           setLoadError(
-            "无法读取本地课程，原有记录已保留。请检查浏览器存储权限后重新打开。",
+            error instanceof Error
+              ? error.message
+              : "无法读取本机课程，原有记录已保留，请重新读取。",
           );
       });
     return () => {
@@ -71,6 +75,14 @@ export function useOfficialContent() {
     };
   }, [applySnapshot]);
   useEffect(() => () => downloading.current?.abort(), []);
+  const contentGeneration = useRef(0);
+  useRefreshResource("content", async () => {
+    if (downloading.current) return;
+    const request = ++contentGeneration.current;
+    const latest = await contentStorage.load();
+    if (request === contentGeneration.current && !downloading.current)
+      applySnapshot(latest);
+  });
 
   const refresh = useCallback((): Promise<void> => {
     if (refreshing.current) return refreshing.current;
@@ -117,6 +129,7 @@ export function useOfficialContent() {
   const install = useCallback(
     async (courseId: string): Promise<InstalledCourse | null> => {
       if (downloading.current) return null;
+      contentGeneration.current++;
       const controller = new AbortController();
       downloading.current = controller;
       const current = snapshotRef.current;
@@ -208,6 +221,8 @@ export function useOfficialContent() {
         return null;
       } finally {
         downloading.current = null;
+        // 写入期间略过的读取在操作结束后执行，不重复下载或保存。
+        void dataRefresh.refresh(["content"], true);
       }
     },
     [api, applySnapshot],

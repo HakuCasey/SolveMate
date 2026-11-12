@@ -1,3 +1,5 @@
+import { useEditValue } from "../refresh/useEditRevision";
+import { useDraftBackup } from "../refresh/drafts";
 import { useState } from "react";
 import {
   Archive,
@@ -60,9 +62,31 @@ export function ConversationList({
   const [labelError, setLabelError] = useState("");
   const [renameTarget, setRenameTarget] = useState<string | null>(null);
   const [renameTitle, setRenameTitle] = useState("");
+  const [renameOriginal, setRenameOriginal] = useState<string | undefined>();
+  const checkRename = useEditValue(
+    renameOriginal,
+    conversations.find(
+      (item) => item.id === renameTarget && item.status !== "deleted",
+    )?.title,
+    renameTarget ?? "none",
+  );
   const [renameError, setRenameError] = useState("");
   const [renameSaving, setRenameSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const releaseRename = useDraftBackup(
+    `conversation-name:${renameTarget ?? "none"}`,
+    "对话名称草稿",
+    { title: renameTitle },
+    !!renameTarget &&
+      renameTitle !==
+        conversations.find((item) => item.id === renameTarget)?.title,
+  );
+  useDraftBackup(
+    `conversation-label:${labelTarget ?? "none"}`,
+    "对话标签草稿",
+    { label: customLabel },
+    !!labelTarget && !!customLabel,
+  );
   const customLabels = [
     ...new Set(
       conversations
@@ -185,6 +209,8 @@ export function ConversationList({
                 onSelect={() => {
                   setLabelTarget(null);
                   setRenameTitle(conversation.title);
+                  setRenameOriginal(conversation.title);
+                  checkRename.accept(conversation.title);
                   setRenameError("");
                   setRenameTarget(conversation.id);
                 }}
@@ -264,11 +290,13 @@ export function ConversationList({
                     }
                     setRenameSaving(true);
                     try {
+                      checkRename();
                       await onUpdate(
                         conversation.id,
                         { title },
                         conversation.revision,
                       );
+                      releaseRename();
                       setRenameTarget(null);
                     } catch (error) {
                       setRenameError(

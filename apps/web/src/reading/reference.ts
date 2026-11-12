@@ -1,3 +1,4 @@
+import { aiMetadataSchema } from "@solvemate/contracts";
 import type {
   CurrentContent,
   ReadingReference,
@@ -45,6 +46,13 @@ export function messageReferences(message: {
       ? [message.reference]
       : [];
 }
+export const MAX_READING_REFERENCES =
+  aiMetadataSchema.$defs.TurnInput.properties.references.maxItems;
+export const REFERENCE_LIMIT_MESSAGE = `为保证对话质量，当前最多支持 ${MAX_READING_REFERENCES} 条内容。`;
+export function validateReferenceCount(references: { length: number }) {
+  if (references.length > MAX_READING_REFERENCES)
+    throw new Error(REFERENCE_LIMIT_MESSAGE);
+}
 export function appendReference(
   previous: DraftReference[],
   reference: ReadingReference,
@@ -57,8 +65,7 @@ export function appendReference(
     )
   )
     return previous;
-  if (previous.length >= 20)
-    throw new Error("一次最多引用 20 个片段，请先移除部分引用。");
+  validateReferenceCount({ length: previous.length + 1 });
   if (
     previous.reduce(
       (size, item) => size + item.reference.content.length,

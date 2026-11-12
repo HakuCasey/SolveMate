@@ -44,11 +44,11 @@
 
 ## Web 客户端实现
 
-- `apps/web/src/content/` 分别实现接口类型与运行时校验、网络请求、ZIP 读取、IndexedDB 内容存储及下载状态。fflate 用于解压，Web Crypto 用于 SHA-256；实现参考 [fflate](https://github.com/101arrowz/fflate) 和 [Dexie 事务](<https://dexie.org/docs/Dexie/Dexie.transaction()>)。
+- `apps/web/src/content/` 分别实现接口类型与运行时校验、网络请求、ZIP 读取、本机内容保存及浏览器缓存和下载状态。fflate 用于解压，Web Crypto 用于 SHA-256；实现参考 [fflate](https://github.com/101arrowz/fflate) 和 [Dexie 事务](<https://dexie.org/docs/Dexie/Dexie.transaction()>)。
 - 内容管理从“设置 → 官方内容”进入，不调整主菜单布局。联网后查询课程目录与每门课程的更新状态；下载前重新查询，使用该次清单对应的固定版本地址。
 - 请求不发送 Cookie 或个人记录。开发与预览默认将 `/api/v1` 代理到 `127.0.0.1:8000`；部署时使用同源反向代理，或通过 `VITE_CONTENT_API_URL` 指定 API 基址。PWA 不为 API 提供 HTML 导航回退，也不缓存 API 来假装离线联网成功。
 - 首版文本包限制压缩后 10 MiB、原文件总和 20 MiB，清单 JSON 512 KiB；ZIP 只允许四份声明文件与 `course.json`，拒绝未知、重复、越界或过大文件。校验包与逐文件大小和哈希、内部清单、JSON 字段、编号、教材章节及记忆引用后才进入保存流程。
-- `solvemate-content` 数据库独立于个人记录库 `solvemate-local`。`versions` 按课程与版本保存清单、原始 ZIP 和保存时间；`heads` 保存当前下载版本。解压、网络和哈希均在事务外完成，版本记录与指针在同一事务中提交。
+- 本机 `user/community/` 按课程和版本保存清单与原始 ZIP；`user/app.sqlite3` 的 `versions` 保存版本索引和安装时间，`heads` 保存当前下载版本。网络、解压、哈希和文件写入在事务外完成，完整文件落盘后，版本索引与指针在同一事务中提交。浏览器缓存只用于加快读取和缓存阅读，原 `solvemate-content` 数据库保留供迁移；详见 [012](../012-local-user-storage/design.md)。
 - 下载开始时记下原指针；提交时再次比较，其他窗口已经更新则拒绝覆盖，提示刷新。保存失败会回滚整个事务，保留旧指针和内容。
 - 启动时无需联网，读取并验证保存的内容包，重建当前课程与历史版本。已有内置课程始终保留作基础内容；新课程下载完成后出现在学科树。
 - 阅读选择增加可选 `version`。旧记录缺少版本时固定到内置 `example-1`，保留原题目／章节。新会话记录实际版本，连续对话比较也包括版本；所有旧版本继续可读，下载不会改写历史消息。

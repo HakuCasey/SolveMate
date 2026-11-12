@@ -1,4 +1,6 @@
+import logging
 import os
+import sqlite3
 from contextlib import asynccontextmanager
 from copy import deepcopy
 from pathlib import Path
@@ -25,15 +27,25 @@ from .models import (
 )
 from .service import AiService
 from .store import Store
+from .user_data import UserData, UserDataError, migrate_uploads
+from .user_routes import router as user_router
 
 ROOT = Path(__file__).resolve().parents[4]
 
 
 def create_app(
-    directory=None, registry=None, allowed_origins=None, materials_directory=None
+    directory=None,
+    registry=None,
+    allowed_origins=None,
+    materials_directory=None,
+    user_directory=None,
 ):
+    configured_root = user_directory or os.environ.get("SOLVEMATE_USER_DIR")
     directory = Path(
-        directory or os.environ.get("SOLVEMATE_LOCAL_DATA", ROOT / "user/ai")
+        directory
+        or os.environ.get(
+            "SOLVEMATE_LOCAL_DATA", Path(configured_root or ROOT / "user") / "ai"
+        )
     )
     origins = set(
         allowed_origins
@@ -48,12 +60,15 @@ def create_app(
         store = Store(directory)
         app.state.ai = AiService(store, registry=registry)
         app.state.materials = None
+        app.state.user = None
         try:
+            user_root = Path(configured_root or directory.parent)
+            app.state.user = UserData(user_root)
+            uploads = materials_directory or os.environ.get("SOLVEMATE_MATERIALS_DIR")
+            if not uploads:
+                uploads = migrate_uploads(user_root)
             app.state.materials = Materials(
-                materials_directory
-                or os.environ.get(
-                    "SOLVEMATE_MATERIALS_DIR", directory.parent / "materials"
-                )
+                uploads, subject_check=app.state.user.require_subject
             )
             yield
         finally:
@@ -61,10 +76,34 @@ def create_app(
                 await app.state.materials.close()
             await app.state.ai.close()
             store.close()
+            if app.state.user is not None:
+                app.state.user.close()
 
-    app = FastAPI(title="SolveMate Local AI", lifespan=lifespan)
+    app = FastAPI(title="SolveMate Local", lifespan=lifespan)
 
     app.include_router(material_router)
+    app.include_router(user_router)
+
+    @app.exception_handler(UserDataError)
+    async def user_error(request, error):
+        return JSONResponse(
+            {"detail": str(error), "code": error.code}, status_code=error.status
+        )
+
+    async def storage_failure(request, error):
+        logging.getLogger(__name__).error(
+            "Local storage operation failed: %s", type(error).__name__
+        )
+        return JSONResponse(
+            {
+                "detail": "本机数据读写失败，请检查磁盘空间、目录权限或数据库占用后重试。原有记录和文件已保留。",
+                "code": "local_storage_failed",
+            },
+            status_code=503,
+        )
+
+    app.add_exception_handler(OSError, storage_failure)
+    app.add_exception_handler(sqlite3.Error, storage_failure)
 
     @app.exception_handler(MaterialError)
     async def material_error(request, error):
@@ -88,6 +127,15 @@ def create_app(
                 status_code=403,
             )
         if request.method not in {"GET", "HEAD"}:
+            if request.url.path.startswith("/local-api/v1/user/"):
+                length = request.headers.get("content-length", "0")
+                if not length.isdigit() or int(length) > 128 * 1024 * 1024:
+                    return JSONResponse(
+                        {
+                            "detail": "单次保存或迁移超过 128 MiB，本次操作未执行，原有数据已保留。"
+                        },
+                        status_code=413,
+                    )
             if (
                 origin not in origins
                 or request.headers.get("x-solvemate-client") != "web"

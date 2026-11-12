@@ -1,4 +1,5 @@
 import "fake-indexeddb/auto";
+import { dataRefresh } from "../refresh/coordinator";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Material } from "@solvemate/contracts";
 import { materialApi } from "./api";
@@ -27,7 +28,10 @@ const original: Material = {
     processorVersion: "example",
   },
 };
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+});
 
 describe("material mutations and cache", () => {
   it("sends the stable identifier and revision for rename, move and deletion", async () => {
@@ -110,4 +114,61 @@ describe("material mutations and cache", () => {
         ?.title,
     ).toBe("已修改的讲义");
   });
+});
+
+const location = {
+  materialId: "test",
+  contentVersion: "version",
+  pageNumber: 1,
+};
+it("does not hide missing page text or a mismatched response behind cached text", async () => {
+  vi.stubGlobal("fetch", vi.fn());
+  vi.mocked(fetch).mockResolvedValueOnce(
+    new Response(JSON.stringify({ ...location, text: "正确文字" })),
+  );
+  expect(await materialApi.page(location)).toBe("正确文字");
+  vi.mocked(fetch).mockResolvedValueOnce(
+    new Response(JSON.stringify({ detail: "文件缺失" }), { status: 404 }),
+  );
+  await expect(materialApi.page(location)).rejects.toMatchObject({
+    status: 404,
+  });
+  vi.mocked(fetch).mockResolvedValueOnce(
+    new Response(
+      JSON.stringify({ ...location, pageNumber: 2, text: "错误位置" }),
+    ),
+  );
+  await expect(materialApi.page(location)).rejects.toThrow("不一致");
+  vi.mocked(fetch).mockRejectedValueOnce(new TypeError("Offline"));
+  expect(await materialApi.page(location)).toBe("正确文字");
+});
+it("refreshes shared metadata on a conflicting write without replaying it", async () => {
+  vi.stubGlobal("fetch", vi.fn());
+  const read = vi.fn(async () => {}),
+    dispose = dataRefresh.register("materials", read);
+  vi.mocked(fetch).mockResolvedValueOnce(
+    new Response(JSON.stringify({ detail: "版本已变化" }), { status: 409 }),
+  );
+  await expect(
+    materialApi.remove({ id: "test", revision: 1 } as never),
+  ).rejects.toMatchObject({ status: 409 });
+  await vi.waitFor(() => expect(read).toHaveBeenCalledOnce());
+  expect(fetch).toHaveBeenCalledOnce();
+  dispose();
+});
+
+it("retains known records when part of the material list cannot be read", async () => {
+  await materialApi.remember(original);
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () =>
+      Response.json([], { headers: { "X-SolveMate-Material-Errors": "1" } }),
+    ),
+  );
+  const result = await materialApi.list();
+  expect(
+    result.items.find((x) => x.id === original.id)?.availability
+      ?.readerAvailable,
+  ).toBe(false);
+  expect(result.warning).toContain("无法读取");
 });

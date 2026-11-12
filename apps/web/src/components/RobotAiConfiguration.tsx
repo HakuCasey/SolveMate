@@ -1,3 +1,4 @@
+import { useDraftBackup } from "../refresh/drafts";
 import { useState } from "react";
 import type { Robot, RobotAiDefaults } from "@solvemate/contracts";
 import type { AiSettings } from "../ai/local-api";
@@ -20,6 +21,12 @@ export function RobotAiConfiguration({
   const [status, setStatus] = useState("");
   const [saving, setSaving] = useState(false);
   const changed = JSON.stringify(saved) !== JSON.stringify(config);
+  const release = useDraftBackup(
+    `robot-ai:${robot.id}`,
+    `${robot.name}的 AI 配置草稿`,
+    config,
+    changed,
+  );
   const error = robotAiError(config, settings);
   return (
     <section className={styles.settings} aria-labelledby="ai-settings-heading">
@@ -39,6 +46,7 @@ export function RobotAiConfiguration({
         <button
           disabled={!changed || saving}
           onClick={() => {
+            release();
             setConfig(structuredClone(saved));
             setStatus("已取消本次 AI 配置修改。");
           }}
@@ -52,6 +60,7 @@ export function RobotAiConfiguration({
             setSaving(true);
             try {
               await onSave(config);
+              release();
             } catch (failure) {
               setStatus(
                 failure instanceof Error

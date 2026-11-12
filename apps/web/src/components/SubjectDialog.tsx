@@ -1,3 +1,5 @@
+import { useEditValue } from "../refresh/useEditRevision";
+import { useDraftBackup } from "../refresh/drafts";
 import { useId, useState } from "react";
 import { AlertDialog, Dialog } from "radix-ui";
 import type { Subject } from "@solvemate/contracts";
@@ -11,6 +13,7 @@ export type SubjectAction =
 
 interface Props {
   action: SubjectAction | null;
+  subjects: Subject[];
   onClose: () => void;
   onCreate: (title: string) => Promise<Subject>;
   onRename: (id: string, title: string) => Promise<void>;
@@ -35,7 +38,8 @@ export function SubjectDialog(props: Props) {
 }
 function EditSubject({
   action,
-  onClose,
+  subjects,
+  onClose: finish,
   onCreate,
   onRename,
 }: Props & { action: Exclude<SubjectAction, { kind: "delete" }> }) {
@@ -45,12 +49,31 @@ function EditSubject({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const nameId = useId();
+  const check = useEditValue(
+    action.kind === "create" ? undefined : action.subject,
+    action.kind === "create"
+      ? undefined
+      : subjects.find((item) => item.id === action.subject.id),
+  );
+  const release = useDraftBackup(
+    `subject:${action.kind === "create" ? "new" : action.subject.id}`,
+    "学科名称草稿",
+    { title },
+    title !== (action.kind === "create" ? "" : action.subject.title),
+  );
+  const onClose = () => {
+    release();
+    finish();
+  };
   async function save() {
     setSaving(true);
     setError("");
     try {
       if (action.kind === "create") await onCreate(title);
-      else await onRename(action.subject.id, title);
+      else {
+        check();
+        await onRename(action.subject.id, title);
+      }
       onClose();
     } catch (failure) {
       setError(
@@ -119,11 +142,16 @@ function EditSubject({
 }
 function DeleteSubject({
   subject,
+  subjects,
   onClose,
   onDelete,
 }: Props & { subject: Subject }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const check = useEditValue(
+    subject,
+    subjects.find((item) => item.id === subject.id),
+  );
   return (
     <AlertDialog.Root
       open
@@ -160,6 +188,7 @@ function DeleteSubject({
                 setSaving(true);
                 setError("");
                 try {
+                  check();
                   await onDelete(subject.id);
                   onClose();
                 } catch (failure) {

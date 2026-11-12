@@ -1,3 +1,5 @@
+import { useEditValue } from "../refresh/useEditRevision";
+import { useDraftBackup } from "../refresh/drafts";
 import { useRef, useState } from "react";
 import { Check, LoaderCircle, RefreshCw } from "lucide-react";
 import { AlertDialog } from "radix-ui";
@@ -60,6 +62,12 @@ export function AiSettings({
   const savedConnection = settings?.connections.find(
     (item) => item.config.provider === provider,
   );
+  const checkConfiguration = useEditValue(
+    savedConnection?.config,
+    savedConnection?.config,
+    provider,
+    true,
+  );
   const globalDefault = resolveDefaults(null, settings);
   const busy = operation !== null;
   const [status, setStatus] = useState("");
@@ -73,6 +81,13 @@ export function AiSettings({
     isDefault: boolean;
   } | null>(null);
   const [deleteError, setDeleteError] = useState("");
+  useDraftBackup(
+    `ai-settings:${provider}`,
+    "AI 连接配置草稿",
+    draft,
+    JSON.stringify(draft) !==
+      JSON.stringify(savedConnection?.config ?? { ...empty, provider }),
+  );
   const deleteTrigger = useRef<HTMLButtonElement>(null);
 
   const modelAvailable = detection?.models.some(
@@ -162,12 +177,17 @@ export function AiSettings({
     setOperation("save");
     setFailed(false);
     try {
+      checkConfiguration();
       const next = await localAi.save(draft, settings, {
         enabled: savedConnection?.enabled ?? true,
         makeDefault:
           !settings?.defaultConnectionId && settings?.connections.length === 0,
       });
       onSaved(next);
+      checkConfiguration.accept(
+        next.connections.find((item) => item.config.provider === provider)
+          ?.config,
+      );
       showSaved();
       setStatus("AI 配置已保存。");
     } catch (error) {
@@ -227,6 +247,7 @@ export function AiSettings({
   }
 
   function reset() {
+    checkConfiguration.accept(savedConnection?.config);
     setProbeRecovery(false);
     setDraft(
       savedConnection?.config ?? {
@@ -241,6 +262,7 @@ export function AiSettings({
   }
 
   function finishDelete(next: Settings) {
+    checkConfiguration.accept(undefined);
     onSaved(next);
     setDraft({ ...empty, provider: provider as AiConfig["provider"] });
     setDetection(null);

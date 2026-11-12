@@ -4,6 +4,8 @@ import { materialApi } from "./api";
 import type { SubjectDirectory } from "../state/subjects";
 import { createMaterialOperations } from "./operations";
 import { createMaterialQuery } from "./query";
+import { useRefreshResource } from "../refresh/useDataRefresh";
+import { dataRefresh } from "../refresh/coordinator";
 
 export function useMaterials(readSubjects: () => SubjectDirectory) {
   const [items, setItems] = useState<Material[]>([]);
@@ -21,6 +23,9 @@ export function useMaterials(readSubjects: () => SubjectDirectory) {
     ),
   );
   const refresh = query.refresh;
+  useRefreshResource("materials", async () => {
+    if (!(await refresh())) throw new Error("资料列表未能刷新。");
+  });
   const applyRecord = useCallback(
     (record: Material) => {
       query.invalidate();
@@ -113,8 +118,7 @@ export function useMaterials(readSubjects: () => SubjectDirectory) {
       if (!next) setError(warning || "资料已保存，列表尚未刷新，请重新读取。");
       return record;
     } catch (failure) {
-      // 保存冲突后读取最新记录，用户关闭窗口再操作即可使用最新修订号。
-      await refresh();
+      dataRefresh.recover(failure, ["records", "materials"]);
       throw failure;
     }
   }

@@ -1610,7 +1610,7 @@
           "items": {
             "$ref": "#/$defs/ReadingReference"
           },
-          "maxItems": 20
+          "maxItems": 4
         }
       },
       "required": [
@@ -1936,6 +1936,29 @@
             "null"
           ],
           "minimum": 0
+        },
+        "availability": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "originalAvailable": {
+              "type": "boolean"
+            },
+            "readerAvailable": {
+              "type": "boolean"
+            },
+            "error": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "originalAvailable",
+            "readerAvailable",
+            "error"
+          ]
         }
       },
       "required": [

@@ -19,10 +19,12 @@ const outputs = [
   "packages/contracts/src/ai-metadata.generated.ts",
   "apps/local/src/solvemate_local/schemas/ai-metadata.schema.json",
   "apps/local/src/solvemate_local/schemas/ai-metadata-v2.schema.json",
+  "apps/local/src/solvemate_local/schemas/app-data.schema.json",
 ];
 const sources = [
   "packages/contracts/ai-metadata.schema.json",
   "packages/contracts/legacy/ai-metadata-v2.schema.json",
+  "packages/contracts/app-data.schema.json",
 ];
 
 async function fixture(t) {
