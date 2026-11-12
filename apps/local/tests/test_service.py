@@ -188,8 +188,14 @@ def settled(client, ident):
     pytest.fail("AI turn did not settle.")
 
 
+class FakeDshAdapter(DshAdapter):
+    async def probe_options(self, process, model):
+        # 模拟模型目录，不为连接检测创建原生会话或启动真实目录进程。
+        return self.describe({"configOptions": MODELS})
+
+
 def fake_registry(hermes_factory=None, dsh_factory=FakeAcp):
-    adapters = [DshAdapter(dsh_factory)]
+    adapters = [FakeDshAdapter(dsh_factory)]
     if hermes_factory:
         adapters.append(HermesAdapter(hermes_factory))
     return AdapterRegistry(adapters)
@@ -507,6 +513,77 @@ def test_auto_connection_keeps_discovery_mode_and_binds_actual_program(
         tmp_path / "harness"
     )
     store.close()
+
+
+@pytest.mark.parametrize(
+    "installation_path",
+    ["", "/Applications/DeepSeek Harness.app", r"D:\Apps\DeepSeek Harness.exe"],
+)
+def test_default_then_save_preserves_installation_path_and_selected_model(
+    tmp_path, installation_path
+):
+    from unittest.mock import AsyncMock
+
+    from solvemate_local.models import ConnectionConfig, DetectRequest
+    from solvemate_local.service import AiService
+
+    async def exercise():
+        store = Store(tmp_path)
+        service = AiService(store, registry=fake_registry())
+        # 模拟应用目录解析到内部程序；本用例不启动第三方进程。
+        probe = AsyncMock(
+            return_value={
+                "executablePath": sys.executable,
+                "models": [
+                    {
+                        "value": model,
+                        "name": model,
+                        "reasoningOptions": [{"value": "high", "name": "High"}],
+                    }
+                    for model in ("model-a", "model-b")
+                ],
+                "currentModel": "model-a",
+                "currentReasoning": "high",
+            }
+        )
+        service.connections.probe = probe
+        try:
+            await service.probe(DetectRequest(executablePath=installation_path))
+            settings = service.settings()
+            settings = await service.set_default(
+                "deepseek-local", settings["preferencesRevision"], "model-b"
+            )
+            for _ in range(2):
+                connection = settings["connections"][0]
+                settings = await service.save_settings(
+                    ConnectionConfig(
+                        executablePath=installation_path,
+                        model="model-b",
+                        reasoningEffort="high",
+                        makeDefault=False,
+                        expectedRevision=connection["revision"],
+                        expectedPreferencesRevision=settings["preferencesRevision"],
+                    )
+                )
+                connection = settings["connections"][0]
+                assert connection["state"] == "connected"
+                assert connection["config"] == {
+                    "provider": "deepseek-harness",
+                    "executablePath": installation_path,
+                    "model": "model-b",
+                    "reasoningEffort": "high",
+                }
+                assert connection["detection"]["executablePath"] == sys.executable
+                assert settings["defaultModel"] == {
+                    "connectionId": "deepseek-local",
+                    "modelId": "model-b",
+                }
+            assert probe.await_count == 1
+        finally:
+            await service.close()
+            store.close()
+
+    asyncio.run(exercise())
 
 
 def test_stream_delivers_partial_reply_before_terminal_and_disconnect_preserves_job(

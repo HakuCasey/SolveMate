@@ -4,7 +4,7 @@ import type {
   RobotAiDefaults,
   ConversationAiConfig,
 } from "@solvemate/contracts";
-import type { AiConnection, AiSettings } from "./local-api";
+import type { AiConnection, AiSettings, Detection } from "./local-api";
 
 export const AI_PROVIDERS = [
   {
@@ -42,25 +42,53 @@ export function robotAiConfig(robot: Robot): RobotAiConfig {
 export function isRobotAiModified(saved: Robot, draft: RobotAiDefaults) {
   return JSON.stringify(saved.aiDefaults) !== JSON.stringify(draft);
 }
-/** 内部选择只使用已配置、启用且没有检测失败的连接；支持目录不参与筛选。 */
+/** 连接状态统一解析；旧版本字段仅在此兼容，不再作为启停开关展示。 */
+export function connectionIsConnected(connection?: AiConnection) {
+  return (
+    !!connection &&
+    (connection.state
+      ? connection.state === "connected"
+      : connection.enabled && connection.check.status !== "error")
+  );
+}
+/** 推理选项跟随具体模型；未返回选项时不借用其他模型的数据。 */
+export function reasoningForModel(
+  detection: Detection | null,
+  modelId: string,
+) {
+  const model = detection?.models.find((item) => item.value === modelId);
+  return {
+    options:
+      model?.reasoningOptions ??
+      (modelId === detection?.currentModel ? detection.reasoningOptions : []),
+    defaultValue:
+      model?.defaultReasoning ??
+      (modelId === detection?.currentModel ? detection.currentReasoning : ""),
+  };
+}
+export function globalModel(settings: AiSettings | null) {
+  if (settings?.defaultModel !== undefined) return settings.defaultModel;
+  const connection = settings?.connections.find(
+    (item) => item.id === settings.defaultConnectionId,
+  );
+  return connectionIsConnected(connection) && connection?.config.model
+    ? { connectionId: connection.id, modelId: connection.config.model }
+    : null;
+}
 export function configuredConnections(
   settings: AiSettings | null,
 ): AiConnection[] {
-  return (
-    settings?.connections.filter(
-      (item) => item.enabled && item.check.status !== "error",
-    ) ?? []
-  );
+  return settings?.connections.filter(connectionIsConnected) ?? [];
 }
 /** 读取原选择时保留停用和检测失败的连接，供界面说明原因，不能退回其他服务。 */
 export function connectionFor(settings: AiSettings | null, id?: string | null) {
   return settings?.connections.find(
     (item) =>
-      item.id === (id === undefined ? settings.defaultConnectionId : id),
+      item.id === (id === undefined ? globalModel(settings)?.connectionId : id),
   );
 }
 export function defaultConnection(settings: AiSettings | null) {
-  return connectionFor(settings, settings?.defaultConnectionId);
+  return connectionFor(settings, globalModel(settings)?.connectionId ?? null);
 }
 export function conversationConnectionId(conversation?: Conversation) {
   return conversation?.aiConfig.connectionId ?? undefined;
@@ -92,32 +120,29 @@ function resolveSelection(
     "";
   const info = providerInfo(provider, settings);
   const deleted =
-    !!connectionId && !!settings?.deletedConnectionIds?.includes(connectionId);
+    !connection &&
+    !!connectionId &&
+    !!settings?.deletedConnectionIds?.includes(connectionId);
   const error = !connection
     ? deleted
       ? "所选 AI 连接已删除，请重新配置或选择其他服务。"
       : modelId
         ? "原模型所属连接尚未确认，请重新选择服务和模型。"
         : "请先在设置中配置 AI。"
-    : !connection.enabled
-      ? "所选 AI 连接已停用，请在设置中启用或选择其他服务。"
-      : connection.check.status === "error"
-        ? `所选 AI 连接检测失败，请在设置中重新检测。${connection.check.error ?? ""}`
-        : !option
-          ? "所选模型已不可用，请重新配置 AI 或选择其他模型。"
-          : "";
+    : !connectionIsConnected(connection)
+      ? "所选 AI 服务未连接，请在设置中检测连接。"
+      : !option
+        ? "所选模型已不可用，请重新配置 AI 或选择其他模型。"
+        : "";
   return {
     connectionId: connection?.id ?? connectionId ?? "",
     connectionRevision: connection?.revision ?? null,
     model,
-    modelName: option?.name ?? modelId ?? "",
+    modelName: error ? "" : (option?.name ?? ""),
     harness: info.name,
     hasSelection: !!connectionId || !!modelId,
     deleted,
-    label:
-      config || connectionId
-        ? `${info.shortName} | ${option?.name ?? modelId ?? "模型不可用"}`
-        : "AI 配置",
+    label: !error && option ? `${info.shortName} | ${option.name}` : "AI 配置",
     configured: !!config,
     error,
   };
@@ -127,7 +152,11 @@ export function resolveDefaults(
   settings: AiSettings | null,
 ) {
   return config === null
-    ? resolveSelection(settings?.defaultConnectionId, null, settings)
+    ? resolveSelection(
+        globalModel(settings)?.connectionId,
+        globalModel(settings)?.modelId ?? null,
+        settings,
+      )
     : resolveSelection(config.connectionId, config.modelId, settings);
 }
 export function resolveRobotAi(

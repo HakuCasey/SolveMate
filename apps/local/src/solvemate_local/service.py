@@ -45,6 +45,7 @@ class AiService:
         self.listeners = {}
         self.configuring = False
         self.renaming = set()
+        self.disconnecting = set()
 
     async def rename_session(self, ident, request):
         binding = self.store.binding(ident)
@@ -117,10 +118,17 @@ class AiService:
                 value["enabled"] for value in self.store.connections().values()
             ),
             "defaultConnectionId": preference["defaultConnectionId"],
+            "defaultModel": preference["defaultModel"],
             "config": saved["config"] if saved else None,
             "detection": saved["detection"] if saved else None,
             "connections": [
-                {"id": ident, **value}
+                {
+                    "id": ident,
+                    **value,
+                    "state": "connected"
+                    if value["enabled"] and value["check"]["status"] != "error"
+                    else "disconnected",
+                }
                 for ident, value in self.store.connections().items()
             ],
             "services": services,
@@ -135,21 +143,59 @@ class AiService:
         return result
 
     async def probe(self, request):
+        adapter = self.registry.provider(request.provider)
+        if self.configuring or adapter.id in self.disconnecting:
+            raise ConnectionError(
+                "该服务正在断开或保存配置，请稍后重试。", "connection_busy"
+            )
+        before = self.store.connections().get(adapter.id)
+        expected = (
+            request.expectedRevision
+            if request.expectedRevision is not None
+            else (before or {}).get("revision", 0)
+        )
+        if expected != (before or {}).get("revision", 0):
+            raise ConnectionError(
+                "连接配置已变化，请刷新后重新检测。", "configuration_conflict"
+            )
         try:
             result = normalized_detection(await self.connections.probe(request))
         except ConnectionError as error:
-            # 单个检测会话的故障不决定其他正式会话能否使用。
-            if error.code in {"probe_resume_failed", "probe_uncertain", "probe_busy"}:
-                saved = self.store.connections().get(
-                    self.registry.provider(request.provider).id
-                )
-                if saved and saved["check"]["status"] == "error":
-                    # 此次未完成模型目录检测；清除整项连接的失败判断，不冒充检测成功。
-                    self.record_probe(request, "unknown")
-            else:
-                self.record_probe(request, "error", str(error))
+            if error.code not in {
+                "detection_busy",
+                "detection_cancelled",
+                "probe_busy",
+                "probe_uncertain",
+                "probe_resume_failed",
+            }:
+                current = self.store.connections().get(adapter.id)
+                if current and current["revision"] == expected:
+                    self.store.set_connection_state(adapter.id, False, expected)
+                    self.store.record_connection_check(adapter.id, "error", str(error))
+                    await self.disconnect_resources(adapter.id)
             raise
-        self.record_probe(request, "ready")
+        # 检测就是建连的判断；保存成功结果，不要求用户再点启用。
+        current = self.store.connections().get(adapter.id)
+        if (current or {}).get("revision", 0) != expected:
+            raise ConnectionError(
+                "连接状态已变化，本次检测结果未应用，请重新检测。",
+                "configuration_conflict",
+            )
+        if before and before["config"]["model"] == result["currentModel"]:
+            saved_effort = before["config"]["reasoningEffort"]
+            if saved_effort in {item["value"] for item in result["reasoningOptions"]}:
+                result["currentReasoning"] = saved_effort
+        config = {
+            "provider": request.provider,
+            "executablePath": request.executablePath,
+            "model": result["currentModel"],
+            "reasoningEffort": result["currentReasoning"],
+        }
+        self.store.save_connection(
+            adapter.id,
+            {"config": config, "detection": result, "enabled": True},
+            expected_revision=expected,
+        )
         return result
 
     def record_probe(self, request, status, error=None):
@@ -162,36 +208,79 @@ class AiService:
         ):
             self.store.record_connection_check(ident, status, error)
 
-    async def set_default(self, ident, revision):
-        self.store.set_default(ident, revision)
+    async def set_default(self, ident, revision, model_id=None):
+        self.store.set_default(ident, revision, model_id)
         return self.settings()
 
+    async def disconnect_resources(self, ident):
+        await self.connections.stop_probe(ident)
+        tasks = []
+        for turn in list(self.jobs.values()):
+            if turn["connectionId"] != ident:
+                continue
+            turn["stopRequested"] = True
+            self.resolve_permissions(turn["id"])
+            task = turn.get("task")
+            if task and task is not asyncio.current_task():
+                task.cancel()
+                tasks.append(task)
+        await asyncio.gather(*tasks, return_exceptions=True)
+        await self.connections.close_connection(ident)
+
     async def delete_connection(self, ident, revision, preferences_revision):
-        if self.jobs or self.configuring or self.renaming:
-            raise ConnectionError(
-                "有对话正在生成或配置正在保存，请稍后删除连接。", "connection_busy"
-            )
+        if self.configuring or self.renaming:
+            raise ConnectionError("配置正在保存，请稍后删除。", "connection_busy")
         self.configuring = True
         try:
+            # 先检查版本，再断开；资源释放失败时仍保留配置以便重试。
+            current = self.store.connections().get(ident)
+            if current and (
+                current["revision"] != revision
+                or self.store.preferences()["revision"] != preferences_revision
+            ):
+                raise ConnectionError(
+                    "配置已变化，请刷新后重试。", "configuration_conflict"
+                )
+            await self.disconnect_resources(ident)
             self.store.delete_connection(ident, revision, preferences_revision)
-            try:
-                await self.connections.close_connection(ident)
-            except Exception:
-                # 配置已删除，关闭子进程失败不应把已完成的删除报告成失败。
-                logger.exception("Failed to close a deleted AI connection.")
             return self.settings()
         finally:
             self.configuring = False
 
     async def set_connection_state(self, ident, enabled, revision):
-        if self.jobs or self.configuring or self.renaming:
-            raise ConnectionError(
-                "有对话正在生成或配置正在保存，请稍后修改连接。", "connection_busy"
+        if self.configuring or self.renaming:
+            raise ConnectionError("配置正在保存，请稍后重试。", "connection_busy")
+        if enabled:
+            saved = self.store.connections().get(ident)
+            if not saved:
+                raise ConnectionError("请先检测连接。", "not_configured")
+            # 兼容旧接口，不能再用布尔开关绕过检测。
+            from .models import DetectRequest
+
+            await self.probe(
+                DetectRequest(
+                    provider=saved["config"]["provider"],
+                    executablePath=saved["config"]["executablePath"],
+                    model=saved["config"]["model"],
+                    expectedRevision=revision,
+                )
             )
-        self.store.set_connection_state(ident, enabled, revision)
-        if not enabled:
-            await self.connections.close_connection(ident)
-        return self.settings()
+            return self.settings()
+        self.disconnecting.add(ident)
+        try:
+            self.store.set_connection_state(ident, False, revision)
+            try:
+                await self.disconnect_resources(ident)
+            except Exception as error:
+                logger.exception(
+                    "Failed to disconnect an AI service: connection=%s", ident
+                )
+                raise ConnectionError(
+                    "未能完全断开连接，请重试断开。", "disconnect_failed"
+                ) from error
+            return self.settings()
+        finally:
+            self.disconnecting.discard(ident)
 
     async def save_settings(self, config):
         if self.configuring or self.renaming:
@@ -237,22 +326,47 @@ class AiService:
             raise ConnectionError(
                 "有对话正在生成，请停止或等待完成后再保存连接配置。", "connection_busy"
             )
-        # 保存前的复检不单独改变版本，避免本次保存与自身检测产生冲突。
-        try:
-            detection = normalized_detection(await self.connections.probe(config))
-        except ConnectionError as error:
-            self.record_probe(config, "error", str(error))
-            raise
-        if self.jobs:
-            raise ConnectionError(
-                "有对话正在生成，请稍后保存连接配置。", "connection_busy"
-            )
-        if not config.model:
-            raise ConnectionError("请选择一个模型。", "model_missing")
-        options = {o["value"] for o in detection["reasoningOptions"]}
+        adapter = self.registry.provider(config.provider)
+        current = self.store.connections().get(adapter.id)
+        # 选择已知模型不等于重新建连；程序配置未变时使用同一份目录校验。
+        reusable = (
+            current
+            and current["enabled"]
+            and current["check"]["status"] != "error"
+            and current["config"]["executablePath"] == config.executablePath
+        )
+        if reusable:
+            detection = normalized_detection(current["detection"])
+        else:
+            try:
+                detection = normalized_detection(await self.connections.probe(config))
+            except ConnectionError as error:
+                if error.code not in {
+                    "detection_busy",
+                    "probe_busy",
+                    "probe_uncertain",
+                    "probe_resume_failed",
+                }:
+                    self.record_probe(config, "error", str(error))
+                raise
+        if not config.model or config.model not in {
+            m["value"] for m in detection["models"]
+        }:
+            raise ConnectionError("请选择当前模型目录中的模型。", "model_missing")
+        model_option = next(
+            item for item in detection["models"] if item["value"] == config.model
+        )
+        reasoning_options = model_option.get(
+            "reasoningOptions",
+            detection["reasoningOptions"]
+            if config.model == detection["currentModel"]
+            else [],
+        )
+        options = {item["value"] for item in reasoning_options}
         if config.reasoningEffort and config.reasoningEffort not in options:
             raise ConnectionError(
-                "当前模型不支持该推理强度，请重新选择。", "reasoning_unsupported"
+                "当前模型尚未返回该推理等级，请重新检测后选择。",
+                "reasoning_unsupported",
             )
         self.check_config_revision(config)
         values = config.model_dump(
@@ -263,11 +377,10 @@ class AiService:
                 "enabled",
             }
         )
-        values["executablePath"] = (
-            detection["executablePath"] if config.executablePath.strip() else ""
-        )
-        adapter = self.registry.provider(config.provider)
-        await self.connections.close_connection(adapter.id)
+        # 配置保留用户填写的路径；解析后的程序路径只存于检测结果。
+        # 两者可能分别指向应用目录和目录内的程序，不能在保存模型时互换。
+        if not reusable:
+            await self.connections.close_connection(adapter.id)
         saved = {"config": values, "detection": detection, "enabled": config.enabled}
         self.store.save_connection(
             adapter.id,
@@ -350,7 +463,7 @@ class AiService:
         previous = self.store.conversation_turns(request.conversationId)
         if previous and previous[0]["teacher"]["id"] != request.teacher.id:
             raise ConnectionError(
-                "此对话已绑定另一位教师，请新建对话后切换。", "teacher_mismatch"
+                "此对话已绑定另一个机器人，请新建对话后切换。", "teacher_mismatch"
             )
         metadata = request.conversationSnapshot
         selection = (
@@ -372,7 +485,7 @@ class AiService:
                 or metadata["robotId"] != request.teacher.id
             ):
                 raise ConnectionError(
-                    "提问的会话或教师与保存记录不一致。", "conversation_mismatch"
+                    "提问的会话或机器人与保存记录不一致。", "conversation_mismatch"
                 )
             if metadata["status"] != "active":
                 raise ConnectionError(
@@ -396,7 +509,12 @@ class AiService:
                 if request.model
                 else {"kind": "connection-default"}
             )
-        model = request.model or saved["config"]["model"]
+        default_model = self.store.preferences().get("defaultModel")
+        model = request.model or (
+            default_model["modelId"]
+            if not request.connectionId and default_model
+            else saved["config"]["model"]
+        )
         option = next(
             (item for item in saved["detection"]["models"] if item["value"] == model),
             None,
@@ -616,7 +734,10 @@ class AiService:
                 )
         except asyncio.CancelledError:
             turn.update(
-                status="interrupted", error="本机服务已停止，已收到的内容仍保留。"
+                status="cancelled" if turn.get("stopRequested") else "interrupted",
+                error="连接已断开，已收到的内容仍保留。"
+                if turn.get("stopRequested")
+                else "本机服务已停止，已收到的内容仍保留。",
             )
             raise
         except Exception as error:  # noqa: BLE001 - 后台执行必须保存失败状态，日志只记录类别。
@@ -641,13 +762,24 @@ class AiService:
             logger.warning(
                 "AI turn failed: %s", getattr(error, "code", type(error).__name__)
             )
-            if (
-                isinstance(error, ConnectionError)
-                and error.code == "request_timeout"
-                and process
-            ):
-                await process.close()
-                self.connections.loaded.get(turn["connectionId"], set()).clear()
+            if isinstance(error, ConnectionError) and error.code in {
+                "program_missing",
+                "program_start_failed",
+                "program_not_executable",
+                "runtime_missing",
+                "protocol_unsupported",
+                "process_stopped",
+                "request_timeout",
+            }:
+                saved = self.store.connections().get(turn["connectionId"])
+                if saved:
+                    self.store.set_connection_state(
+                        turn["connectionId"], False, saved["revision"]
+                    )
+                    self.store.record_connection_check(
+                        turn["connectionId"], "error", str(error)
+                    )
+                await self.disconnect_resources(turn["connectionId"])
         finally:
             turn["phase"] = "finished"
             turn["completedAt"] = now()

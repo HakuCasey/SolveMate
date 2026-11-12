@@ -122,6 +122,13 @@ export interface ModelOption {
   value: string;
   name: string;
   group: string;
+  reasoningOptions?: ReasoningOption[];
+  defaultReasoning?: string;
+}
+export interface ReasoningOption {
+  value: string;
+  name: string;
+  group: string;
 }
 export interface AiConfig {
   provider: ProviderId;
@@ -154,6 +161,7 @@ export interface AiConnection {
   detection: Detection;
   enabled: boolean;
   check: ConnectionCheck;
+  state?: "connected" | "disconnected";
 }
 export interface ConnectionCheck {
   status: "ready" | "error" | "unknown";
@@ -184,6 +192,11 @@ export interface AiSettings {
    * Deleted configured connections, excluding connections that have been configured again.
    */
   deletedConnectionIds?: string[];
+  defaultModel?: GlobalModelSelection | null;
+}
+export interface GlobalModelSelection {
+  connectionId: string;
+  modelId: string;
 }
 export interface Robot {
   schemaVersion: 3;

@@ -8,13 +8,13 @@ import {
   type TurnInput,
 } from "./local-api";
 import { decodeAiTurn } from "./metadata";
-import { mergeAiTurn } from "./state";
+import { latestAiSettings, mergeAiTurn } from "./state";
 import { useRefreshResource } from "../refresh/useDataRefresh";
 
 type Update = (change: (data: AppData) => AppData) => void;
 
 export function useAiService(update: Update) {
-  const [settings, setSettings] = useState<AiSettings | null>(null);
+  const [settings, setSettingsState] = useState<AiSettings | null>(null);
   const [error, setError] = useState("");
   const [connectionErrors, setConnectionErrors] = useState<
     Record<string, string>
@@ -28,30 +28,75 @@ export function useAiService(update: Update) {
   const polling = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const mounted = useRef(true);
   const restoreRequests = useRef(new Map<string, Promise<void>>());
+  const settingsValue = useRef<AiSettings | null>(null);
+  const settingsGeneration = useRef(0);
+  const settingsRead = useRef<Promise<AiSettings | null> | null>(null);
 
-  const accept = useCallback((turn: AiTurn) => {
-    if (!mounted.current) return;
-    updateRef.current((data) => {
-      try {
-        return mergeAiTurn(data, turn);
-      } catch (failure) {
-        setError(
-          failure instanceof Error ? failure.message : "执行记录不一致。",
-        );
-        return data;
-      }
-    });
-    setTurns((previous) => {
-      const existing = previous[turn.id];
-      if (
-        existing &&
-        (existing.revision >= turn.revision ||
-          (existing.status !== "running" && turn.status === "running"))
-      )
-        return previous;
-      return { ...previous, [turn.id]: turn };
-    });
+  const setSettings = useCallback((next: AiSettings) => {
+    const accepted = latestAiSettings(settingsValue.current, next);
+    settingsGeneration.current++;
+    settingsRead.current = null;
+    settingsValue.current = accepted;
+    setSettingsState(accepted);
+    setError("");
+    return accepted;
   }, []);
+
+  const refresh = useCallback(() => {
+    const generation = ++settingsGeneration.current;
+    const task = localAi.settings().then(
+      (next): AiSettings | null | Promise<AiSettings | null> => {
+        if (!mounted.current) return null;
+        // 以最新发起的读取或已保存的配置为准，忽略迟到响应。
+        if (generation !== settingsGeneration.current)
+          return settingsRead.current ?? settingsValue.current;
+        return setSettings(next);
+      },
+      (failure: unknown): AiSettings | null | Promise<AiSettings | null> => {
+        if (!mounted.current) return null;
+        if (generation !== settingsGeneration.current)
+          return settingsRead.current ?? settingsValue.current;
+        settingsRead.current = null;
+        setError(
+          failure instanceof Error ? failure.message : "读取连接设置失败。",
+        );
+        return null;
+      },
+    );
+    settingsRead.current = task;
+    return task;
+  }, [setSettings]);
+
+  const accept = useCallback(
+    (turn: AiTurn) => {
+      if (!mounted.current) return;
+      updateRef.current((data) => {
+        try {
+          return mergeAiTurn(data, turn);
+        } catch (failure) {
+          setError(
+            failure instanceof Error ? failure.message : "执行记录不一致。",
+          );
+          return data;
+        }
+      });
+      if (turn.status !== "running") {
+        // 回复期间服务可能断开，以本机结果刷新所有 AI 入口的连接状态。
+        void refresh();
+      }
+      setTurns((previous) => {
+        const existing = previous[turn.id];
+        if (
+          existing &&
+          (existing.revision >= turn.revision ||
+            (existing.status !== "running" && turn.status === "running"))
+        )
+          return previous;
+        return { ...previous, [turn.id]: turn };
+      });
+    },
+    [refresh],
+  );
 
   const watch = useCallback(
     function watch(id: string) {
@@ -156,23 +201,6 @@ export function useAiService(update: Update) {
     },
     [accept],
   );
-
-  const refresh = useCallback(async () => {
-    try {
-      const next = await localAi.settings();
-      if (mounted.current) {
-        setSettings(next);
-        setError("");
-      }
-      return next;
-    } catch (failure) {
-      if (mounted.current)
-        setError(
-          failure instanceof Error ? failure.message : "读取连接设置失败。",
-        );
-      return null;
-    }
-  }, []);
 
   useRefreshResource("ai", async () => {
     if (!(await refresh())) throw new Error("AI 连接未能刷新。");

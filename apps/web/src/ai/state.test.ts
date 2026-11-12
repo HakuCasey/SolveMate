@@ -3,8 +3,52 @@ import { createInitialData } from "../data/catalog";
 import { assertAppData } from "../data/validation";
 import { createConversation } from "../state/conversations";
 import type { AiTurn } from "./local-api";
-import { aiTurn } from "./fixtures.test-support";
-import { mergeAiTurn } from "./state";
+import { aiSettings, aiTurn } from "./fixtures.test-support";
+import { latestAiSettings, mergeAiTurn } from "./state";
+
+describe("shared AI settings revisions", () => {
+  it("does not let a late read replace the saved path, model, or reasoning level", () => {
+    const before = aiSettings();
+    before.connections[0].config.executablePath =
+      "/Applications/DeepSeek Harness.app";
+    const saved = structuredClone(before);
+    saved.connections[0].revision++;
+    saved.connections[0].config = {
+      ...saved.connections[0].config,
+      executablePath:
+        "/Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh",
+      model: "b",
+      reasoningEffort: "high",
+    };
+    expect(latestAiSettings(saved, before)).toBe(saved);
+    expect(latestAiSettings(before, saved)).toBe(saved);
+  });
+
+  it("does not restore a deleted connection or clear one that has just been recreated", () => {
+    const before = aiSettings();
+    const deleted = structuredClone(before);
+    deleted.preferencesRevision++;
+    deleted.connections.shift();
+    deleted.defaultModel = null;
+    deleted.defaultConnectionId = null;
+    deleted.deletedConnectionIds = ["deepseek-local"];
+    expect(latestAiSettings(deleted, before)).toBe(deleted);
+    const restored = structuredClone(deleted);
+    restored.connections.push({ ...before.connections[0], revision: 3 });
+    restored.deletedConnectionIds = [];
+    expect(latestAiSettings(restored, deleted)).toBe(restored);
+    expect(latestAiSettings(deleted, restored)).toBe(restored);
+  });
+
+  it("accepts a newer default model without changing connection revisions", () => {
+    const before = aiSettings();
+    const next = structuredClone(before);
+    next.preferencesRevision++;
+    next.defaultModel = { connectionId: "deepseek-local", modelId: "b" };
+    expect(latestAiSettings(before, next)).toBe(next);
+    expect(latestAiSettings(next, before)).toBe(next);
+  });
+});
 
 function setup() {
   const data = createInitialData();

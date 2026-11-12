@@ -210,7 +210,7 @@ def create_app(
     @app.put("/local-api/v1/default-connection")
     async def default_connection(body: DefaultConnection, request: Request):
         return await request.app.state.ai.set_default(
-            body.connectionId, body.expectedRevision
+            body.connectionId, body.expectedRevision, body.modelId
         )
 
     @app.delete("/local-api/v1/connections/{ident}")

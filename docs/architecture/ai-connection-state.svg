@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="340" viewBox="0 0 1120 340" role="img" aria-labelledby="title desc"><title id="title">AI 服务连接状态</title><desc id="desc">每个支持的 AI 服务只有已连接和未连接。检测连接成功进入已连接；断开或连接失效返回未连接。检测失败保持未连接并提供重试。</desc><defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10" fill="#63748B"/></marker></defs><rect width="1120" height="340" rx="14" fill="white"/><g font-family="PingFang SC, Microsoft YaHei, sans-serif" fill="#243247">
+<text x="560.0" y="47.64" text-anchor="middle" font-size="24">AI 服务连接状态</text>
+<rect x="100" y="120" width="260" height="100" rx="14" fill="#F1F3F6" stroke="#A5AFBC" stroke-width="1.5"/>
+<text x="230" y="160" text-anchor="middle" font-size="21" font-weight="600">未连接</text>
+<text x="230" y="190" text-anchor="middle" font-size="15" fill="#526277">保留输入 · 可以重新检测</text>
+<rect x="760" y="120" width="260" height="100" rx="14" fill="#EDF4FF" stroke="#6A91C7" stroke-width="1.5"/>
+<text x="890" y="160" text-anchor="middle" font-size="21" font-weight="600">已连接</text>
+<text x="890" y="190" text-anchor="middle" font-size="15" fill="#526277">可以选择模型并使用</text>
+<path d="M360 145H758" fill="none" stroke="#63748B" stroke-width="1.6" marker-end="url(#arrow)"/>
+<text x="560" y="133" text-anchor="middle" font-size="16" fill="#526277">检测连接成功</text>
+<path d="M760 198H362" fill="none" stroke="#63748B" stroke-width="1.6" marker-end="url(#arrow)"/>
+<text x="560" y="225" text-anchor="middle" font-size="16" fill="#526277">断开连接／连接失效</text>
+<text x="560.0" y="298.76" text-anchor="middle" font-size="16">检测失败仍为未连接：保留路径和配置，显示原因并允许重试</text>
+</g></svg>

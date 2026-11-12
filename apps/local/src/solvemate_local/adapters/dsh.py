@@ -3,9 +3,11 @@ from ..errors import ConnectionError
 from ..installation import default_installation_path
 from ..model_config import resolve_home
 from .base import AcpAdapter, acp_permission, acp_update
+from .dsh_catalog import catalog_options
 
 
 class DshAdapter(AcpAdapter):
+    requires_probe_session = False
     short_name = "DSH"
     id = "deepseek-local"
     provider = "deepseek-harness"
@@ -26,6 +28,9 @@ class DshAdapter(AcpAdapter):
             acp_permission(on_permission),
             harness_home=self.home(),
         )
+
+    async def probe_options(self, process, model):
+        return await catalog_options(process, self.home(), model)
 
     async def resume(self, process, sid, workspace):
         try:
@@ -67,5 +72,5 @@ class DshAdapter(AcpAdapter):
             {"sessionId": sid, "configId": "reasoning_effort", "value": value},
         )
 
-    async def release_probe(self, process, sid):
+    async def release_session(self, process, sid):
         await process.call("session/close", {"sessionId": sid})

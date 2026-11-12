@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
-from test_service import HEADERS, FakeAcp, connect
+from test_service import HEADERS, FakeAcp, FakeDshAdapter, connect
 
 from solvemate_local.adapters import AdapterRegistry
 from solvemate_local.adapters.codex import CodexAdapter
@@ -26,7 +26,7 @@ def isolated_harness(monkeypatch, tmp_path):
     FakeAcp.sessions = set()
 
 
-class RenamingAdapter(DshAdapter):
+class RenamingAdapter(FakeDshAdapter):
     supports_rename = True
 
     def __init__(self):

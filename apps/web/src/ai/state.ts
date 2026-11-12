@@ -4,7 +4,26 @@ import type {
   SessionBinding,
   SessionTurn,
   AiTurn,
+  AiSettings,
 } from "@solvemate/contracts";
+
+/** 保存结果和刷新结果共用版本判断，拒绝较早的配置快照。 */
+export function latestAiSettings(
+  current: AiSettings | null,
+  incoming: AiSettings,
+): AiSettings {
+  if (!current) return incoming;
+  if (incoming.preferencesRevision < current.preferencesRevision)
+    return current;
+  for (const connection of current.connections) {
+    const next = incoming.connections.find((item) => item.id === connection.id);
+    if (next && next.revision < connection.revision) return current;
+    // 删除连接会推进偏好版本；同版本缺少记录只能是较早的读取。
+    if (!next && incoming.preferencesRevision === current.preferencesRevision)
+      return current;
+  }
+  return incoming;
+}
 
 /** 本机结果只更新执行和已确认绑定，不改写当前模型选择或复活已删除对话。 */
 export function mergeAiTurn(data: AppData, turn: AiTurn): AppData {
@@ -20,7 +39,9 @@ export function mergeAiTurn(data: AppData, turn: AiTurn): AppData {
     )
       throw new Error("执行结果来自另一项服务，已保留当前对话配置。");
     if (conversation.robotId && conversation.robotId !== turn.teacher.id)
-      throw new Error("执行结果的教师与当前对话不一致，未改写教师身份。");
+      throw new Error(
+        "执行结果中的机器人与当前对话不一致，未更改对话的机器人。",
+      );
     const previous = conversation.turns.find((item) => item.id === turn.id);
     if (
       previous &&

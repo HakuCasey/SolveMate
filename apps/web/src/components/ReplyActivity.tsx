@@ -40,7 +40,12 @@ export function ReplyActivity({
         <span>{label}</span>
       </div>
       <span className={styles.elapsed}>已用时 {elapsed} 秒</span>
-      {elapsed >= 20 && !received && !disconnected && (
+      {phase === "stopping" && !disconnected && (
+        <p className={styles.waitHint}>
+          正在等待 AI 服务确认停止，期间可能收到已生成的内容。
+        </p>
+      )}
+      {phase !== "stopping" && elapsed >= 20 && !received && !disconnected && (
         <p className={styles.waitHint}>
           还未收到回复正文，可以继续等待或停止生成。
         </p>

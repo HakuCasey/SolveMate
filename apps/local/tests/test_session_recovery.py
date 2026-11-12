@@ -7,7 +7,7 @@ from typing import ClassVar
 
 import pytest
 from test_adapters import FakeHermes, completed, question
-from test_service import FakeAcp
+from test_service import FakeAcp, FakeDshAdapter
 
 from solvemate_local.adapters import AdapterRegistry
 from solvemate_local.adapters.dsh import DshAdapter
@@ -22,7 +22,7 @@ from solvemate_local.store import Store
 def harness(request, monkeypatch, tmp_path):
     if request.param == "dsh":
         adapter, factory, model, env = (
-            DshAdapter(FakeAcp),
+            FakeDshAdapter(FakeAcp),
             FakeAcp,
             "opaque-model-a",
             "DSH_HOME",
@@ -130,16 +130,26 @@ def test_missing_connection_test_session_does_not_disable_formal_sessions(
             service = AiService(store, registry=AdapterRegistry([adapter]))
             saved = deepcopy(store.connections()[adapter.id])
             before = len(factory.calls)
-            with pytest.raises(ConnectionError) as failed:
-                await service.probe(
-                    DetectRequest(
-                        provider=adapter.provider,
-                        executablePath=saved["config"]["executablePath"],
-                        model=model,
-                    )
+            detection = DetectRequest(
+                provider=adapter.provider,
+                executablePath=saved["config"]["executablePath"],
+                model=model,
+            )
+            if adapter.requires_probe_session:
+                with pytest.raises(ConnectionError) as failed:
+                    await service.probe(detection)
+                assert failed.value.code == "probe_resume_failed"
+                assert store.connections()[adapter.id] == saved
+            else:
+                assert (await service.probe(detection))["models"]
+                assert (
+                    store.db.execute("SELECT COUNT(*) FROM probes").fetchone()[0] == 0
                 )
-            assert failed.value.code == "probe_resume_failed"
-            assert store.connections()[adapter.id] == saved
+                actual = store.connections()[adapter.id]["config"]
+                assert all(
+                    actual[key] == saved["config"][key]
+                    for key in ("provider", "executablePath", "model")
+                )
             follow = question(connection=adapter.id, model=model)
             service.create_turn(follow)
             assert (await completed(service, follow.id))["status"] == "completed"
@@ -175,7 +185,14 @@ def test_probe_preserves_connection_failures_instead_of_reporting_missing_sessio
                     raise ConnectionError("Test connection failure.", code)
                 return await original(process, method, params, timeout)
 
-            monkeypatch.setattr(factory, "call", failed)
+            if adapter.requires_probe_session:
+                monkeypatch.setattr(factory, "call", failed)
+            else:
+
+                async def failed_catalog(process, selected):
+                    raise ConnectionError("Test connection failure.", code)
+
+                monkeypatch.setattr(adapter, "probe_options", failed_catalog)
             with pytest.raises(ConnectionError) as failure:
                 await service.probe(
                     DetectRequest(
@@ -244,7 +261,8 @@ def test_disable_enable_and_busy_probe_do_not_block_original_formal_session(
             first = question(connection=adapter.id, model=model)
             service.create_turn(first)
             original = deepcopy(await completed(service, first.id))
-            probe_sid = store.db.execute("SELECT session_id FROM probes").fetchone()[0]
+            probe = store.db.execute("SELECT session_id FROM probes").fetchone()
+            probe_sid = probe[0] if probe else None
             for enabled in [False, True]:
                 await service.set_connection_state(
                     adapter.id, enabled, store.connections()[adapter.id]["revision"]
@@ -274,24 +292,35 @@ def test_disable_enable_and_busy_probe_do_not_block_original_formal_session(
 
             before = len(factory.calls)
             monkeypatch.setattr(factory, "call", busy_probe)
-            with pytest.raises(ConnectionError) as failed:
-                await service.probe(request)
-            assert failed.value.code == "probe_busy"
+            if adapter.requires_probe_session:
+                with pytest.raises(ConnectionError) as failed:
+                    await service.probe(request)
+                assert failed.value.code == "probe_busy"
+                assert adapter.name in str(failed.value)
+                assert "关闭" in str(failed.value)
+                assert "正式对话" not in str(failed.value)
+            else:
+                assert (await service.probe(request))["models"]
+                assert probe_sid is None
             current = store.connections()[adapter.id]
             assert current["check"]["status"] == (
-                "ready" if previous_status == "ready" else "unknown"
+                "ready" if not adapter.requires_probe_session else previous_status
             )
             assert current["config"] == saved["config"]
             assert current["detection"] == saved["detection"]
+            if previous_status == "error" and adapter.requires_probe_session:
+                with pytest.raises(ConnectionError) as unavailable:
+                    service.create_turn(question(connection=adapter.id, model=model))
+                assert unavailable.value.code == "connection_unavailable"
+            monkeypatch.setattr(factory, "call", original_call)
+            assert (await service.probe(request))["models"]
+            assert store.connections()[adapter.id]["check"]["status"] == "ready"
             follow = question(connection=adapter.id, model=model)
             service.create_turn(follow)
             result = await completed(service, follow.id)
             assert result["status"] == "completed"
             assert result["externalSessionId"] == original["externalSessionId"]
             assert store.turn(first.id) == original
-            monkeypatch.setattr(factory, "call", original_call)
-            assert (await service.probe(request))["models"]
-            assert store.connections()[adapter.id]["check"]["status"] == "ready"
             assert not any(
                 method == "session/new" for method, _ in factory.calls[before:]
             )

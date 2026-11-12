@@ -102,7 +102,7 @@ def test_provider_sessions_are_separate_and_model_change_preserves_binding(tmp_p
                 service.create_turn(
                     question(connection="deepseek-local", model="opaque-model-a")
                 )
-            with pytest.raises(ConnectionError, match="另一位教师"):
+            with pytest.raises(ConnectionError, match="另一个机器人"):
                 service.create_turn(question(teacher="math"))
             # 全局默认改回 DSH，旧 Hermes 对话仍恢复原生会话。
             await service.save_settings(
@@ -135,7 +135,8 @@ def test_detection_reuses_one_session_across_detect_save_and_restart(tmp_path):
         service = AiService(store, registry=fake_registry(FakeHermes))
         request = DetectRequest(provider="hermes", executablePath=sys.executable)
         try:
-            await asyncio.gather(service.probe(request), service.probe(request))
+            await service.probe(request)
+            await service.probe(request)
             await service.save_settings(
                 ConnectionConfig(
                     provider="hermes",
@@ -337,3 +338,89 @@ def test_hermes_home_honors_platform_suffix_and_expands_override(monkeypatch, tm
     monkeypatch.setenv("SM_TEST_HOME", str(tmp_path / "自定义"))
     monkeypatch.setenv("HERMES_HOME", "$SM_TEST_HOME")
     assert hermes.hermes_home() == tmp_path / "自定义"
+
+
+@pytest.mark.parametrize("phase", ["start", "create", "close"])
+def test_detection_deadline_closes_process_and_preserves_uncertain_creation(
+    tmp_path, monkeypatch, phase
+):
+    from solvemate_local import connections
+
+    monkeypatch.setattr(connections, "PROBE_TIMEOUT", 0.02)
+
+    async def exercise():
+        instances = []
+
+        class SlowHermes(FakeHermes):
+            async def start(self):
+                instances.append(self)
+                if phase == "start":
+                    await asyncio.sleep(1)
+                return await super().start()
+
+            async def call(self, method, params, timeout=40):
+                if phase == "create" and method == "session/new":
+                    await asyncio.sleep(1)
+                return await super().call(method, params, timeout)
+
+            async def close(self):
+                if phase == "close":
+                    await asyncio.sleep(0.05)
+                await super().close()
+
+        store = Store(tmp_path)
+        service = AiService(store, registry=fake_registry(SlowHermes))
+        request = DetectRequest(provider="hermes", executablePath=sys.executable)
+        try:
+            with pytest.raises(ConnectionError) as failed:
+                await service.probe(request)
+            assert failed.value.code == "detection_timeout"
+            assert len(instances) == 1
+            assert not instances[0].is_running()
+            assert not service.connections.probe_locks["hermes-local"].locked()
+            if phase == "create":
+                with pytest.raises(ConnectionError) as uncertain:
+                    await service.probe(request)
+                assert uncertain.value.code == "probe_uncertain"
+                assert len(instances) == 1
+        finally:
+            await service.close()
+            store.close()
+
+    asyncio.run(exercise())
+
+
+def test_slow_service_does_not_queue_duplicate_checks_or_block_another_service(
+    tmp_path,
+):
+    async def exercise():
+        started, release = asyncio.Event(), asyncio.Event()
+
+        class SlowHermes(FakeHermes):
+            async def start(self):
+                started.set()
+                await release.wait()
+                return await super().start()
+
+        store = Store(tmp_path)
+        service = AiService(store, registry=fake_registry(SlowHermes))
+        request = DetectRequest(provider="hermes", executablePath=sys.executable)
+        pending = asyncio.create_task(service.probe(request))
+        try:
+            await started.wait()
+            with pytest.raises(ConnectionError) as duplicate:
+                await service.probe(request)
+            assert duplicate.value.code == "detection_busy"
+            other = await asyncio.wait_for(
+                service.probe(DetectRequest(executablePath=sys.executable)), 1
+            )
+            assert other["models"]
+            release.set()
+            assert (await pending)["models"]
+        finally:
+            release.set()
+            await pending
+            await service.close()
+            store.close()
+
+    asyncio.run(exercise())

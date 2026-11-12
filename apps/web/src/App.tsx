@@ -383,6 +383,11 @@ function Workspace({ content }: { content: OfficialContent }) {
   const ai = useAiService((change) =>
     setData((previous) => (previous ? change(previous) : previous)),
   );
+  const refreshAiSettings = ai.refresh;
+  useEffect(() => {
+    // 页面和对话切换、打开配置时读取共享记录，不逐个通知使用配置的组件。
+    void refreshAiSettings();
+  }, [view, activeConversationId, aiSettingsSource, refreshAiSettings]);
   const restoreAiConversation = ai.restore;
   const quoteKey =
     view === "materials" && data?.materialSelection
@@ -852,7 +857,7 @@ function Workspace({ content }: { content: OfficialContent }) {
       currentRobot,
       ai.settings,
     );
-    if (effective.configured && effective.error)
+    if (effective.hasSelection && effective.error)
       throw new Error(effective.error);
     submitting.current = true;
     try {

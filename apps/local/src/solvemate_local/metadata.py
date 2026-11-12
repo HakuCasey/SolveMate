@@ -71,6 +71,12 @@ def normalized_detection(value):
         result[field] = [
             {**item, "group": item.get("group", "")} for item in result[field]
         ]
+    for model in result["models"]:
+        if "reasoningOptions" in model:
+            model["reasoningOptions"] = [
+                {**item, "group": item.get("group", "")}
+                for item in model["reasoningOptions"]
+            ]
     states = {"supported", "unsupported", "unknown"}
     caps = result["capabilities"]
     keys = SCHEMA["$defs"]["CapabilitySupport"]["required"]

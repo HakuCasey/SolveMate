@@ -396,6 +396,15 @@
         },
         "group": {
           "type": "string"
+        },
+        "reasoningOptions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ReasoningOption"
+          }
+        },
+        "defaultReasoning": {
+          "type": "string"
         }
       },
       "required": [
@@ -499,6 +508,13 @@
         },
         "check": {
           "$ref": "#/$defs/ConnectionCheck"
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "connected",
+            "disconnected"
+          ]
         }
       },
       "required": [
@@ -618,6 +634,16 @@
           },
           "uniqueItems": true,
           "description": "Deleted configured connections, excluding connections that have been configured again."
+        },
+        "defaultModel": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GlobalModelSelection"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -1974,6 +2000,46 @@
       ],
       "additionalProperties": false,
       "title": "Material"
+    },
+    "GlobalModelSelection": {
+      "title": "GlobalModelSelection",
+      "type": "object",
+      "properties": {
+        "connectionId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "modelId": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "connectionId",
+        "modelId"
+      ],
+      "additionalProperties": false
+    },
+    "ReasoningOption": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "group": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "value",
+        "name",
+        "group"
+      ],
+      "additionalProperties": false,
+      "title": "ReasoningOption"
     }
   },
   "anyOf": [

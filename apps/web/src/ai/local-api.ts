@@ -40,7 +40,12 @@ async function request<T>(
       signal: AbortSignal.timeout(60000),
       cache: "no-store",
     });
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && error.name === "TimeoutError")
+      throw new LocalAiError(
+        "本机 AI 服务响应超时，无法确认本次操作结果。请刷新后核对，再重试。",
+        "request_timeout",
+      );
     throw new LocalAiError(
       "无法连接本机 AI 服务，请使用 npm start 启动 SolveMate 后重试。",
     );
@@ -218,12 +223,14 @@ export const localAi = {
     model = "",
     provider: AiConfig["provider"] = "deepseek-harness",
     resetProbe = false,
+    expectedRevision?: number,
   ) =>
     request<Detection>("/detect", "POST", {
       executablePath,
       model,
       provider,
       resetProbe,
+      ...(expectedRevision === undefined ? {} : { expectedRevision }),
     }),
   save: async (
     config: AiConfig,
@@ -260,11 +267,13 @@ export const localAi = {
   setDefaultConnection: async (
     connectionId: string,
     expectedRevision: number,
+    modelId?: string,
   ) =>
     decodeAiSettings(
       await request<unknown>("/default-connection", "PUT", {
         connectionId,
         expectedRevision,
+        ...(modelId ? { modelId } : {}),
       }),
     ),
   deleteConnection: async (

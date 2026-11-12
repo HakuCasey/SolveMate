@@ -23,30 +23,16 @@ export function RobotAiFields({
 }) {
   const effective = resolveDefaults(config, settings),
     choices = configuredConnections(settings);
-  const selected = connectionFor(settings, effective.connectionId);
+  const selected = choices.find((item) => item.id === effective.connectionId);
   const models = selected?.detection.models ?? [];
-  const retained =
-    !!effective.connectionId &&
-    !choices.some((item) => item.id === effective.connectionId);
   return (
     <div className={styles.settings}>
       <SettingsSelect
         label="AI 服务"
-        value={effective.connectionId}
+        value={selected?.id ?? ""}
         disabled={disabled || !choices.length}
         placeholder="未配置"
         options={[
-          ...(retained
-            ? [
-                {
-                  value: effective.connectionId,
-                  name: selected
-                    ? `${providerInfo(selected.config.provider, settings).name}（不可用）`
-                    : `${effective.harness || "原连接"}（${effective.deleted ? "已删除" : "不可用"}）`,
-                  disabled: true,
-                },
-              ]
-            : []),
           ...choices.map((item) => ({
             value: item.id,
             name: providerInfo(item.config.provider, settings).name,
@@ -54,29 +40,24 @@ export function RobotAiFields({
         ]}
         onValueChange={(connectionId) => {
           const connection = connectionFor(settings, connectionId)!;
-          onChange({ connectionId, modelId: connection.config.model });
+          const modelId = connection.detection.models.some(
+            (item) => item.value === connection.config.model,
+          )
+            ? connection.config.model
+            : null;
+          onChange({ connectionId, modelId });
         }}
       />
       <SettingsSelect
         label="模型"
-        value={effective.model}
-        disabled={
-          disabled || !selected?.enabled || selected?.check.status === "error"
+        value={
+          models.some((item) => item.value === effective.model)
+            ? effective.model
+            : ""
         }
+        disabled={disabled || !selected || !models.length}
         placeholder="未配置"
-        options={[
-          ...(effective.model &&
-          !models.some((item) => item.value === effective.model)
-            ? [
-                {
-                  value: effective.model,
-                  name: `${effective.model}（不可用）`,
-                  disabled: true,
-                },
-              ]
-            : []),
-          ...models,
-        ]}
+        options={models}
         onValueChange={(modelId) =>
           onChange({ connectionId: effective.connectionId || null, modelId })
         }

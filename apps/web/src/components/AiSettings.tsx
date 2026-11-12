@@ -1,19 +1,20 @@
 import { useEditValue } from "../refresh/useEditRevision";
 import { useDraftBackup } from "../refresh/drafts";
-import { useRef, useState } from "react";
-import { Check, LoaderCircle, RefreshCw } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Check, LoaderCircle, RefreshCw, Star, Trash2 } from "lucide-react";
 import { AlertDialog } from "radix-ui";
 import {
   localAi,
   LocalAiError,
   type AiConfig,
   type AiSettings as Settings,
-  type Detection,
 } from "../ai/local-api";
 import {
   AI_PROVIDERS,
   defaultConnection,
-  resolveDefaults,
+  connectionIsConnected,
+  globalModel,
+  reasoningForModel,
 } from "../ai/robot-config";
 import { detectConnection } from "../ai/detect-connection";
 import { SettingsSelect } from "./SettingsSelect";
@@ -27,6 +28,7 @@ const empty: AiConfig = {
   model: "",
   reasoningEffort: "",
 };
+type ConfigurationChanges = Partial<Omit<AiConfig, "provider">>;
 
 export function AiSettings({
   settings,
@@ -47,14 +49,9 @@ export function AiSettings({
       settings?.services[0]?.provider ??
       "deepseek-harness",
   );
-  const [draft, setDraft] = useState<AiConfig>(
-    initialConnection?.config ?? { ...empty },
-  );
+  const [changes, setChanges] = useState<ConfigurationChanges>({});
   const [manualPath, setManualPath] = useState(
     !!initialConnection?.config.executablePath,
-  );
-  const [detection, setDetection] = useState<Detection | null>(
-    initialConnection?.detection ?? null,
   );
   const [operation, setOperation] = useState<
     "detect" | "save" | "manage" | "delete" | null
@@ -62,14 +59,39 @@ export function AiSettings({
   const savedConnection = settings?.connections.find(
     (item) => item.config.provider === provider,
   );
+  const savedConfig: AiConfig = savedConnection?.config ?? {
+    ...empty,
+    provider: provider as AiConfig["provider"],
+  };
+  // 已保存字段直接读取共享记录，只有用户尚未提交的改动留在表单中。
+  const draft: AiConfig = { ...savedConfig, ...changes };
+  const dirty = JSON.stringify(draft) !== JSON.stringify(savedConfig);
+  // 目录和连接状态都来自同一条本机连接记录，组件只保存未提交选项。
+  const detection = savedConnection?.detection ?? null;
   const checkConfiguration = useEditValue(
     savedConnection?.config,
     savedConnection?.config,
     provider,
     true,
   );
-  const globalDefault = resolveDefaults(null, settings);
+  const connected = connectionIsConnected(savedConnection);
+  const defaultModel = globalModel(settings);
+  const reasoning = reasoningForModel(detection, draft.model);
   const busy = operation !== null;
+  const modelControlsVisible =
+    connected &&
+    !!detection &&
+    draft.executablePath === savedConnection?.config.executablePath;
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    if (operation !== "detect") return;
+    const started = Date.now();
+    const timer = window.setInterval(
+      () => setElapsed(Math.floor((Date.now() - started) / 1000)),
+      1000,
+    );
+    return () => window.clearInterval(timer);
+  }, [operation]);
   const [status, setStatus] = useState("");
   const [failed, setFailed] = useState(false);
   const [probeRecovery, setProbeRecovery] = useState(false);
@@ -81,14 +103,9 @@ export function AiSettings({
     isDefault: boolean;
   } | null>(null);
   const [deleteError, setDeleteError] = useState("");
-  useDraftBackup(
-    `ai-settings:${provider}`,
-    "AI 连接配置草稿",
-    draft,
-    JSON.stringify(draft) !==
-      JSON.stringify(savedConnection?.config ?? { ...empty, provider }),
-  );
+  useDraftBackup(`ai-settings:${provider}`, "AI 连接配置草稿", draft, dirty);
   const deleteTrigger = useRef<HTMLButtonElement>(null);
+  const settingsRoot = useRef<HTMLElement>(null);
 
   const modelAvailable = detection?.models.some(
     (option) => option.value === draft.model,
@@ -101,13 +118,53 @@ export function AiSettings({
         ? "正在保存配置，请稍候。"
         : operation === "manage" || operation === "delete"
           ? "正在保存连接状态，请稍候。"
-          : !detection
-            ? failed
-              ? "请检查上方错误说明，再点击“检测连接”。"
-              : "请先点击“检测连接”，获取可用模型后再保存。"
-            : !modelAvailable
-              ? "请选择一个可用模型后再保存。"
-              : "";
+          : !connected
+            ? "请检测连接，连接成功后即可使用。"
+            : draft.executablePath !== savedConnection?.config.executablePath
+              ? "安装路径已更改，请重新检测连接。"
+              : !detection
+                ? failed
+                  ? "请检查上方错误说明，再点击“检测连接”。"
+                  : "请先点击“检测连接”，获取可用模型后再保存。"
+                : !modelAvailable
+                  ? "请选择一个可用模型后再保存。"
+                  : "";
+
+  const feedback =
+    status ||
+    (savedConnection?.check.status === "error"
+      ? savedConnection.check.error
+      : "");
+  const feedbackFailed = status
+    ? failed
+    : savedConnection?.check.status === "error";
+  const showSaveHint =
+    !!saveBlockedReason && operation !== "detect" && !feedbackFailed;
+
+  function changeDraft(change: ConfigurationChanges) {
+    if (!dirty) checkConfiguration.accept(savedConnection?.config);
+    setChanges((previous) => {
+      const next = { ...previous, ...change };
+      for (const key of Object.keys(next) as (keyof ConfigurationChanges)[])
+        if (next[key] === savedConfig[key]) delete next[key];
+      return next;
+    });
+    setStatus("");
+    setFailed(false);
+  }
+
+  function acceptConfiguration(next: Settings, replaceDraft = true) {
+    const config = next.connections.find(
+      (item) => item.config.provider === provider,
+    )?.config;
+    onSaved(next);
+    checkConfiguration.accept(config);
+    // 清除已提交改动后，模型、等级和路径一起从共享记录显示。
+    if (replaceDraft && config) {
+      setChanges({});
+      setManualPath(!!config.executablePath);
+    }
+  }
 
   async function detect(
     model = "",
@@ -115,11 +172,12 @@ export function AiSettings({
     resetProbe = false,
   ) {
     setProbeRecovery(false);
+    setElapsed(0);
     setOperation("detect");
     setStatus("正在检测 Harness 与模型列表…");
     setFailed(false);
     try {
-      let resolvedPath = executablePath;
+      let detectionRevision = savedConnection?.revision ?? 0;
       const result = await detectConnection(
         executablePath,
         model,
@@ -128,25 +186,41 @@ export function AiSettings({
           settings?.defaultPath ??
           "",
         (path) => {
-          resolvedPath = path;
           setManualPath(true);
-          setDraft((previous) => ({ ...previous, executablePath: path }));
+          changeDraft({ executablePath: path });
           setStatus("正在检测默认安装位置…");
         },
-        (path, selected) =>
-          localAi.detect(path, selected, draft.provider, resetProbe),
+        async (path, selected) => {
+          try {
+            return await localAi.detect(
+              path,
+              selected,
+              draft.provider,
+              resetProbe,
+              detectionRevision,
+            );
+          } catch (error) {
+            if (
+              error instanceof LocalAiError &&
+              error.code === "program_missing"
+            ) {
+              const latest = await onRefresh();
+              detectionRevision =
+                latest?.connections.find(
+                  (item) => item.config.provider === provider,
+                )?.revision ?? 0;
+            }
+            throw error;
+          }
+        },
       );
-      setDetection(result);
-      setDraft((previous) => ({
-        ...previous,
-        executablePath: resolvedPath,
-        model: result.currentModel,
-        reasoningEffort: result.currentReasoning,
-      }));
-      setStatus(`已找到 ${result.models.length} 个模型。`);
-      await onRefresh();
+      const next = await onRefresh();
+      if (!next)
+        throw new Error("连接检测已完成，但未能读取配置，请重新打开 AI 配置。");
+      acceptConfiguration(next);
+      setStatus(`连接成功，已获取 ${result.models.length} 个模型。`);
     } catch (error) {
-      setDetection(null);
+      // 失败后保留后端目录，是否可操作只按刷新后的连接状态判断。
       setFailed(true);
       setProbeRecovery(
         error instanceof LocalAiError &&
@@ -179,67 +253,49 @@ export function AiSettings({
     try {
       checkConfiguration();
       const next = await localAi.save(draft, settings, {
-        enabled: savedConnection?.enabled ?? true,
-        makeDefault:
-          !settings?.defaultConnectionId && settings?.connections.length === 0,
+        enabled: true,
+        makeDefault: false,
       });
-      onSaved(next);
-      checkConfiguration.accept(
-        next.connections.find((item) => item.config.provider === provider)
-          ?.config,
-      );
+      acceptConfiguration(next);
       showSaved();
       setStatus("AI 配置已保存。");
     } catch (error) {
-      setFailed(true);
       await onRefresh();
       if (error instanceof LocalAiError && error.code === "program_missing") {
-        setDetection(null);
         setManualPath(true);
-        setDraft((previous) => ({
-          ...previous,
+        changeDraft({
           executablePath:
-            previous.executablePath ||
+            draft.executablePath ||
             settings?.services?.find((item) => item.provider === draft.provider)
               ?.defaultPath ||
             settings?.defaultPath ||
             "",
-        }));
+        });
       }
+      setFailed(true);
       setStatus(error instanceof Error ? error.message : "保存 AI 配置失败。");
     } finally {
       setOperation(null);
     }
   }
 
-  async function manage(action: "enabled" | "default") {
+  async function setDefaultModel() {
     if (!savedConnection || !settings) return;
     setOperation("manage");
     setFailed(false);
     try {
-      const next =
-        action === "default"
-          ? await localAi.setDefaultConnection(
-              savedConnection.id,
-              settings.preferencesRevision,
-            )
-          : await localAi.setConnectionEnabled(
-              savedConnection.id,
-              !savedConnection.enabled,
-              savedConnection.revision,
-            );
-      onSaved(next);
-      showSaved();
-      setStatus(
-        action === "default"
-          ? "已设为全局默认。"
-          : savedConnection.enabled
-            ? "已停用该连接，其他连接仍可使用。"
-            : "已启用该连接。",
+      const next = await localAi.setDefaultConnection(
+        savedConnection.id,
+        settings.preferencesRevision,
+        draft.model,
       );
+      // 设为默认不提交推理等级，保留表单中尚未保存的选择。
+      acceptConfiguration(next, false);
+      showSaved("全局默认模型已保存");
+      setStatus("全局默认模型已保存。");
     } catch (error) {
       setFailed(true);
-      setStatus(error instanceof Error ? error.message : "修改连接失败。");
+      setStatus(error instanceof Error ? error.message : "设置默认模型失败。");
       await onRefresh();
     } finally {
       setOperation(null);
@@ -249,14 +305,8 @@ export function AiSettings({
   function reset() {
     checkConfiguration.accept(savedConnection?.config);
     setProbeRecovery(false);
-    setDraft(
-      savedConnection?.config ?? {
-        ...empty,
-        provider: provider as AiConfig["provider"],
-      },
-    );
+    setChanges({});
     setManualPath(!!savedConnection?.config.executablePath);
-    setDetection(savedConnection?.detection ?? null);
     setStatus("已取消本次修改。");
     setFailed(false);
   }
@@ -264,8 +314,7 @@ export function AiSettings({
   function finishDelete(next: Settings) {
     checkConfiguration.accept(undefined);
     onSaved(next);
-    setDraft({ ...empty, provider: provider as AiConfig["provider"] });
-    setDetection(null);
+    setChanges({});
     setManualPath(false);
     setProbeRecovery(false);
     setPendingDelete(null);
@@ -301,7 +350,11 @@ export function AiSettings({
   }
 
   return (
-    <section className={styles.settings} aria-labelledby="ai-settings-heading">
+    <section
+      ref={settingsRoot}
+      className={styles.settings}
+      aria-labelledby="ai-settings-heading"
+    >
       <h3 id="ai-settings-heading">AI 配置</h3>
       <AlertDialog.Root
         open={pendingDelete !== null}
@@ -319,14 +372,20 @@ export function AiSettings({
             data-connection-delete-dialog=""
             onCloseAutoFocus={(event) => {
               event.preventDefault();
-              deleteTrigger.current?.focus();
+              // 删除成功后原按钮已移除，焦点回到仍存在的服务选择框。
+              const target = deleteTrigger.current?.isConnected
+                ? deleteTrigger.current
+                : settingsRoot.current?.querySelector<HTMLButtonElement>(
+                    '[aria-label="AI 服务"]',
+                  );
+              target?.focus({ preventScroll: true });
             }}
           >
-            <AlertDialog.Title>删除 AI 连接</AlertDialog.Title>
+            <AlertDialog.Title>删除 AI 配置</AlertDialog.Title>
             <AlertDialog.Description>
-              {`确定删除“${pendingDelete?.name ?? ""}”的连接配置吗？已有对话和教师配置保留，使用该连接时需要重新配置。`}
+              {`确定删除“${pendingDelete?.name ?? ""}”的连接配置吗？对话保留。`}
               {pendingDelete?.isDefault
-                ? "此连接是全局默认，删除后需要重新选择默认连接。"
+                ? "该服务包含全局默认模型，删除后需要重新选择默认模型。"
                 : ""}
             </AlertDialog.Description>
             {deleteError && <p role="alert">{deleteError}</p>}
@@ -340,7 +399,7 @@ export function AiSettings({
                   void removeConnection();
                 }}
               >
-                {operation === "delete" ? "删除中…" : "删除连接"}
+                {operation === "delete" ? "删除中…" : "删除配置"}
               </AlertDialog.Action>
             </div>
           </AlertDialog.Content>
@@ -365,13 +424,7 @@ export function AiSettings({
           const connection = settings?.connections?.find(
             (item) => item.config.provider === value,
           );
-          setDraft(
-            connection?.config ?? {
-              ...empty,
-              provider: value as AiConfig["provider"],
-            },
-          );
-          setDetection(connection?.detection ?? null);
+          setChanges({});
           setManualPath(!!connection?.config.executablePath);
           setStatus("");
           setFailed(false);
@@ -379,68 +432,13 @@ export function AiSettings({
         options={[
           ...(settings?.services ?? AI_PROVIDERS).map((item) => ({
             value: item.provider,
-            name: `${item.name}（${settings?.connections.some((connection) => connection.config.provider === item.provider) ? "已配置" : "未配置"}）`,
+            name: `${item.name}（${connectionIsConnected(settings?.connections.find((connection) => connection.config.provider === item.provider)) ? "已连接" : "未连接"}）`,
           })),
         ]}
       />
-      <p className={styles.hint}>
-        全局默认：
-        {globalDefault.configured
-          ? `${globalDefault.label}${globalDefault.error ? "（不可用）" : ""}`
-          : "未设置"}
-      </p>
-      {savedConnection && (
-        <div className={styles.connections}>
-          <button
-            disabled={busy || !!settings?.busy}
-            onClick={() => void manage("enabled")}
-          >
-            {savedConnection.enabled ? "停用连接" : "启用连接"}
-          </button>
-          <button
-            disabled={
-              busy ||
-              !savedConnection.enabled ||
-              savedConnection.check.status === "error" ||
-              settings?.defaultConnectionId === savedConnection.id
-            }
-            onClick={() => void manage("default")}
-          >
-            {settings?.defaultConnectionId === savedConnection.id
-              ? "全局默认"
-              : "设为全局默认"}
-          </button>
-          <button
-            className={styles.deleteConnection}
-            ref={deleteTrigger}
-            disabled={busy || !!settings?.busy}
-            onClick={() => {
-              if (!settings) return;
-              setDeleteError("");
-              setPendingDelete({
-                id: savedConnection.id,
-                revision: savedConnection.revision,
-                preferencesRevision: settings.preferencesRevision,
-                name:
-                  settings.services.find(
-                    (item) => item.id === savedConnection.id,
-                  )?.name ?? provider,
-                isDefault: settings.defaultConnectionId === savedConnection.id,
-              });
-            }}
-          >
-            删除连接
-          </button>
-        </div>
-      )}
-      {savedConnection?.check.status === "error" && (
-        <p role="alert" className={styles.problem}>
-          {savedConnection.check.error}
-        </p>
-      )}
       {
         <>
-          {manualPath && (
+          {(manualPath || !!draft.executablePath) && (
             <label>
               安装路径
               <input
@@ -449,69 +447,112 @@ export function AiSettings({
                 disabled={busy}
                 placeholder="填写应用或程序的完整路径"
                 onChange={(event) => {
-                  setDraft({
-                    ...draft,
+                  changeDraft({
                     executablePath: event.target.value,
                     model: "",
                     reasoningEffort: "",
                   });
-                  setDetection(null);
                   setStatus("");
                   setFailed(false);
                 }}
               />
             </label>
           )}
-          <div className={styles.detect}>
-            <button onClick={() => void detect(draft.model)} disabled={busy}>
+          <div
+            className={styles.connectionActions}
+            role="group"
+            aria-label="连接操作"
+          >
+            <button
+              className={styles.detectButton}
+              onClick={() => void detect(draft.model)}
+              disabled={busy || !settings}
+            >
               {operation === "detect" ? (
                 <LoaderCircle className={styles.spinning} aria-hidden="true" />
               ) : (
                 <RefreshCw aria-hidden="true" />
               )}
-              {operation === "detect" ? "检测中…" : "检测连接"}
+              {operation === "detect"
+                ? `检测中… ${elapsed} 秒`
+                : connected
+                  ? "重新检测"
+                  : "检测连接"}
+            </button>
+            <button
+              className={styles.deleteConnection}
+              ref={deleteTrigger}
+              disabled={busy || !savedConnection}
+              onClick={() => {
+                if (!settings || !savedConnection) return;
+                setDeleteError("");
+                setPendingDelete({
+                  id: savedConnection.id,
+                  revision: savedConnection.revision,
+                  preferencesRevision: settings.preferencesRevision,
+                  name:
+                    settings.services.find(
+                      (item) => item.id === savedConnection.id,
+                    )?.name ?? provider,
+                  isDefault: defaultModel?.connectionId === savedConnection.id,
+                });
+              }}
+            >
+              <Trash2 aria-hidden="true" />
+              删除配置
             </button>
           </div>
-          {detection && (
+          {modelControlsVisible && detection && (
             <>
-              <SettingsSelect
-                label="默认模型"
-                disabled={busy}
-                value={draft.model}
-                onValueChange={(value) => {
-                  setDraft({ ...draft, model: value });
-                  void detect(value);
-                }}
-                options={detection.models}
-              />
-              {!!detection.reasoningOptions.length && (
+              <div className={styles.modelFields}>
                 <SettingsSelect
-                  label="推理强度"
+                  label="模型"
+                  className={styles.modelField}
                   disabled={busy}
-                  value={draft.reasoningEffort}
-                  onValueChange={(value) =>
-                    setDraft({ ...draft, reasoningEffort: value })
+                  value={draft.model}
+                  onValueChange={(model) =>
+                    changeDraft({
+                      model,
+                      reasoningEffort: reasoningForModel(detection, model)
+                        .defaultValue,
+                    })
                   }
-                  options={detection.reasoningOptions.map((option) => ({
-                    ...option,
-                    name:
-                      { off: "不启用推理", low: "低", high: "高", max: "最高" }[
-                        option.value
-                      ] ?? option.name,
-                  }))}
+                  options={detection.models}
                 />
+                <SettingsSelect
+                  label="推理等级"
+                  className={styles.modelField}
+                  disabled={busy || !reasoning.options.length}
+                  value={reasoning.options.length ? draft.reasoningEffort : ""}
+                  placeholder={modelAvailable ? "暂无可选等级" : "请先选择模型"}
+                  onValueChange={(reasoningEffort) =>
+                    changeDraft({ reasoningEffort })
+                  }
+                  options={reasoning.options}
+                />
+              </div>
+              {!defaultModel && (
+                <p className={styles.hint}>当前未设置全局默认模型</p>
               )}
             </>
           )}
         </>
       }
-      {status && !busy && (
+      {feedback && (operation === "detect" || !busy) && (
         <p
-          className={failed ? styles.problem : styles.status}
-          role={failed ? "alert" : "status"}
+          className={feedbackFailed ? styles.problem : styles.status}
+          role={feedbackFailed ? "alert" : "status"}
+          id={feedbackFailed ? "ai-save-requirement" : undefined}
         >
-          {!failed && !busy && <Check aria-hidden="true" />}
-          {status}
+          {!feedbackFailed && !busy && <Check aria-hidden="true" />}
+          <span>
+            {feedback}
+            {operation === "detect" && elapsed >= 5 && (
+              <small className={styles.waiting}>
+                正在等待服务返回检测结果。
+              </small>
+            )}
+          </span>
         </p>
       )}
       {probeRecovery && (
@@ -529,12 +570,43 @@ export function AiSettings({
           重建检测会话
         </button>
       )}
-      {saveBlockedReason && (
+      {showSaveHint && (
         <p id="ai-save-requirement" className={styles.hint} role="status">
           {saveBlockedReason}
         </p>
       )}
-      <div className={styles.actions}>
+      <div className={`${styles.actions} ${styles.globalActions}`}>
+        <button
+          className={styles.defaultModelButton}
+          disabled={
+            busy ||
+            !modelControlsVisible ||
+            !modelAvailable ||
+            (defaultModel?.connectionId === savedConnection?.id &&
+              defaultModel?.modelId === draft.model)
+          }
+          onClick={() => void setDefaultModel()}
+          title={
+            defaultModel?.connectionId === savedConnection?.id &&
+            defaultModel?.modelId === draft.model
+              ? "当前全局默认模型"
+              : "设为全局默认模型"
+          }
+        >
+          <Star
+            aria-hidden="true"
+            fill={
+              defaultModel?.connectionId === savedConnection?.id &&
+              defaultModel?.modelId === draft.model
+                ? "currentColor"
+                : "none"
+            }
+          />
+          {defaultModel?.connectionId === savedConnection?.id &&
+          defaultModel?.modelId === draft.model
+            ? "已默认"
+            : "设为默认"}
+        </button>
         <button onClick={reset} disabled={busy}>
           取消修改
         </button>
@@ -543,7 +615,7 @@ export function AiSettings({
           onClick={() => void save()}
           disabled={!!saveBlockedReason}
           aria-describedby={
-            saveBlockedReason ? "ai-save-requirement" : undefined
+            showSaveHint || feedbackFailed ? "ai-save-requirement" : undefined
           }
         >
           {operation === "save" ? "保存中…" : "保存配置"}

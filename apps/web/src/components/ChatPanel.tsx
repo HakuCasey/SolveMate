@@ -26,6 +26,8 @@ import { ReplyActivity } from "./ReplyActivity";
 import { Markdown } from "./Markdown";
 import styles from "./ChatPanel.module.css";
 
+const stoppedReplyNote = "已停止生成，内容可能不完整。";
+
 interface ChatPanelProps {
   draft: string;
   onDraftChange: (draft: string) => void;
@@ -111,7 +113,7 @@ export function ChatPanel({
   async function submit(text: string) {
     const value = text.trim();
     if (!value || !robot || busy || archived) return;
-    if (configured && effectiveAi.error) {
+    if (effectiveAi.hasSelection && effectiveAi.error) {
       setNotice(effectiveAi.error);
       return;
     }
@@ -230,7 +232,7 @@ export function ChatPanel({
 
       {!busy && lastTurn?.status === "cancelled" && (
         <p className={styles.replyNote} role="status">
-          已停止生成，已收到的内容仍保留。
+          {stoppedReplyNote}
         </p>
       )}
       {!busy && lastTurn?.status === "interrupted" && !failure && (
@@ -278,9 +280,7 @@ export function ChatPanel({
             aria-controls={aiSettingsOpen ? "ai-settings-popover" : undefined}
           >
             <Settings2 aria-hidden="true" />
-            <span>
-              {configured || effectiveAi.hasSelection ? effectiveAi.label : ""}
-            </span>
+            <span>{!effectiveAi.error ? effectiveAi.label : ""}</span>
           </button>
           {(!configured || effectiveAi.error) && (
             <small
@@ -334,7 +334,7 @@ export function ChatPanel({
             const terminalText =
               associatedTurn?.error ||
               (associatedTurn?.status === "cancelled"
-                ? "已停止生成，已收到的内容仍保留。"
+                ? stoppedReplyNote
                 : "生成已中断，已收到的内容仍保留。");
             const missingReply =
               message.role === "user" &&
@@ -365,6 +365,12 @@ export function ChatPanel({
                     <div className={styles.author}>
                       <AuthorIcon aria-hidden="true" />
                       {message.botName ?? author?.name ?? "机器人"}
+                      {associatedTurn?.status === "cancelled" && (
+                        <span className={styles.stoppedBadge}>
+                          <Square aria-hidden="true" />
+                          已停止
+                        </span>
+                      )}
                     </div>
                   )}
                   {message.example && (
@@ -413,7 +419,7 @@ export function ChatPanel({
               lastTurn.status === "interrupted") && (
               <article
                 className={`${styles.assistantMessage} ${styles.pendingReply}`}
-                aria-label="教师回复"
+                aria-label="机器人回复"
               >
                 <div className={styles.author}>
                   <Icon aria-hidden="true" />

@@ -5,6 +5,16 @@ import { aiSettings } from "./fixtures.test-support";
 afterEach(() => vi.unstubAllGlobals());
 
 describe("local AI HTTP connection", () => {
+  it("reports a request timeout separately from an unavailable local service", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockRejectedValue(new DOMException("Timeout", "TimeoutError")),
+    );
+    await expect(localAi.detect("", "", "hermes")).rejects.toMatchObject({
+      code: "request_timeout",
+      message: expect.stringContaining("响应超时"),
+    });
+  });
   it("renames only the bound native session and requires an explicit result", async () => {
     const fetcher = vi
       .fn()

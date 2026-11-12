@@ -33,16 +33,18 @@ describe("shared robot and conversation AI metadata", () => {
     );
     expect(robotAiError(robot.aiDefaults, aiSettings())).toBe("");
   });
-  it("does not reuse stored catalogs when AI is disabled", () => {
+  it("does not reuse stored catalogs when AI is disconnected", () => {
+    const robot = createRobot();
+    robot.aiDefaults = { connectionId: "deepseek-local", modelId: "a" };
     expect(
-      resolveRobotAi(createRobot(), {
+      resolveRobotAi(robot, {
         ...aiSettings(),
         connections: aiSettings().connections.map((item) => ({
           ...item,
           enabled: false,
         })),
       }).error,
-    ).toContain("停用");
+    ).toContain("未连接");
   });
   it("retains a removed model and reports a useful error until the catalog recovers", () => {
     const robot = createRobot();
@@ -54,6 +56,46 @@ describe("shared robot and conversation AI metadata", () => {
     settings.connections[0].detection.models.pop();
     expect(resolveRobotAi(robot, settings).error).toContain("不可用");
     expect(robotAiError(robot.aiDefaults, aiSettings())).toBe("");
+  });
+  it("refreshes available choices without removing historical session references", () => {
+    const data = createInitialData();
+    const robot = data.robots[0];
+    robot.aiDefaults = { connectionId: "deepseek-local", modelId: "b" };
+    const session = createConversation(data, null, robot.id, aiSettings());
+    const settings = aiSettings();
+    settings.connections = settings.connections.filter(
+      (item) => item.id !== "deepseek-local",
+    );
+    settings.defaultConnectionId = null;
+    settings.defaultModel = null;
+    settings.deletedConnectionIds = ["deepseek-local"];
+    for (const selection of [
+      resolveRobotAi(robot, settings),
+      resolveConversationAi(session, robot, settings),
+    ]) {
+      expect(selection.label).toBe("AI 配置");
+      expect(selection.modelName).toBe("");
+      expect(selection.error).toContain("已删除");
+    }
+    expect(robot.aiDefaults).toEqual({
+      connectionId: "deepseek-local",
+      modelId: "b",
+    });
+    expect(session.aiConfig).toEqual(robot.aiDefaults);
+    expect(resolveConversationAi(session, robot, aiSettings()).label).toBe(
+      "DSH | DeepSeek-V4-Pro",
+    );
+  });
+  it("reads a new global default while keeping an existing session's explicit model", () => {
+    const data = createInitialData();
+    const robot = data.robots[0];
+    robot.aiDefaults = null;
+    const session = createConversation(data, null, robot.id, aiSettings());
+    const settings = aiSettings();
+    settings.defaultModel = { connectionId: "deepseek-local", modelId: "b" };
+    expect(resolveRobotAi(robot, settings).label).toBe("DSH | DeepSeek-V4-Pro");
+    expect(resolveConversationAi(undefined, robot, settings).model).toBe("b");
+    expect(resolveConversationAi(session, robot, settings).model).toBe("a");
   });
   it("extracts AI values without publishing unsaved persona fields", () => {
     const robot = createRobot(),
@@ -266,7 +308,7 @@ describe("external connections and internal AI selections", () => {
     const result = resolveRobotAi(robot, settings);
     expect(result.connectionId).toBe("hermes-local");
     expect(result.model).toBe("b");
-    expect(result.error).toContain("停用");
+    expect(result.error).toContain("未连接");
   });
 });
 
@@ -284,7 +326,7 @@ it("retains a deleted connection and model instead of falling back to the global
   const result = resolveConversationAi(conversation, robot, settings);
   expect(result.connectionId).toBe("deepseek-local");
   expect(result.model).toBe("a");
-  expect(result.label).toBe("DSH | a");
+  expect(result.label).toBe("AI 配置");
   expect(result.deleted).toBe(true);
   expect(conversation.aiConfig).toEqual({
     connectionId: "deepseek-local",

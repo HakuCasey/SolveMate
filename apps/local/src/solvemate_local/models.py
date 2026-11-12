@@ -73,11 +73,13 @@ class ConnectionDelete(RequestModel):
 
 
 class DefaultConnection(RequestModel):
+    modelId: str | None = Field(default=None, min_length=1, max_length=1000)
     expectedRevision: int = Field(ge=0)
     connectionId: str = Field(min_length=1, max_length=100)
 
 
 class DetectRequest(RequestModel):
+    expectedRevision: int | None = Field(default=None, ge=0)
     provider: Provider = "deepseek-harness"
     resetProbe: bool = False
     executablePath: str = Field(default="", max_length=2000)

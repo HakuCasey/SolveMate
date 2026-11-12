@@ -1,0 +1,28 @@
+<mxfile host="app.diagrams.net" type="device">
+  <diagram id="ai-connection-state" name="服务连接状态">
+    <mxGraphModel page="1" pageWidth="1120" pageHeight="340">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="heading" value="AI 服务连接状态" style="text;html=0;align=center;fontSize=24;fontColor=#243247;" vertex="1" parent="1">
+          <mxGeometry x="310" y="20" width="500" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="disconnected" value="未连接&#10;保留输入 · 可以重新检测" style="rounded=1;whiteSpace=wrap;html=0;arcSize=16;fontSize=18;fillColor=#F1F3F6;strokeColor=#A5AFBC;fontColor=#243247;" vertex="1" parent="1">
+          <mxGeometry x="100" y="120" width="260" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="connected" value="已连接&#10;可以选择模型并使用" style="rounded=1;whiteSpace=wrap;html=0;arcSize=16;fontSize=18;fillColor=#EDF4FF;strokeColor=#6A91C7;fontColor=#243247;" vertex="1" parent="1">
+          <mxGeometry x="760" y="120" width="260" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="connect" value="检测连接成功" style="edgeStyle=orthogonalEdgeStyle;html=0;endArrow=block;endFill=1;strokeColor=#63748B;fontSize=15;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.25;entryX=0;entryY=0.25;" edge="1" parent="1" source="disconnected" target="connected">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="disconnect" value="断开连接／连接失效" style="edgeStyle=orthogonalEdgeStyle;html=0;endArrow=block;endFill=1;strokeColor=#63748B;fontSize=15;labelBackgroundColor=#FFFFFF;exitX=0;exitY=0.78;entryX=1;entryY=0.78;" edge="1" parent="1" source="connected" target="disconnected">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="note" value="检测失败仍为未连接：保留路径和配置，显示原因并允许重试" style="text;html=0;align=center;fontSize=16;fontColor=#243247;" vertex="1" parent="1">
+          <mxGeometry x="100" y="278" width="920" height="30" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

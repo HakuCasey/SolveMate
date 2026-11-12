@@ -30,6 +30,11 @@ export function SettingsSelect({
   placeholder = "请选择",
 }: SettingsSelectProps) {
   const id = useId();
+  // 服务可能用空字符串表示默认选项；Radix 将空值保留给未选择状态。
+  const emptyOptionValue = `${id}:empty-option`;
+  const hasEmptyOption = options.some((option) => option.value === "");
+  const selectValue = (value: string) =>
+    value === "" && hasEmptyOption ? emptyOptionValue : value;
   const groups = [...new Set(options.map((option) => option.group ?? ""))];
 
   function items(group: string) {
@@ -38,7 +43,7 @@ export function SettingsSelect({
       .map((option) => (
         <Select.Item
           key={option.value}
-          value={option.value}
+          value={selectValue(option.value)}
           disabled={option.disabled}
           className={styles.item}
           data-emphasized={option.emphasized || undefined}
@@ -55,8 +60,10 @@ export function SettingsSelect({
     <div className={`${styles.field} ${className}`}>
       <label htmlFor={id}>{label}</label>
       <Select.Root
-        value={value}
-        onValueChange={onValueChange}
+        value={selectValue(value)}
+        onValueChange={(next) =>
+          onValueChange(next === emptyOptionValue ? "" : next)
+        }
         disabled={disabled}
       >
         <Select.Trigger

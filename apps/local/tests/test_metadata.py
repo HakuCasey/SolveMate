@@ -101,14 +101,17 @@ def test_settings_are_one_default_reference_and_stale_saves_are_rejected(tmp_pat
 
 def test_snapshot_keeps_requested_model_and_no_unreported_actual_model(tmp_path):
     with client_for(tmp_path) as client:
-        connect(client)
+        settings = connect(client)
         request = payload()
         request["model"] = "opaque-model-a"
         client.post("/local-api/v1/turns", json=request)
         result = settled(client, request["id"])
         validate_metadata("AiTurn", result)
         assert result["snapshot"]["requestedModelId"] == request["model"]
-        assert result["snapshot"]["connectionRevision"] == 1
+        assert (
+            result["snapshot"]["connectionRevision"]
+            == settings["connections"][0]["revision"]
+        )
         assert result["dispatch"]["submittedModelId"] == request["model"]
         assert result["reportedModelId"] is None
         assert result["binding"]["externalSessionId"] == result["externalSessionId"]
@@ -193,7 +196,7 @@ def test_connection_management_is_independent_of_default_and_other_connections(
             json={"expectedRevision": dsh["revision"], "enabled": False},
         )
         assert updated.status_code == 200
-        assert updated.json()["defaultConnectionId"] == "deepseek-local"
+        assert updated.json()["defaultConnectionId"] is None
         request = {**payload(), "connectionId": "hermes-local"}
         assert client.post("/local-api/v1/turns", json=request).status_code == 202
         assert settled(client, request["id"])["status"] == "completed"
@@ -206,7 +209,7 @@ def test_connection_management_is_independent_of_default_and_other_connections(
             "/local-api/v1/default-connection",
             json={
                 "connectionId": "hermes-local",
-                "expectedRevision": settings["preferencesRevision"],
+                "expectedRevision": updated.json()["preferencesRevision"],
             },
         )
         assert selected.status_code == 200
@@ -249,10 +252,14 @@ def test_failed_detection_preserves_config_catalog_and_can_recover(
         assert saved["check"]["status"] == "error"
         assert saved["config"] == current["config"]
         assert saved["detection"] == current["detection"]
-        assert failed_settings["defaultConnectionId"] == settings["defaultConnectionId"]
+        assert failed_settings["defaultConnectionId"] is None
+        assert failed_settings["defaultModel"] is None
         assert (
-            client.post("/local-api/v1/turns", json=payload()).json()["code"]
-            == "connection_unavailable"
+            client.post(
+                "/local-api/v1/turns",
+                json={**payload(), "connectionId": "deepseek-local"},
+            ).json()["code"]
+            == "connection_disabled"
         )
         monkeypatch.setattr(service.connections, "probe", original)
         response = client.post(

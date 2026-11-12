@@ -52,6 +52,7 @@ class Store:
         try:
             self._migrate_metadata()
             self._migrate_connections()
+            self._migrate_default_model()
         except BaseException:
             self.db.close()
             raise
@@ -166,7 +167,9 @@ class Store:
                 "INSERT OR IGNORE INTO metadata_backups VALUES (2,?)",
                 (json.dumps(backup, ensure_ascii=False),),
             )
-            preference = self.preferences()
+            preference = json.loads(
+                self.db.execute("SELECT value FROM config WHERE id=1").fetchone()[0]
+            )
             for ident, value in self.connections().items():
                 value.update(
                     enabled=value.get("enabled", preference["enabled"]),
@@ -185,9 +188,21 @@ class Store:
             )
             self.db.execute("PRAGMA user_version=3")
 
+    def _migrate_default_model(self):
+        row = self.db.execute("SELECT value FROM config WHERE id=1").fetchone()
+        if row and "defaultModel" in json.loads(row[0]):
+            return
+        value = self.preferences()
+        if row:
+            value["revision"] += 1
+        with self.db:
+            self.db.execute(
+                "INSERT OR REPLACE INTO config VALUES (1, ?)", (json.dumps(value),)
+            )
+
     def preferences(self):
         row = self.db.execute("SELECT value FROM config WHERE id=1").fetchone()
-        return (
+        value = (
             json.loads(row[0])
             if row
             else {
@@ -197,6 +212,22 @@ class Store:
                 "defaultConnectionId": None,
             }
         )
+        # 旧默认连接在读取边界转换为明确的模型引用，不改写历史会话。
+        if "defaultModel" not in value:
+            ident = value.get("defaultConnectionId")
+            saved = self.connections().get(ident)
+            value["defaultModel"] = (
+                {"connectionId": ident, "modelId": saved["config"]["model"]}
+                if saved
+                and saved["enabled"]
+                and saved["check"]["status"] != "error"
+                and saved["config"]["model"]
+                else None
+            )
+        value["defaultConnectionId"] = (
+            value["defaultModel"]["connectionId"] if value["defaultModel"] else None
+        )
+        return value
 
     def config(self):
         # 旧内部调用的只读投影；保存源仅为默认连接编号与连接表。
@@ -223,7 +254,12 @@ class Store:
                     "AI 配置已在其他窗口更新，请重新读取后再停用。",
                     "configuration_conflict",
                 )
-            previous.update(enabled=False, revision=previous["revision"] + 1)
+            previous.update(
+                enabled=False,
+                defaultConnectionId=None,
+                defaultModel=None,
+                revision=previous["revision"] + 1,
+            )
             for ident, connection in self.connections().items():
                 connection.update(enabled=False, revision=connection["revision"] + 1)
                 self.db.execute(
@@ -340,6 +376,7 @@ class Store:
             )
             if preference["defaultConnectionId"] == ident:
                 preference["defaultConnectionId"] = None
+                preference["defaultModel"] = None
             preference.update(
                 revision=preference["revision"] + 1,
                 enabled=any(value["enabled"] for value in self.connections().values()),
@@ -398,14 +435,36 @@ class Store:
                 "INSERT OR REPLACE INTO connections VALUES (?, ?)",
                 (ident, json.dumps(normalized, ensure_ascii=False)),
             )
+            default = preference.get("defaultModel")
+            if (
+                default
+                and default["connectionId"] == ident
+                and (
+                    not normalized["enabled"]
+                    or default["modelId"]
+                    not in {item["value"] for item in normalized["detection"]["models"]}
+                )
+            ):
+                preference.update(
+                    defaultConnectionId=None,
+                    defaultModel=None,
+                    revision=preference["revision"] + 1,
+                )
+                self.db.execute(
+                    "UPDATE config SET value=? WHERE id=1", (json.dumps(preference),)
+                )
             if make_default:
                 if not normalized["enabled"]:
                     raise ConnectionError(
-                        "请先启用连接，再设为全局默认。", "connection_disabled"
+                        "请先检测连接，再设置全局默认模型。", "connection_disabled"
                     )
                 preference.update(
                     enabled=True,
                     defaultConnectionId=ident,
+                    defaultModel={
+                        "connectionId": ident,
+                        "modelId": normalized["config"]["model"],
+                    },
                     revision=preference["revision"] + 1,
                 )
                 self.db.execute(
@@ -413,7 +472,7 @@ class Store:
                     (json.dumps(preference),),
                 )
 
-    def set_default(self, ident, expected_revision):
+    def set_default(self, ident, expected_revision, model_id=None):
         from .errors import ConnectionError
 
         with self.db:
@@ -430,11 +489,28 @@ class Store:
                 or connection["check"]["status"] == "error"
             ):
                 raise ConnectionError(
-                    "该连接未启用或检测失败，请先检查连接配置。",
+                    "该服务未连接，请先检测连接。",
                     "connection_unavailable",
+                )
+            selected = model_id or connection["config"]["model"]
+            if selected not in {m["value"] for m in connection["detection"]["models"]}:
+                raise ConnectionError(
+                    "所选模型不在当前目录中，请重新检测。", "model_missing"
+                )
+            if connection["config"]["model"] != selected:
+                connection["config"] = {
+                    **connection["config"],
+                    "model": selected,
+                    "reasoningEffort": "",
+                }
+                connection["revision"] += 1
+                self.db.execute(
+                    "UPDATE connections SET value=? WHERE id=?",
+                    (json.dumps(connection), ident),
                 )
             preference.update(
                 defaultConnectionId=ident,
+                defaultModel={"connectionId": ident, "modelId": selected},
                 enabled=True,
                 revision=preference["revision"] + 1,
             )
@@ -458,6 +534,18 @@ class Store:
             self.db.execute(
                 "UPDATE connections SET value=? WHERE id=?", (json.dumps(value), ident)
             )
+            if not enabled:
+                preference = self.preferences()
+                if preference["defaultConnectionId"] == ident:
+                    preference.update(
+                        defaultConnectionId=None,
+                        defaultModel=None,
+                        revision=preference["revision"] + 1,
+                    )
+                    self.db.execute(
+                        "UPDATE config SET value=? WHERE id=1",
+                        (json.dumps(preference),),
+                    )
 
     def record_connection_check(self, ident, status, error=None):
         # 检测状态独立更新，失败时不覆盖已保存的安装位置和模型目录。

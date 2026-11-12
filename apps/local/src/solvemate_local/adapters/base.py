@@ -100,8 +100,11 @@ class HarnessAdapter:
     async def label_probe(self, process, sid):
         pass
 
-    async def release_probe(self, process, sid):
+    async def release_session(self, process, sid):
         pass
+
+    async def release_probe(self, process, sid):
+        await self.release_session(process, sid)
 
 
 class AcpAdapter(HarnessAdapter):

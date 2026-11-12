@@ -53,7 +53,7 @@ def test_delete_default_preserves_history_bindings_and_other_connection(tmp_path
         assert repeated.json()["preferencesRevision"] == updated["preferencesRevision"]
     with sqlite3.connect(tmp_path / "state.sqlite3") as db:
         deleted = db.execute("SELECT * FROM deleted_connections").fetchone()
-        assert deleted[1] == 2
+        assert deleted[1] == settings["connections"][0]["revision"] + 1
         assert len(deleted) == 3  # 只保留编号、版本和删除时间，不保存已删除配置正文。
         assert (
             db.execute("SELECT external_id FROM bindings").fetchone()[0]
@@ -89,17 +89,18 @@ def test_deleted_connection_revision_cannot_delete_a_recreated_connection(tmp_pa
         assert len(client.get("/local-api/v1/settings").json()["connections"]) == 1
 
 
-def test_delete_running_connection_is_rejected_without_changing_data(tmp_path):
+def test_delete_running_connection_stops_owned_job_and_preserves_history(tmp_path):
     with client_for(tmp_path) as client:
         settings = connect(client)
         request = payload("wait-test")
         client.post("/local-api/v1/turns", json=request)
         response = remove(client, settings)
-        assert response.status_code == 409
-        assert response.json()["code"] == "connection_busy"
-        assert len(client.get("/local-api/v1/settings").json()["connections"]) == 1
-        client.post(f"/local-api/v1/turns/{request['id']}/cancel", json={})
-        settled(client, request["id"])
+        assert response.status_code == 200
+        assert client.get("/local-api/v1/settings").json()["connections"] == []
+        assert settled(client, request["id"])["status"] == "cancelled"
+        assert client.get(
+            f"/local-api/v1/conversations/{request['conversationId']}/turns"
+        ).json()
 
 
 def test_delete_conflict_and_persistence_survive_service_restart(tmp_path):
@@ -107,7 +108,12 @@ def test_delete_conflict_and_persistence_survive_service_restart(tmp_path):
         settings = connect(client)
         stale = {
             **settings,
-            "connections": [{**settings["connections"][0], "revision": 2}],
+            "connections": [
+                {
+                    **settings["connections"][0],
+                    "revision": settings["connections"][0]["revision"] - 1,
+                }
+            ],
         }
         assert remove(client, stale).status_code == 409
         assert remove(client, settings).status_code == 200
