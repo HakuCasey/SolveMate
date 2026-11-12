@@ -14,6 +14,7 @@ import {
   Moon,
   NotebookPen,
   PawPrint,
+  School,
   Settings as SettingsIcon,
   SlidersHorizontal,
   SquareFunction,
@@ -33,7 +34,8 @@ import { AiSettings } from "./AiSettings";
 import userAvatar from "../assets/user-avatar.png";
 import styles from "./Sidebar.module.css";
 
-type View = "reading" | "conversations" | "notes" | "robots" | "content";
+type View =
+  "reading" | "conversations" | "notes" | "teaching" | "robots" | "content";
 
 interface SidebarProps {
   subjects: { id: CourseId; title: string }[];
@@ -336,6 +338,16 @@ export function Sidebar({
       >
         <NotebookPen aria-hidden="true" />
         <span>笔记</span>
+      </button>
+      <button
+        className={styles.primaryButton}
+        type="button"
+        aria-pressed={view === "teaching"}
+        disabled={disabled}
+        onClick={() => navigate("teaching")}
+      >
+        <School aria-hidden="true" />
+        <span>教研室</span>
       </button>
       <button
         className={styles.primaryButton}

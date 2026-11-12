@@ -51,7 +51,8 @@ import styles from "./App.module.css";
 import { clientRuntime } from "./version";
 import { useSaveFeedback } from "./components/SaveFeedback";
 
-type View = "reading" | "conversations" | "notes" | "robots" | "content";
+type View =
+  "reading" | "conversations" | "notes" | "teaching" | "robots" | "content";
 
 export function App() {
   const content = useOfficialContent();
@@ -581,7 +582,9 @@ function Workspace({ content }: { content: OfficialContent }) {
                 : "static"
             }
             className={styles.columns}
-            hidden={view === "robots" || view === "content"}
+            hidden={
+              view === "robots" || view === "content" || view === "teaching"
+            }
             enabled={view === "reading" || view === "conversations"}
             ratio={data.settings.readingPaneRatio ?? 0.5}
             onRatioChange={(readingPaneRatio) =>
@@ -741,6 +744,11 @@ function Workspace({ content }: { content: OfficialContent }) {
                 else selectCourse(id, "questions");
               }}
             />
+          )}
+          {view === "teaching" && (
+            <section className={styles.teachingRoom} aria-label="教研室">
+              <h1>教研室</h1>
+            </section>
           )}
           <div className={styles.robots} hidden={view !== "robots"}>
             <RobotsPage

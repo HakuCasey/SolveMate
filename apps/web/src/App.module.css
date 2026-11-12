@@ -21,6 +21,18 @@
   min-width: 0;
   min-height: 0;
 }
+.teachingRoom {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  padding: 24px;
+  overflow: auto;
+}
+.teachingRoom h1 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 500;
+}
 .columns {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
