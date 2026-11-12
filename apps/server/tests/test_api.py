@@ -141,7 +141,10 @@ def test_updates_keep_previous_versions_available_without_restart(
         == "up_to_date"
     )
     textbook = content_settings.data_dir / "calculus/textbooks/primer.md"
-    textbook.write_text(textbook.read_text() + "\n新增的课程说明。\n")
+    textbook.write_text(
+        textbook.read_text(encoding="utf-8") + "\n新增的课程说明。\n",
+        encoding="utf-8",
+    )
     publish(content_settings.data_dir, content_settings.content_dir)
     update = client.get(
         endpoint, params={"current_version": original["version"]}

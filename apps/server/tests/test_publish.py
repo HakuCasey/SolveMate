@@ -98,7 +98,9 @@ def test_package_write_failure_does_not_commit_new_catalog(
     root = content_settings.content_dir
     before = (root / "catalog.json").read_bytes()
     path = content_settings.data_dir / "calculus/textbooks/primer.md"
-    path.write_text(path.read_text() + "\nNew content.\n")
+    path.write_text(
+        path.read_text(encoding="utf-8") + "\nNew content.\n", encoding="utf-8"
+    )
     original_replace = module.os.replace
 
     def fail_package_commit(source, destination):
