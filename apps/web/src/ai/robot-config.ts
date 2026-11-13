@@ -26,10 +26,13 @@ export const AI_PROVIDERS = [
     shortName: "Codex",
   },
 ];
+export function supportedServices(settings: AiSettings | null) {
+  return settings?.services ?? AI_PROVIDERS;
+}
 export function providerInfo(provider: string, settings: AiSettings | null) {
-  const info =
-    settings?.services.find((item) => item.provider === provider) ??
-    AI_PROVIDERS.find((item) => item.provider === provider);
+  const info = supportedServices(settings).find(
+    (item) => item.provider === provider,
+  );
   return {
     name: info?.name ?? provider,
     shortName: info?.shortName ?? info?.name ?? provider,
@@ -78,7 +81,12 @@ export function globalModel(settings: AiSettings | null) {
 export function configuredConnections(
   settings: AiSettings | null,
 ): AiConnection[] {
-  return settings?.connections.filter(connectionIsConnected) ?? [];
+  return supportedServices(settings).flatMap((service) => {
+    const connection = settings?.connections.find(
+      (item) => item.id === service.id,
+    );
+    return connectionIsConnected(connection) && connection ? [connection] : [];
+  });
 }
 /** 读取原选择时保留停用和检测失败的连接，供界面说明原因，不能退回其他服务。 */
 export function connectionFor(settings: AiSettings | null, id?: string | null) {

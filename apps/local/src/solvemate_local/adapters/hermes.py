@@ -4,9 +4,11 @@ import shutil
 import sys
 from pathlib import Path
 
+from ..acp import describe_options
 from ..errors import ConnectionError
 from ..transport import AcpTransport
 from .base import AcpAdapter, acp_permission, acp_update
+from .hermes_reasoning import session_reasoning
 from .types import HarnessSession
 
 
@@ -87,6 +89,27 @@ class HermesAdapter(AcpAdapter):
             executable, workspace, acp_update(on_update), acp_permission(on_permission)
         )
 
+    async def inspect_session(self, process, session):
+        options = session.options
+        native = bool(options["reasoningOptions"])
+        if not native:
+            options.update(await session_reasoning(process, session.id))
+        # Hermes 的推理等级属于会话，模型目录中的每项复用同一份原生选项。
+        options["models"] = [
+            {
+                **model,
+                "reasoningOptions": options["reasoningOptions"],
+                "defaultReasoning": options["currentReasoning"],
+            }
+            for model in options["models"]
+        ]
+        if not hasattr(process, "session_options"):
+            process.session_options = {}
+            process.native_reasoning = {}
+        process.session_options[session.id] = options
+        process.native_reasoning[session.id] = native
+        return session
+
     async def resume(self, process, sid, workspace):
         # 某些旧版 Hermes 的 resume 会在找不到会话时新建；load 不会替换原编号。
         if not process.capabilities.get("loadSession"):
@@ -102,7 +125,7 @@ class HermesAdapter(AcpAdapter):
                 "Hermes 未找到原会话。请检查当前 Hermes 的会话记录；SolveMate 中的记录仍保留，未创建新会话。",
                 "session_missing",
             )
-        if not isinstance(result, dict) or not result.get("models"):
+        if not isinstance(result, dict):
             raise ConnectionError(
                 "Hermes 返回的会话信息不完整，未继续提问。", "session_invalid"
             )
@@ -110,7 +133,13 @@ class HermesAdapter(AcpAdapter):
             raise ConnectionError(
                 "Hermes 返回的会话编号与原绑定不同，未继续提问。", "binding_mismatch"
             )
-        return HarnessSession(sid, self.describe(result))
+        if not self.describe(result)["models"]:
+            raise ConnectionError(
+                "Hermes 返回的会话信息不完整，未继续提问。", "session_invalid"
+            )
+        return await self.inspect_session(
+            process, HarnessSession(sid, self.describe(result))
+        )
 
     async def label_probe(self, process, sid):
         # Hermes 的 /title 是本地会话命令，不请求模型生成标题。
@@ -162,8 +191,10 @@ class HermesAdapter(AcpAdapter):
     @staticmethod
     def describe(session):
         models = session.get("models") or {}
+        described = describe_options(session)
         return {
-            "models": [
+            "models": described["models"]
+            or [
                 {
                     "value": item["modelId"],
                     "name": item.get("name", item["modelId"]),
@@ -171,23 +202,51 @@ class HermesAdapter(AcpAdapter):
                 }
                 for item in models.get("availableModels", [])
             ],
-            "currentModel": models.get("currentModelId", ""),
-            "reasoningOptions": [],
-            "currentReasoning": "",
+            "currentModel": described["currentModel"]
+            or models.get("currentModelId", ""),
+            "reasoningOptions": described["reasoningOptions"],
+            "currentReasoning": described["currentReasoning"],
         }
 
     async def select_model(self, process, sid, model, session):
         # Hermes 使用不透明的 provider:model 标识；不能从显示名称反推模型编号。
-        await process.call("session/set_model", {"sessionId": sid, "modelId": model})
-        result = (
-            dict(session.options)
-            if session
-            else {"models": [], "reasoningOptions": [], "currentReasoning": ""}
+        if session and sid not in getattr(process, "session_options", {}):
+            session = await self.inspect_session(process, session)
+        response = await process.call(
+            "session/set_model", {"sessionId": sid, "modelId": model}
         )
+        result = dict(session.options if session else process.session_options[sid])
+        if response.get("configOptions") and process.native_reasoning[sid]:
+            updated = describe_options(response)
+            result.update(
+                {key: updated[key] for key in ("reasoningOptions", "currentReasoning")}
+            )
         result["currentModel"] = model
+        process.session_options[sid] = result
         return result
 
     async def select_reasoning(self, process, sid, value):
-        raise ConnectionError(
-            "Hermes 未提供此推理强度选项，请清空该配置。", "reasoning_unsupported"
+        options = process.session_options[sid]
+        if value not in {item["value"] for item in options["reasoningOptions"]}:
+            raise ConnectionError(
+                "Hermes 不支持所选推理等级，请重新选择。", "reasoning_unsupported"
+            )
+        if process.native_reasoning[sid]:
+            result = await process.call(
+                "session/set_config_option",
+                {
+                    "sessionId": sid,
+                    "configId": "reasoning_effort",
+                    "value": value,
+                },
+            )
+            updated = describe_options(result)
+            if updated["currentReasoning"] != value:
+                raise ConnectionError(
+                    "Hermes 未确认所选推理等级，未继续提问。", "reasoning_unavailable"
+                )
+        else:
+            updated = await session_reasoning(process, sid, value)
+        options.update(
+            {key: updated[key] for key in ("reasoningOptions", "currentReasoning")}
         )

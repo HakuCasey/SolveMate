@@ -333,3 +333,18 @@ it("retains a deleted connection and model instead of falling back to the global
     modelId: "a",
   });
 });
+
+it("orders connected services by the shared supported directory", async () => {
+  const { configuredConnections, supportedServices } =
+    await import("./robot-config");
+  const settings = aiSettings("hermes");
+  settings.connections.reverse();
+  expect(configuredConnections(settings).map((item) => item.id)).toEqual(
+    supportedServices(settings).map((item) => item.id),
+  );
+  settings.connections = settings.connections.filter(
+    (item) => item.id !== "deepseek-local",
+  );
+  expect(supportedServices(settings)[0].provider).toBe("deepseek-harness");
+  expect(configuredConnections(settings)[0].config.provider).toBe("hermes");
+});

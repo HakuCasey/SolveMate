@@ -81,23 +81,6 @@
 .day[data-future="true"] {
   opacity: 0.35;
 }
-.popover {
-  z-index: 50;
-  box-sizing: border-box;
-  width: 300px;
-  max-width: calc(100vw - 24px);
-  padding: 18px;
-  color: var(--sm-ink);
-  border: 1px solid var(--sm-line);
-  border-radius: 16px;
-  background: var(--sm-paper);
-  box-shadow: var(--sm-shadow-popover);
-}
-.popover h3 {
-  font-size: 13px;
-  font-weight: 500;
-  margin: 0 0 18px;
-}
 .metrics {
   display: flex;
   align-items: center;
@@ -138,9 +121,6 @@
   margin: 7px 0 0;
   color: var(--sm-soft);
   font-size: 11px;
-}
-.arrow {
-  fill: var(--sm-paper);
 }
 .tooltip {
   z-index: 70;

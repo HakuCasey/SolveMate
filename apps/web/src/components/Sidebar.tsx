@@ -1,3 +1,4 @@
+import { PopoverPanel } from "./PopoverPanel";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ContextMenu, Popover } from "radix-ui";
 import {
@@ -220,8 +221,10 @@ export function Sidebar({
             >
               <img className={styles.avatarImage} src={userAvatar} alt="" />
             </Popover.Trigger>
-            <Popover.Content
-              className={`${styles.popover} ${styles.accountMenu}`}
+            <PopoverPanel
+              className={styles.popover}
+              width={256}
+              padding={7}
               side="right"
               align="start"
               sideOffset={12}
@@ -270,8 +273,7 @@ export function Sidebar({
                   {accountMessage}
                 </p>
               )}
-              <Popover.Arrow className={styles.arrow} width={12} height={6} />
-            </Popover.Content>
+            </PopoverPanel>
           </Popover.Root>
           <StudyMedals />
         </div>
@@ -537,8 +539,10 @@ export function Sidebar({
               <SettingsIcon aria-hidden="true" />
               <span>设置</span>
             </Popover.Trigger>
-            <Popover.Content
-              className={`${styles.popover} ${styles.settingsMenu}`}
+            <PopoverPanel
+              className={styles.popover}
+              width={190}
+              padding={7}
               side="right"
               align="end"
               sideOffset={12}
@@ -553,7 +557,7 @@ export function Sidebar({
                   modelSettingsOpen &&
                   event.target instanceof Element &&
                   event.target.closest(
-                    '[aria-labelledby="ai-settings-heading"], [data-settings-select]',
+                    '[aria-labelledby="ai-settings-heading"], [data-settings-select], [data-connection-delete-dialog]',
                   )
                 )
                   event.preventDefault();
@@ -577,15 +581,18 @@ export function Sidebar({
                   <SlidersHorizontal aria-hidden="true" />
                   <span>显示设置</span>
                 </Popover.Trigger>
-                <Popover.Content
+                <PopoverPanel
                   className={`${styles.popover} ${styles.settingsPanel}`}
+                  title="显示设置"
+                  icon={SlidersHorizontal}
+                  titleId="display-settings-heading"
+                  width={236}
                   side="right"
                   align="end"
                   sideOffset={12}
                   collisionPadding={12}
                   aria-labelledby="display-settings-heading"
                 >
-                  <h3 id="display-settings-heading">显示设置</h3>
                   <div className={styles.settingLabel}>
                     <label htmlFor="reading-font-size">阅读字号</label>
                     <output htmlFor="reading-font-size">
@@ -634,12 +641,7 @@ export function Sidebar({
                       </button>
                     </div>
                   </fieldset>
-                  <Popover.Arrow
-                    className={styles.arrow}
-                    width={12}
-                    height={6}
-                  />
-                </Popover.Content>
+                </PopoverPanel>
               </Popover.Root>
               <button
                 ref={modelTrigger}
@@ -661,8 +663,7 @@ export function Sidebar({
                 <Cpu aria-hidden="true" />
                 <span>AI 配置</span>
               </button>
-              <Popover.Arrow className={styles.arrow} width={12} height={6} />
-            </Popover.Content>
+            </PopoverPanel>
           </Popover.Root>
           {/* AI 气泡独立于设置菜单，聊天栏入口无需展开一级菜单。 */}
           <Popover.Root
@@ -673,8 +674,12 @@ export function Sidebar({
           >
             <Popover.Anchor virtualRef={{ current: modelAnchor }} />
             <Popover.Portal>
-              <Popover.Content
-                className={`${styles.popover} ${styles.settingsPanel} ${styles.modelPanel}`}
+              <PopoverPanel
+                className={styles.popover}
+                title="AI 配置"
+                icon={Cpu}
+                titleId="ai-settings-heading"
+                width={360}
                 side={compactSettings ? "bottom" : "right"}
                 align={compactSettings ? "center" : "end"}
                 sticky="always"
@@ -736,8 +741,7 @@ export function Sidebar({
                     }}
                   />
                 )}
-                <Popover.Arrow className={styles.arrow} width={12} height={6} />
-              </Popover.Content>
+              </PopoverPanel>
             </Popover.Portal>
           </Popover.Root>
         </div>

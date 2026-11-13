@@ -97,6 +97,9 @@ class HarnessAdapter:
     async def cancel(self, process, sid):
         raise NotImplementedError
 
+    async def inspect_session(self, process, session):
+        return session
+
     async def label_probe(self, process, sid):
         pass
 

@@ -1,5 +1,6 @@
+import { PopoverPanel } from "./PopoverPanel";
 import { Popover, Tooltip } from "radix-ui";
-import { ChevronDown, Flame, Medal } from "lucide-react";
+import { ChevronDown, Clock3, Flame, Medal } from "lucide-react";
 import styles from "./StudyOverview.module.css";
 
 const lastCompletedDayIndex = 80;
@@ -58,15 +59,17 @@ export function StudyTitle() {
         <ChevronDown className={styles.chevron} aria-hidden="true" />
       </Popover.Trigger>
       <Popover.Portal>
-        <Popover.Content
-          className={styles.popover}
+        <PopoverPanel
+          title="学习时长"
+          icon={Clock3}
+          titleId="study-duration-heading"
+          width={300}
           side="right"
           align="start"
           sideOffset={12}
           collisionPadding={12}
           aria-labelledby="study-duration-heading"
         >
-          <h3 id="study-duration-heading">学习时长</h3>
           <div className={styles.metrics}>
             <div className={styles.stat}>
               <span className={styles.label}>今日学习</span>
@@ -98,8 +101,7 @@ export function StudyTitle() {
           <p className={styles.exampleNote}>
             以上为示例数据，尚未统计实际学习时长。
           </p>
-          <Popover.Arrow className={styles.arrow} width={12} height={6} />
-        </Popover.Content>
+        </PopoverPanel>
       </Popover.Portal>
     </Popover.Root>
   );

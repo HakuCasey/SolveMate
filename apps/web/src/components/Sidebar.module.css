@@ -187,24 +187,6 @@
 .settings {
   width: 100%;
 }
-.popover {
-  z-index: 50;
-  box-sizing: border-box;
-  color: var(--sm-ink);
-  border: 1px solid var(--sm-line);
-  border-radius: 16px;
-  background: var(--sm-paper);
-  box-shadow: var(--sm-shadow-popover);
-  max-width: calc(100vw - 24px);
-  animation: bubbleIn 140ms ease-out;
-}
-.arrow {
-  fill: var(--sm-paper);
-}
-.accountMenu {
-  width: 256px;
-  padding: 7px;
-}
 .accountName {
   display: flex;
   align-items: center;
@@ -286,10 +268,6 @@
   font-size: 12px;
   line-height: 1.8;
 }
-.settingsMenu {
-  width: 190px;
-  padding: 7px;
-}
 .settingsItem {
   display: flex;
   align-items: center;
@@ -311,15 +289,6 @@
 .settingsItem[data-state="open"] {
   background: var(--sm-active);
   color: var(--sm-accent);
-}
-.settingsPanel {
-  width: 236px;
-  padding: 19px;
-}
-.settingsPanel h3 {
-  margin: 0 0 18px;
-  font-size: 14px;
-  font-weight: 500;
 }
 .settingLabel {
   display: flex;
@@ -398,19 +367,6 @@
   font-size: 11px;
   line-height: 1.8;
 }
-@keyframes bubbleIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .popover {
-    animation: none;
-  }
-}
 @media (max-width: 740px) {
   .sidebar {
     padding: 16px 8px 12px;
@@ -452,16 +408,6 @@
     padding: 8px 4px;
     gap: 5px;
   }
-}
-
-.modelPanel {
-  width: min(430px, calc(100vw - 32px));
-  max-height: min(
-    720px,
-    calc(100dvh - 32px),
-    var(--radix-popover-content-available-height)
-  );
-  overflow-y: auto;
 }
 
 .addSubject {

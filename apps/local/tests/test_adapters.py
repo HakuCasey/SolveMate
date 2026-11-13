@@ -36,6 +36,16 @@ class FakeHermes(FakeAcp):
         if method in {"session/new", "session/load", "session/resume"}:
             return {
                 **result,
+                "configOptions": [
+                    {
+                        "id": "reasoning_effort",
+                        "currentValue": "medium",
+                        "options": [
+                            {"value": level, "name": level}
+                            for level in ("medium", "high")
+                        ],
+                    }
+                ],
                 "models": {
                     "currentModelId": "custom:school:c-model",
                     "availableModels": [
@@ -45,7 +55,19 @@ class FakeHermes(FakeAcp):
                 },
             }
         if method == "session/set_config_option":
-            raise AssertionError("Hermes model selection must use session/set_model")
+            assert params["configId"] == "reasoning_effort"
+            return {
+                "configOptions": [
+                    {
+                        "id": "reasoning_effort",
+                        "currentValue": params["value"],
+                        "options": [
+                            {"value": level, "name": level}
+                            for level in ("medium", "high")
+                        ],
+                    }
+                ]
+            }
         return result
 
 

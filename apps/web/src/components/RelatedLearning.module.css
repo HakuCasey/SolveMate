@@ -23,40 +23,10 @@
   height: 15px;
   flex-shrink: 0;
 }
-.popover {
-  z-index: 65;
-  width: min(360px, calc(100vw - 24px));
-  max-height: min(520px, calc(100dvh - 32px));
-  overflow: auto;
-  padding: 16px;
-  border: 1px solid var(--sm-line);
-  border-radius: 16px;
-  background: var(--sm-paper);
-  color: var(--sm-ink);
-  box-shadow: var(--sm-shadow-popover);
-  font-size: 13px;
-}
-.heading {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
-.heading strong {
-  display: block;
-  font-weight: 600;
-  line-height: 1.5;
-  overflow-wrap: anywhere;
-}
-.heading button {
-  padding: 4px;
-  border-radius: 5px;
-  color: var(--sm-soft);
-}
 .tabs {
   display: flex;
   gap: 6px;
-  margin: 16px 0 8px;
+  margin: 0 0 8px;
   padding-bottom: 8px;
   border-bottom: 1px solid var(--sm-line);
 }

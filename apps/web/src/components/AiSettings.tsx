@@ -10,8 +10,7 @@ import {
   type AiSettings as Settings,
 } from "../ai/local-api";
 import {
-  AI_PROVIDERS,
-  defaultConnection,
+  supportedServices,
   connectionIsConnected,
   globalModel,
   reasoningForModel,
@@ -42,12 +41,12 @@ export function AiSettings({
   onRefresh: () => Promise<Settings | null>;
 }) {
   const showSaved = useSaveFeedback();
-  const initialConnection =
-    defaultConnection(settings) ?? settings?.connections[0];
+  const services = supportedServices(settings);
+  const initialConnection = settings?.connections.find(
+    (item) => item.id === services[0]?.id,
+  );
   const [provider, setProvider] = useState<string>(
-    initialConnection?.config.provider ??
-      settings?.services[0]?.provider ??
-      "deepseek-harness",
+    services[0]?.provider ?? "deepseek-harness",
   );
   const [changes, setChanges] = useState<ConfigurationChanges>({});
   const [manualPath, setManualPath] = useState(
@@ -247,6 +246,7 @@ export function AiSettings({
   }
 
   async function save() {
+    if (!dirty || saveBlockedReason) return;
     setProbeRecovery(false);
     setOperation("save");
     setFailed(false);
@@ -355,7 +355,6 @@ export function AiSettings({
       className={styles.settings}
       aria-labelledby="ai-settings-heading"
     >
-      <h3 id="ai-settings-heading">AI 配置</h3>
       <AlertDialog.Root
         open={pendingDelete !== null}
         onOpenChange={(open) => {
@@ -430,7 +429,7 @@ export function AiSettings({
           setFailed(false);
         }}
         options={[
-          ...(settings?.services ?? AI_PROVIDERS).map((item) => ({
+          ...services.map((item) => ({
             value: item.provider,
             name: `${item.name}（${connectionIsConnected(settings?.connections.find((connection) => connection.config.provider === item.provider)) ? "已连接" : "未连接"}）`,
           })),
@@ -473,11 +472,7 @@ export function AiSettings({
               ) : (
                 <RefreshCw aria-hidden="true" />
               )}
-              {operation === "detect"
-                ? `检测中… ${elapsed} 秒`
-                : connected
-                  ? "重新检测"
-                  : "检测连接"}
+              {operation === "detect" ? `检测中… ${elapsed} 秒` : "检测连接"}
             </button>
             <button
               className={styles.deleteConnection}
@@ -531,29 +526,34 @@ export function AiSettings({
                   options={reasoning.options}
                 />
               </div>
-              {!defaultModel && (
-                <p className={styles.hint}>当前未设置全局默认模型</p>
-              )}
             </>
           )}
         </>
       }
-      {feedback && (operation === "detect" || !busy) && (
-        <p
-          className={feedbackFailed ? styles.problem : styles.status}
-          role={feedbackFailed ? "alert" : "status"}
-          id={feedbackFailed ? "ai-save-requirement" : undefined}
-        >
-          {!feedbackFailed && !busy && <Check aria-hidden="true" />}
-          <span>
-            {feedback}
-            {operation === "detect" && elapsed >= 5 && (
-              <small className={styles.waiting}>
-                正在等待服务返回检测结果。
-              </small>
-            )}
-          </span>
-        </p>
+      {((modelControlsVisible && !defaultModel) ||
+        (feedback && (operation === "detect" || !busy))) && (
+        <div className={styles.feedbackRow}>
+          {modelControlsVisible && !defaultModel && (
+            <p className={styles.hint}>当前未设置全局默认模型</p>
+          )}
+          {feedback && (operation === "detect" || !busy) && (
+            <p
+              className={feedbackFailed ? styles.problem : styles.status}
+              role={feedbackFailed ? "alert" : "status"}
+              id={feedbackFailed ? "ai-save-requirement" : undefined}
+            >
+              {!feedbackFailed && !busy && <Check aria-hidden="true" />}
+              <span>
+                {feedback}
+                {operation === "detect" && elapsed >= 5 && (
+                  <small className={styles.waiting}>
+                    正在等待服务返回检测结果。
+                  </small>
+                )}
+              </span>
+            </p>
+          )}
+        </div>
       )}
       {probeRecovery && (
         <button
@@ -607,13 +607,13 @@ export function AiSettings({
             ? "已默认"
             : "设为默认"}
         </button>
-        <button onClick={reset} disabled={busy}>
+        <button onClick={reset} disabled={busy || !dirty}>
           取消修改
         </button>
         <button
           className={styles.primary}
           onClick={() => void save()}
-          disabled={!!saveBlockedReason}
+          disabled={!dirty || !!saveBlockedReason}
           aria-describedby={
             showSaveHint || feedbackFailed ? "ai-save-requirement" : undefined
           }

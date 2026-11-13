@@ -30,7 +30,6 @@ export function RobotAiConfiguration({
   const error = robotAiError(config, settings);
   return (
     <section className={styles.settings} aria-labelledby="ai-settings-heading">
-      <h3 id="ai-settings-heading">AI 配置</h3>
       <p className={styles.hint}>{robot.name}</p>
       <RobotAiFields
         config={config}

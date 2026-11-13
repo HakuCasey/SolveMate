@@ -1,12 +1,7 @@
 .settings {
   display: grid;
-  gap: 14px;
+  gap: 12px;
   min-width: 0;
-}
-.settings h3 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 500;
 }
 .settings label {
   display: grid;
@@ -67,6 +62,16 @@
   color: var(--sm-soft);
   font-size: 11px;
   margin: 0;
+}
+.feedbackRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+}
+.feedbackRow > .problem {
+  flex-basis: 100%;
 }
 .source {
   display: flex;

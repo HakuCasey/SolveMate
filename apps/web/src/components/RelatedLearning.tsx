@@ -1,6 +1,7 @@
+import { PopoverPanel } from "./PopoverPanel";
 import { useState } from "react";
 import { Popover } from "radix-ui";
-import { FileText, Link2, MessagesSquare, NotebookPen, X } from "lucide-react";
+import { FileText, Link2, MessagesSquare, NotebookPen } from "lucide-react";
 import type {
   Conversation,
   LearningLocation,
@@ -38,21 +39,17 @@ export function RelatedLearning({
         <span>{related.conversations.length + related.notes.length}</span>
       </Popover.Trigger>
       <Popover.Portal>
-        <Popover.Content
+        <PopoverPanel
+          title={material.title}
+          icon={FileText}
+          width={360}
+          closeLabel="关闭相关内容"
           className={styles.popover}
           align="end"
           sideOffset={8}
           collisionPadding={12}
           aria-label="资料相关内容"
         >
-          <header className={styles.heading}>
-            <div>
-              <strong>{material.title}</strong>
-            </div>
-            <Popover.Close aria-label="关闭相关内容">
-              <X aria-hidden="true" />
-            </Popover.Close>
-          </header>
           <div className={styles.tabs} role="group" aria-label="相关内容类型">
             <button
               aria-pressed={tab === "conversations"}
@@ -120,7 +117,7 @@ export function RelatedLearning({
             <NotebookPen aria-hidden="true" />
             记录笔记
           </button>
-        </Popover.Content>
+        </PopoverPanel>
       </Popover.Portal>
     </Popover.Root>
   );

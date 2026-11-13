@@ -163,6 +163,8 @@ class ConnectionManager:
                 session = await adapter.new_session(process, self.workspace)
                 sid = session.id
                 self.store.save_probe(key, sid)
+                # 先保存原生编号，再读取补充选项；读取失败后仍能恢复同一会话。
+                session = await adapter.inspect_session(process, session)
             attached = True
             await adapter.label_probe(process, sid)
             options = session.options

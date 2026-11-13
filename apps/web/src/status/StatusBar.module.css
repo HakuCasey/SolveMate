@@ -1,0 +1,203 @@
+.bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 3px;
+  min-height: 28px;
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--sm-soft);
+}
+.item {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 6px;
+  min-width: 94px;
+  max-width: 210px;
+  white-space: nowrap;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.item:hover,
+.item[data-state="open"] {
+  background: var(--sm-active);
+  color: var(--sm-accent);
+}
+.item[data-tone="active"] {
+  color: var(--sm-accent);
+}
+.item[data-tone="ready"] {
+  background: var(--sm-active);
+  color: var(--sm-accent);
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px
+    color-mix(in srgb, var(--sm-accent) 22%, transparent);
+}
+.item[data-tone="danger"] {
+  color: var(--sm-danger);
+}
+.bar > :not(:first-child) {
+  border-left: 1px solid var(--sm-line);
+}
+.item svg {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+}
+.item:focus-visible,
+.popover button:focus-visible {
+  outline: 2px solid var(--sm-accent);
+  outline-offset: 3px;
+}
+.currentStatus {
+  margin: 0;
+  color: var(--sm-soft);
+  overflow-wrap: anywhere;
+}
+.popover[data-tone="active"] .currentStatus,
+.popover[data-tone="ready"] .currentStatus {
+  color: var(--sm-accent);
+}
+.popover[data-tone="danger"] .currentStatus {
+  color: var(--sm-danger);
+}
+.body {
+  margin-top: 12px;
+}
+.body p {
+  margin: 0 0 10px;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.body p:last-child {
+  margin-bottom: 0;
+}
+.popover button {
+  cursor: pointer;
+  font: inherit;
+}
+.popover button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 0;
+}
+.actions button {
+  flex: 1 1 125px;
+  min-width: 0;
+  min-height: 36px;
+  padding: 7px 12px;
+  border: 1px solid var(--sm-line);
+  border-radius: 9px;
+  background: var(--sm-paper);
+  color: var(--sm-ink);
+  font-weight: 400;
+}
+.actions button:hover:not(:disabled) {
+  background: var(--sm-ground);
+}
+.actions .primary {
+  border-color: var(--sm-accent);
+  background: var(--sm-accent);
+  color: var(--sm-on);
+}
+.actions .primary:hover:not(:disabled) {
+  background: var(--sm-accent);
+  filter: brightness(1.06);
+}
+.alert {
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--sm-line);
+  border-radius: 9px;
+  background: var(--sm-ground);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.error {
+  color: var(--sm-danger);
+}
+.taskList {
+  display: grid;
+  gap: 8px;
+  margin-top: 0;
+}
+.taskCard {
+  border: 1px solid var(--sm-line);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.task {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 12px;
+  text-align: left;
+  background: var(--sm-ground);
+  color: var(--sm-ink);
+}
+.task:hover {
+  background: var(--sm-active);
+}
+.taskCopy {
+  flex: 1;
+  min-width: 0;
+}
+.task strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: inherit;
+  font-weight: 400;
+}
+.task small {
+  display: block;
+  color: var(--sm-soft);
+  font-size: inherit;
+  margin-top: 2px;
+}
+.task svg {
+  width: 15px;
+  height: 15px;
+  color: var(--sm-soft);
+  flex-shrink: 0;
+}
+.taskDetails {
+  padding: 10px 12px;
+  font-size: inherit;
+}
+.taskDetails button {
+  color: var(--sm-accent);
+  padding: 0;
+}
+.spinning {
+  animation: status-spin 1s linear infinite;
+}
+@keyframes status-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .spinning {
+    animation: none;
+  }
+}
+@media (max-width: 480px) {
+  .item {
+    padding: 5px 7px;
+    min-width: 0;
+    font-size: 10px;
+    gap: 4px;
+  }
+}
