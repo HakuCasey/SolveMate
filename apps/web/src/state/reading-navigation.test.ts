@@ -1,3 +1,4 @@
+import { activeSessionBinding } from "../ai/session-bindings";
 import { describe, expect, it } from "vitest";
 import { createInitialData } from "../data/catalog";
 import { aiTurn } from "../ai/fixtures.test-support";
@@ -132,7 +133,9 @@ describe("reading conversation recovery", () => {
       },
     });
     data = mergeAiTurn(data, turn);
-    const nativeId = data.conversations[0].binding?.externalSessionId;
+    const nativeId = activeSessionBinding(
+      data.conversations[0],
+    )?.externalSessionId;
     const whileAway = data.selection;
     data = mergeAiTurn(
       data,
@@ -152,7 +155,7 @@ describe("reading conversation recovery", () => {
     expect(recovered.id).toBe("chat-1");
     expect(recovered.selection).toEqual(originalSelection);
     expect(recovered.robotId).toBe("c-language-teacher");
-    expect(recovered.binding?.externalSessionId).toBe(nativeId);
+    expect(activeSessionBinding(recovered)?.externalSessionId).toBe(nativeId);
     expect(
       recovered.messages.filter((item) => item.role === "user"),
     ).toHaveLength(1);

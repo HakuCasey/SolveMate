@@ -17,7 +17,7 @@ from .metadata import (
     public_turn,
     validate_metadata,
 )
-from .prompting import compose_prompt
+from .prompting import TEMPLATE_VERSION, compose_prompt, prepare_prompt
 from .store import Store
 
 logger = logging.getLogger(__name__)
@@ -49,7 +49,7 @@ class AiService:
         self.disconnecting = set()
 
     async def rename_session(self, ident, request):
-        binding = self.store.binding(ident)
+        binding = self.store.binding(ident, request.connectionId)
         if not binding or not binding["external_id"]:
             raise ConnectionError(
                 "本机未保存对应的第三方会话编号，请恢复原本机数据后重试。",
@@ -443,9 +443,15 @@ class AiService:
             raise ConnectionError(
                 "这个会话正在生成，请等待完成或先停止。", "conversation_busy"
             )
-        binding = self.store.binding(request.conversationId)
-        if request.externalSessionId and (
-            not binding or binding["external_id"] != request.externalSessionId
+        metadata = request.conversationSnapshot
+        ident = request.connectionId or (metadata or {}).get("aiConfig", {}).get(
+            "connectionId"
+        )
+        binding = self.store.binding(request.conversationId, ident)
+        if (
+            request.externalSessionId
+            and binding
+            and binding["external_id"] != request.externalSessionId
         ):
             raise ConnectionError(
                 "本机保存的会话绑定与网页记录不一致，未新建或替换原会话。请恢复原本机数据或新建对话。",
@@ -456,11 +462,19 @@ class AiService:
                 "上次建立原生会话的结果不明，已停止自动创建。请确认 Harness 中的记录，或明确新建一条对话。",
                 "session_creation_uncertain",
             )
-        ident = request.connectionId or (binding["connection_id"] if binding else "")
+        ident = ident or (binding["connection_id"] if binding else "")
         adapter, saved = self.connections.resolve(ident)
-        if binding and binding["connection_id"] != adapter.id:
+        if request.restartSession and (
+            not binding
+            or binding["state"] != "missing"
+            or request.externalSessionId != binding["external_id"]
+            or (
+                request.bindingRevision is not None
+                and request.bindingRevision != binding["revision"]
+            )
+        ):
             raise ConnectionError(
-                "此对话已绑定另一项 AI 服务，请新建对话后切换。", "binding_mismatch"
+                "原会话状态已变化，请重新读取后再确认。", "binding_mismatch"
             )
         previous = self.store.conversation_turns(request.conversationId)
         if previous and previous[0]["teacher"]["id"] != request.teacher.id:
@@ -623,7 +637,9 @@ class AiService:
 
     def public_turn(self, turn):
         result = public_turn(turn)
-        binding = self.store.binding_metadata(turn["conversationId"])
+        binding = self.store.binding_metadata(
+            turn["conversationId"], turn["connectionId"]
+        )
         if binding:
             result["binding"] = binding
         return result
@@ -687,10 +703,39 @@ class AiService:
             self.progress(turn, "connecting")
             process = await self.connections.runtime(adapter, executable)
             loaded = self.connections.loaded[adapter.id]
-            binding = self.store.binding(request.conversationId)
+            binding = self.store.binding(request.conversationId, adapter.id)
+            if request.restartSession:
+                self.store.restart_binding(
+                    request.conversationId, adapter.id, request.externalSessionId
+                )
+                loaded.discard(request.externalSessionId)
+                binding = self.store.binding(request.conversationId, adapter.id)
+            if not binding and request.externalSessionId:
+                # 本机恢复已有编号仍由适配器核实，不能据此另建原生会话。
+                self.store.bind(
+                    request.conversationId,
+                    request.externalSessionId,
+                    executable,
+                    str(self.workspace),
+                    harness_home,
+                    adapter.id,
+                    adapter.protocol,
+                    revision=request.bindingRevision or 1,
+                )
+                binding = self.store.binding(request.conversationId, adapter.id)
+            if binding and request.externalSessionId == binding["external_id"]:
+                self.store.retain_binding_revision(
+                    request.conversationId,
+                    adapter.id,
+                    binding["external_id"],
+                    request.bindingRevision,
+                )
+                binding = self.store.binding(request.conversationId, adapter.id)
             fresh = not binding
-            if binding:
+            if binding and binding["external_id"]:
                 sid = binding["external_id"]
+                turn["externalSessionId"] = sid
+                self.persist(turn)
                 if sid not in loaded:
                     # 程序和配置目录可能搬迁；是否能继续由原生会话恢复结果决定。
                     session = await adapter.resume(process, sid, binding["workspace"])
@@ -698,19 +743,21 @@ class AiService:
                     session = None
             else:
                 # 先登记待确认的绑定，创建超时或进程中断后不能盲目另建原生会话。
-                self.store.bind(
-                    request.conversationId,
-                    "",
-                    executable,
-                    str(self.workspace),
-                    harness_home,
-                    adapter.id,
-                    adapter.protocol,
-                )
+                if not binding:
+                    self.store.bind(
+                        request.conversationId,
+                        "",
+                        executable,
+                        str(self.workspace),
+                        harness_home,
+                        adapter.id,
+                        adapter.protocol,
+                    )
+                fresh = True
                 session = await adapter.new_session(process, str(self.workspace))
                 sid = session.id
-                self.store.complete_binding(request.conversationId, sid)
-            self.store.mark_binding(request.conversationId, "bound")
+                self.store.complete_binding(request.conversationId, sid, adapter.id)
+            self.store.mark_binding(request.conversationId, "bound", adapter.id)
             loaded.add(sid)
             self.session_turns[(adapter.id, sid)] = turn["id"]
             turn["externalSessionId"] = sid
@@ -741,7 +788,9 @@ class AiService:
             if turn.get("stopRequested"):
                 turn["status"] = "cancelled"
                 return
-            text = self.compose(request, fresh)
+            prepared = prepare_prompt(
+                request, self.store.receipts(adapter.id, sid), fresh
+            )
             info = self.connections.runtime_info.get(adapter.id, {})
             turn["dispatch"] = {
                 "submittedModelId": turn["model"],
@@ -752,9 +801,14 @@ class AiService:
                 else None,
                 "adapterId": adapter.id,
                 "adapterVersion": LOCAL_VERSION,
+                "templateVersion": TEMPLATE_VERSION,
+                "externalSessionId": sid,
+                "contentKeys": prepared.content_keys,
+                "messageIds": prepared.message_ids,
             }
             self.progress(turn, "waiting")
-            result = await adapter.prompt(process, sid, text)
+            result = await adapter.prompt(process, sid, prepared.text)
+            self.confirm_delivery(turn)
             cancelled = turn.get("stopRequested") or result == "cancelled"
             turn["status"] = "cancelled" if cancelled else result
             if not cancelled and (result == "failed" or not turn["content"].strip()):
@@ -763,6 +817,8 @@ class AiService:
                     error="Harness 未返回可显示的回答，请检查模型连接后重试。",
                 )
         except asyncio.CancelledError:
+            if turn.get("dispatch") and not turn["dispatch"].get("receivedAt"):
+                turn["submissionStatus"] = "uncertain"
             turn.update(
                 status="cancelled" if turn.get("stopRequested") else "interrupted",
                 error="连接已断开，已收到的内容仍保留。"
@@ -773,22 +829,31 @@ class AiService:
         except Exception as error:  # noqa: BLE001 - 后台执行必须保存失败状态，日志只记录类别。
             turn.update(
                 status="cancelled" if turn.get("stopRequested") else "failed",
-                error=str(error)
+                error="第三方 Harness 中的会话无法匹配。"
+                if getattr(error, "code", None) == "session_missing"
+                else str(error)
                 if isinstance(error, ConnectionError)
                 else "AI 执行失败，请重新检测连接。",
                 errorCode=getattr(error, "code", "execution_failed"),
             )
-            if self.store.binding(request.conversationId):
+            if self.store.binding(request.conversationId, turn["connectionId"]):
                 self.store.mark_binding(
                     request.conversationId,
                     "uncertain"
-                    if not self.store.binding(request.conversationId)["external_id"]
+                    if not self.store.binding(
+                        request.conversationId, turn["connectionId"]
+                    )["external_id"]
+                    else "missing"
+                    if getattr(error, "code", None) == "session_missing"
                     else "restore-failed"
                     if not sid
                     or sid
                     not in self.connections.loaded.get(turn["connectionId"], set())
                     else "bound",
+                    turn["connectionId"],
                 )
+            if turn.get("dispatch") and not turn["dispatch"].get("receivedAt"):
+                turn["submissionStatus"] = "uncertain"
             logger.warning(
                 "AI turn failed: %s", getattr(error, "code", type(error).__name__)
             )
@@ -815,6 +880,17 @@ class AiService:
             turn["completedAt"] = now()
             turn["permissions"] = []
             self.resolve_permissions(turn["id"])
+            if (
+                turn.get("dispatch", {})
+                and turn["dispatch"].get("receivedAt")
+                and turn["content"]
+            ):
+                self.store.confirm_receipts(
+                    turn["connectionId"],
+                    turn["externalSessionId"],
+                    [],
+                    [turn["assistantMessageId"]],
+                )
             self.persist(turn)
             if sid:
                 self.session_turns.pop((turn["connectionId"], sid), None)
@@ -823,6 +899,19 @@ class AiService:
     @staticmethod
     def compose(request, fresh):
         return compose_prompt(request, fresh)
+
+    def confirm_delivery(self, turn):
+        dispatch = turn.get("dispatch")
+        if not dispatch or dispatch.get("receivedAt"):
+            return
+        dispatch["receivedAt"] = now()
+        self.store.confirm_receipts(
+            turn["connectionId"],
+            dispatch["externalSessionId"],
+            dispatch["contentKeys"],
+            dispatch["messageIds"],
+            turn,
+        )
 
     def update(self, params: HarnessEvent, connection_id):
         ident = self.session_turns.get((connection_id, params.get("sessionId")))
@@ -860,6 +949,7 @@ class AiService:
             )
         else:
             return
+        self.confirm_delivery(turn)
         self.progress(turn, phase)
 
     async def permission(self, params, connection_id):
@@ -868,6 +958,7 @@ class AiService:
         )
         if not turn or turn.get("stopRequested"):
             return None
+        self.confirm_delivery(turn)
         ident = str(uuid4())
         # 长期授权不作为一次点击的默认结果，只提供当前操作的一次性选择。
         options = [

@@ -1,3 +1,4 @@
+import { activeSessionBinding, serviceSwitchKind } from "./ai/session-bindings";
 import { recordQuestion } from "./state/questions";
 import { materialApi } from "./materials/api";
 import { dataRefresh } from "./refresh/coordinator";
@@ -25,6 +26,7 @@ import type {
   Robot,
   MaterialLocation,
   ReadingReference,
+  SessionBinding,
   LearningLocation,
   Note,
 } from "@solvemate/contracts";
@@ -98,6 +100,7 @@ import {
   readingKey,
   validateReferenceCount,
   messageReferences,
+  isSupportedReadingReference,
   isSupportedReadingLocation,
   UNSUPPORTED_READING_REFERENCE,
 } from "./reading/reference";
@@ -873,7 +876,11 @@ function Workspace({ content }: { content: OfficialContent }) {
     } else setActiveRobotId(id);
   }
 
-  async function saveQuestion(text: string, retryMessageId?: string) {
+  async function saveQuestion(
+    text: string,
+    retryMessageId?: string,
+    restartBinding?: SessionBinding,
+  ) {
     if (!currentRobot) throw new Error("请先选择机器人。");
     if (submitting.current) throw new Error("消息正在保存，请稍后重试。");
     if (currentConversation?.status === "archived")
@@ -942,6 +949,7 @@ function Workspace({ content }: { content: OfficialContent }) {
             create: !currentConversation,
             readingContext,
             contextError,
+            expectedBinding: restartBinding,
           },
           ai.settings,
         ),
@@ -968,6 +976,7 @@ function Workspace({ content }: { content: OfficialContent }) {
       const question = conversation.messages.find(
         (item) => item.id === messageId,
       )!;
+      const targetBinding = activeSessionBinding(conversation);
       if (attempt.status === "running")
         void ai
           .start({
@@ -977,13 +986,17 @@ function Workspace({ content }: { content: OfficialContent }) {
             ...(resolved.connectionRevision
               ? { connectionRevision: resolved.connectionRevision }
               : {}),
-            ...(conversation.binding?.externalSessionId
-              ? { externalSessionId: conversation.binding.externalSessionId }
+            ...(targetBinding?.externalSessionId
+              ? {
+                  externalSessionId: targetBinding.externalSessionId,
+                  bindingRevision: targetBinding.revision,
+                }
               : {}),
             conversationSnapshot: conversationMetadata(conversation),
             robotRevision: teacher.revision,
             client: clientRuntime(),
             userMessageId: messageId,
+            ...(restartBinding ? { restartSession: true } : {}),
             text: question.content,
             teacher: {
               id: teacher.id,
@@ -1007,8 +1020,16 @@ function Workspace({ content }: { content: OfficialContent }) {
               )
               .slice(-24)
               .map((item) => ({
+                id: item.id,
                 role: item.role,
                 content: item.content.slice(-5000),
+                ...(item.readingContext &&
+                isSupportedReadingReference(item.readingContext)
+                  ? { readingContext: item.readingContext }
+                  : {}),
+                references: messageReferences(item).filter(
+                  isSupportedReadingReference,
+                ),
               })),
           })
           .catch((error) =>
@@ -1019,6 +1040,30 @@ function Workspace({ content }: { content: OfficialContent }) {
     } finally {
       submitting.current = false;
     }
+  }
+
+  function retryQuestion(messageId: string) {
+    const turn = currentConversation?.turns.find(
+      (item) =>
+        item.id ===
+        currentConversation.messages.find((message) => message.id === messageId)
+          ?.turnId,
+    );
+    const binding = currentConversation
+      ? activeSessionBinding(currentConversation)
+      : null;
+    if (
+      turn?.errorCode === "session_missing" &&
+      binding?.state === "missing" &&
+      turn.connectionId === binding.connectionId
+    ) {
+      setPendingSwitch({
+        kind: "session",
+        confirm: () => saveQuestion("", messageId, structuredClone(binding)),
+      });
+      return Promise.resolve();
+    }
+    return saveQuestion("", messageId);
   }
 
   async function saveRobotAi(config: RobotAiConfig) {
@@ -1045,18 +1090,6 @@ function Workspace({ content }: { content: OfficialContent }) {
           currentRobot.revision,
           currentConversation?.id,
         );
-        if (currentConversation && before.connectionId !== after.connectionId) {
-          const fresh = createConversation(
-            next,
-            chatSelection,
-            currentRobot.id,
-            ai.settings,
-            "service-switch",
-            currentConversation.id,
-            materialLocation,
-          );
-          return { ...next, conversations: [fresh, ...next.conversations] };
-        }
         return next;
       });
       setRobotDrafts((previous) => {
@@ -1074,14 +1107,15 @@ function Workspace({ content }: { content: OfficialContent }) {
         }
         return next;
       });
-      if (currentConversation && before.connectionId !== after.connectionId)
-        setActiveConversationId(saved.conversations[0].id);
       setAiSettingsSource(null);
       showSaved();
     };
     if (currentConversation && before.connectionId !== after.connectionId) {
       setAiSettingsSource(null);
-      setPendingSwitch({ kind: "service", confirm: commit });
+      setPendingSwitch({
+        kind: serviceSwitchKind(currentConversation, after.connectionId),
+        confirm: commit,
+      });
     } else await commit();
   }
 
@@ -1268,9 +1302,10 @@ function Workspace({ content }: { content: OfficialContent }) {
                   )
                 }
                 onUpdate={async (id, change, revision) => {
-                  const binding = data.conversations.find(
+                  const target = data.conversations.find(
                     (item) => item.id === id,
-                  )?.binding;
+                  );
+                  const binding = target ? activeSessionBinding(target) : null;
                   await saveChanges((previous) =>
                     updateConversation(previous, id, change, revision),
                   );
@@ -1437,7 +1472,7 @@ function Workspace({ content }: { content: OfficialContent }) {
                 }
                 onRobotChange={changeRobot}
                 onSend={saveQuestion}
-                onRetryMessage={(id) => saveQuestion("", id)}
+                onRetryMessage={retryQuestion}
                 onOpenReference={openReference}
                 references={draftReferences}
                 onRemoveReference={(id) =>

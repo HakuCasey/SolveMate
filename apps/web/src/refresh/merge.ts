@@ -1,4 +1,9 @@
 import type { AppData } from "@solvemate/contracts";
+import {
+  receiveSessionBinding,
+  retainSessionBindings,
+  sessionBindings,
+} from "../ai/session-bindings";
 export interface DataConflict {
   path: string[];
   local: unknown;
@@ -117,6 +122,29 @@ export function mergeData(base: AppData, local: AppData, remote: AppData) {
     return structuredClone(here);
   }
   const result = merge(base, local, remote, []) as AppData;
+  // 会话关联由本机服务确定，各服务分别按修订号取值，不拼接原生编号与状态。
+  for (let index = 0; index < result.conversations.length; index++) {
+    const item = result.conversations[index];
+    const left = local.conversations.find((other) => other.id === item.id);
+    const right = remote.conversations.find((other) => other.id === item.id);
+    if (!left?.bindings && !right?.bindings) continue;
+    let bound = {
+      ...retainSessionBindings(item),
+      bindings: [],
+      binding: null,
+    } as typeof item;
+    for (const source of [left, right])
+      if (source)
+        for (const binding of sessionBindings(source))
+          bound = receiveSessionBinding(bound, binding);
+    result.conversations[index] = bound;
+    for (let i = conflicts.length - 1; i >= 0; i--)
+      if (
+        conflicts[i].path[1] === `@${item.id}` &&
+        ["binding", "bindings"].includes(conflicts[i].path[2])
+      )
+        conflicts.splice(i, 1);
+  }
   // AI 执行按原编号与结果版本取值，持续到达的正文不成为用户编辑冲突。
   for (const conversation of result.conversations) {
     const left = local.conversations.find(

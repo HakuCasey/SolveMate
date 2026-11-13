@@ -3,7 +3,9 @@ import type {
   AiSettings,
   Conversation,
   ReadingReference,
+  SessionBinding,
 } from "@solvemate/contracts";
+import { activeSessionBinding } from "../ai/session-bindings";
 import { resolveConversationAi } from "../ai/robot-config";
 import {
   messageReferences,
@@ -24,6 +26,7 @@ export interface QuestionInput {
   create?: boolean;
   readingContext?: ReadingReference;
   contextError?: string;
+  expectedBinding?: SessionBinding;
 }
 
 /** 消息与本次执行准备一次保存；AI 不可用只记录未提交原因，不阻止保存问题。 */
@@ -37,6 +40,17 @@ export function recordQuestion(
   );
   if (!saved && !input.create) throw new Error("原对话已删除，请重新打开。");
   const conversation = saved ?? input.conversation;
+  if (input.expectedBinding) {
+    const binding = activeSessionBinding(conversation);
+    if (
+      !binding ||
+      binding.connectionId !== input.expectedBinding.connectionId ||
+      binding.externalSessionId !== input.expectedBinding.externalSessionId ||
+      binding.revision !== input.expectedBinding.revision ||
+      binding.state !== "missing"
+    )
+      throw new Error("原会话状态已变化，请重新读取后再确认。");
+  }
   if (conversation.status !== "active")
     throw new Error("此对话已归档或删除，请重新打开。");
   const robot = data.robots.find((item) => item.id === input.robotId);

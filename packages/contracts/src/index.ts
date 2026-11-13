@@ -123,6 +123,8 @@ export interface Message {
 
 export interface Conversation extends ConversationMetadata {
   binding: SessionBinding | null;
+  /** 每项服务分别保存关联；binding 仅用于读取旧记录。 */
+  bindings?: SessionBinding[];
   turns: SessionTurn[];
   messages: Message[];
   example: boolean;

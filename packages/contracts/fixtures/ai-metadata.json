@@ -253,5 +253,63 @@
       }
     },
     "valid": true
+  },
+  {
+    "name": "SessionBinding",
+    "value": {
+      "conversationId": "chat",
+      "connectionId": "codex-local",
+      "protocol": "codex-app-server",
+      "externalSessionId": "native",
+      "state": "missing",
+      "revision": 2
+    },
+    "valid": true
+  },
+  {
+    "name": "SessionBinding",
+    "value": {
+      "conversationId": "chat",
+      "connectionId": "codex-local",
+      "protocol": "codex-app-server",
+      "externalSessionId": "native",
+      "state": "missing",
+      "revision": 0
+    },
+    "valid": false
+  },
+  {
+    "name": "TurnDispatch",
+    "value": {
+      "submittedModelId": "test-model",
+      "reasoningEffort": null,
+      "submittedAt": 100,
+      "harnessVersion": null,
+      "adapterId": "deepseek-local",
+      "adapterVersion": "test",
+      "templateVersion": "learning-discussion-v2",
+      "externalSessionId": "test-native",
+      "contentKeys": ["page-body-sha256"],
+      "messageIds": ["user-question-1"],
+      "receivedAt": 110
+    },
+    "valid": true
+  },
+  {
+    "name": "TurnDispatch",
+    "value": {
+      "submittedModelId": "test-model",
+      "reasoningEffort": null,
+      "submittedAt": 100,
+      "harnessVersion": null,
+      "adapterId": "deepseek-local",
+      "adapterVersion": "test",
+      "templateVersion": "learning-discussion-v2",
+      "externalSessionId": "test-native",
+      "contentKeys": ["duplicate", "duplicate"],
+      "messageIds": ["user-question-1"],
+      "receivedAt": 110
+    },
+    "valid": false
   }
 ]

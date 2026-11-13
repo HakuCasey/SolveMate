@@ -120,10 +120,11 @@ def test_provider_sessions_are_separate_and_model_change_preserves_binding(tmp_p
             assert (await completed(service, two.id))["externalSessionId"] == one[
                 "externalSessionId"
             ]
-            with pytest.raises(ConnectionError, match="另一项 AI 服务"):
-                service.create_turn(
-                    question(connection="deepseek-local", model="opaque-model-a")
-                )
+            switch = question(connection="deepseek-local", model="opaque-model-a")
+            service.create_turn(switch)
+            switched = await completed(service, switch.id)
+            assert switched["status"] == "completed"
+            assert switched["externalSessionId"] != one["externalSessionId"]
             with pytest.raises(ConnectionError, match="另一个机器人"):
                 service.create_turn(question(teacher="math"))
             # 全局默认改回 DSH，旧 Hermes 对话仍恢复原生会话。
@@ -138,7 +139,10 @@ def test_provider_sessions_are_separate_and_model_change_preserves_binding(tmp_p
             dsh = question("dsh-dialog", "deepseek-local", "opaque-model-a")
             service.create_turn(dsh)
             assert (await completed(service, dsh.id))["status"] == "completed"
-            assert store.binding("dialog")["connection_id"] == "hermes-local"
+            assert (
+                store.binding("dialog", "hermes-local")["connection_id"]
+                == "hermes-local"
+            )
             assert (
                 store.binding("dsh-dialog")["external_id"] != one["externalSessionId"]
             )
@@ -215,7 +219,7 @@ def test_legacy_config_and_binding_migrate_without_replacing_native_id(tmp_path)
         )
         assert store.preferences()["defaultConnectionId"] == "deepseek-local"
         assert (
-            store.db.execute("SELECT COUNT(*) FROM metadata_backups").fetchone()[0] == 2
+            store.db.execute("SELECT COUNT(*) FROM metadata_backups").fetchone()[0] == 3
         )
         assert store.binding("old")["external_id"] == "native-original"
         assert store.binding("old")["connection_id"] == "deepseek-local"
@@ -297,7 +301,10 @@ def test_unknown_session_creation_is_not_repeated(tmp_path):
     asyncio.run(exercise())
 
 
-def test_browser_binding_is_not_silently_recreated_after_server_data_loss(tmp_path):
+@pytest.mark.parametrize("found", [True, False])
+def test_browser_binding_restores_the_original_id_after_server_data_loss(
+    tmp_path, found
+):
     async def exercise():
         store = Store(tmp_path)
         service = AiService(store, registry=fake_registry())
@@ -305,15 +312,23 @@ def test_browser_binding_is_not_silently_recreated_after_server_data_loss(tmp_pa
             await service.save_settings(
                 ConnectionConfig(executablePath=sys.executable, model="opaque-model-a")
             )
+            FakeAcp.sessions.discard("native-existing")
+            if found:
+                FakeAcp.sessions.add("native-existing")
             request = question(
                 connection="deepseek-local", model="opaque-model-a"
-            ).model_copy(update={"externalSessionId": "native-existing"})
-            before = len(FakeAcp.calls)
-            with pytest.raises(ConnectionError) as error:
-                service.create_turn(request)
-            assert error.value.code == "binding_mismatch"
-            assert len(FakeAcp.calls) == before
-            assert store.binding("dialog") is None
+            ).model_copy(
+                update={"externalSessionId": "native-existing", "bindingRevision": 50}
+            )
+            before = len([m for m, _ in FakeAcp.calls if m == "session/new"])
+            service.create_turn(request)
+            result = await completed(service, request.id)
+            assert result["status"] == ("completed" if found else "failed")
+            if not found:
+                assert result["errorCode"] == "session_missing"
+            assert store.binding("dialog")["external_id"] == "native-existing"
+            assert store.binding("dialog")["revision"] > 50
+            assert len([m for m, _ in FakeAcp.calls if m == "session/new"]) == before
         finally:
             await service.close()
             store.close()

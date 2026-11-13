@@ -66,7 +66,7 @@ def test_legacy_database_retains_native_binding_and_historical_unknowns(tmp_path
     finally:
         store.close()
     again = Store(tmp_path)
-    assert again.db.execute("SELECT COUNT(*) FROM metadata_backups").fetchone()[0] == 2
+    assert again.db.execute("SELECT COUNT(*) FROM metadata_backups").fetchone()[0] == 3
     again.close()
 
 
@@ -294,7 +294,7 @@ def test_v2_database_keeps_disabled_connections_and_history(tmp_path):
         db.execute("PRAGMA user_version=2")
         db.execute("DELETE FROM metadata_backups WHERE version=2")
     store = Store(tmp_path)
-    assert store.db.execute("PRAGMA user_version").fetchone()[0] == 3
+    assert store.db.execute("PRAGMA user_version").fetchone()[0] == 4
     assert not store.connections()["deepseek-local"]["enabled"]
     assert store.connections()["deepseek-local"]["config"]["model"] == "opaque-model-a"
     assert (

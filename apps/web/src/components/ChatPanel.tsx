@@ -82,6 +82,7 @@ export function ChatPanel({
   const messages = conversation?.messages ?? [];
   const archived = conversation?.status === "archived";
   const lastTurn = conversation?.turns?.at(-1);
+  const lastObservedTurn = useRef(lastTurn);
   const turn = lastTurn ? ai.turns[lastTurn.id] : undefined;
   const busy = lastTurn?.status === "running" || sending;
   const connectionError = lastTurn ? ai.connectionErrors[lastTurn.id] : "";
@@ -100,6 +101,25 @@ export function ChatPanel({
     "如何理解这段话，能举一个例子吗？",
   ];
   const latestContent = messages.at(-1)?.content;
+  useEffect(() => {
+    const previous = lastObservedTurn.current;
+    lastObservedTurn.current = lastTurn;
+    // 仅对当前页面刚发生的恢复失败弹窗，重开历史记录或取消后不反复打扰。
+    if (
+      previous?.id === lastTurn?.id &&
+      previous?.status === "running" &&
+      lastTurn?.status === "failed" &&
+      lastTurn.errorCode === "session_missing" &&
+      lastTurn.connectionId === conversation?.aiConfig.connectionId &&
+      lastTurn.userMessageId &&
+      !archived
+    )
+      void onRetryMessage(lastTurn.userMessageId).catch((error: unknown) =>
+        setNotice(
+          error instanceof Error ? error.message : "无法重新发起会话，请重试。",
+        ),
+      );
+  }, [lastTurn, archived, onRetryMessage, conversation?.aiConfig.connectionId]);
   useEffect(() => {
     if (followReply.current)
       history.current?.scrollTo({ top: history.current.scrollHeight });
@@ -240,7 +260,9 @@ export function ChatPanel({
                   );
               }}
             >
-              重新提问
+              {lastTurn?.errorCode === "session_missing"
+                ? "重新发起会话"
+                : "重新提问"}
             </button>
           ) : null}
         </div>

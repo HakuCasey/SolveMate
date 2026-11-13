@@ -249,7 +249,7 @@ export interface SessionBinding {
   connectionId: string;
   protocol: HarnessProtocol;
   externalSessionId: string | null;
-  state: "creating" | "bound" | "uncertain" | "restore-failed";
+  state: "creating" | "bound" | "uncertain" | "restore-failed" | "missing";
   revision: number;
 }
 export interface TurnSnapshot {
@@ -274,6 +274,11 @@ export interface TurnDispatch {
   harnessVersion: string | null;
   adapterId: string;
   adapterVersion: string | null;
+  templateVersion?: string;
+  externalSessionId?: string;
+  contentKeys?: string[];
+  messageIds?: string[];
+  receivedAt?: number;
 }
 export interface PermissionOption {
   optionId: string;
@@ -348,6 +353,8 @@ export interface SessionTurn {
   dispatch: TurnDispatch | null;
   reportedModelId: string | null;
   submissionStatus: "pending" | "accepted" | "uncertain" | "rejected";
+  externalSessionId?: string;
+  errorCode?: string;
 }
 export interface TurnInput {
   id: string;
@@ -366,6 +373,12 @@ export interface TurnInput {
   history: {
     role: "user" | "assistant";
     content: string;
+    id?: string;
+    readingContext?: ReadingReference;
+    /**
+     * @maxItems 20
+     */
+    references?: ReadingReference[];
   }[];
   conversationSnapshot?: ConversationMetadata;
   connectionRevision?: number;
@@ -376,6 +389,8 @@ export interface TurnInput {
    */
   references?: SupportedReadingReference[];
   readingContext?: SupportedReadingReference;
+  restartSession?: boolean;
+  bindingRevision?: number;
 }
 export interface SupportedReadingReference {
   title: string;

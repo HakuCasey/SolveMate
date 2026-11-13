@@ -3,7 +3,7 @@ import { AlertDialog } from "radix-ui";
 import styles from "./ConversationSwitchDialog.module.css";
 
 export interface ConversationSwitch {
-  kind: "teacher" | "service";
+  kind: "teacher" | "service" | "service-resume" | "session";
   confirm: () => void | Promise<void>;
 }
 
@@ -35,11 +35,17 @@ function SwitchContent({
       <AlertDialog.Portal>
         <AlertDialog.Overlay className={styles.overlay} />
         <AlertDialog.Content className={styles.dialog}>
-          <AlertDialog.Title>确认切换</AlertDialog.Title>
+          <AlertDialog.Title>
+            {pending.kind === "session" ? "重新发起会话" : "确认切换"}
+          </AlertDialog.Title>
           <AlertDialog.Description>
             {pending.kind === "teacher"
-              ? "切换教师后对话重新开始，请确认是否切换？"
-              : "当前操作会切换 Harness 服务，对话将重新开始，请确认是否切换？"}
+              ? "切换机器人后对话重新开始，请确认是否切换？"
+              : pending.kind === "service"
+                ? "更换 AI 服务需要重新发起会话，是否发起？"
+                : pending.kind === "service-resume"
+                  ? "将继续该 AI 服务中的原会话，是否切换？"
+                  : "第三方 Harness 中的会话无法匹配，是否重新发起会话？"}
           </AlertDialog.Description>
           {error && <p role="alert">{error}</p>}
           <div className={styles.actions}>

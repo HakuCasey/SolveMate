@@ -17,6 +17,7 @@ export function assertUserData(value: unknown): void {
   const allowed = new Set([
     ...fields,
     "binding",
+    "bindings",
     "turns",
     "messages",
     "example",
@@ -27,6 +28,25 @@ export function assertUserData(value: unknown): void {
   ).conversations) {
     if (Object.keys(conversation).some((key) => !allowed.has(key)))
       throw new Error("Conversation contains unsupported metadata fields.");
+    const legacy = conversation.binding as Record<string, unknown> | null;
+    const current = conversation.bindings as
+      Record<string, unknown>[] | undefined;
+    if (current && legacy)
+      throw new Error("Conversation contains two sources of session bindings.");
+    const bindings = current ?? (legacy ? [legacy] : []);
+    if (
+      new Set(bindings.map((item) => item.connectionId)).size !==
+        bindings.length ||
+      bindings.some((binding) => binding.conversationId !== conversation.id)
+    )
+      throw new Error("Conversation session bindings are inconsistent.");
+    if (
+      !current &&
+      legacy &&
+      legacy.connectionId !==
+        (conversation.aiConfig as Record<string, unknown>).connectionId
+    )
+      throw new Error("Conversation binding does not match its metadata.");
     assertMetadata(
       "ConversationMetadata",
       Object.fromEntries(

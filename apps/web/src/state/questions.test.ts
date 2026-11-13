@@ -309,3 +309,31 @@ it("preserves a question with an unsupported reference and does not queue an AI 
   });
   assertAppData(result);
 });
+
+it("rejects a stale confirmation without changing the question or binding", () => {
+  const { data, input, conversation } = fixture();
+  const binding = {
+    conversationId: conversation.id,
+    connectionId: "deepseek-local",
+    externalSessionId: "original-native",
+    state: "missing" as const,
+    protocol: "acp" as const,
+    revision: 3,
+  };
+  conversation.aiConfig = { connectionId: binding.connectionId, modelId: "a" };
+  conversation.bindings = [binding];
+  conversation.binding = null;
+  const before = structuredClone(data);
+  expect(() =>
+    recordQuestion(
+      data,
+      { ...input, expectedBinding: { ...binding, revision: 2 } },
+      aiSettings(),
+    ),
+  ).toThrow("原会话状态已变化");
+  expect(data).toEqual(before);
+  conversation.aiConfig.connectionId = "hermes-local";
+  expect(() =>
+    recordQuestion(data, { ...input, expectedBinding: binding }, aiSettings()),
+  ).toThrow("原会话状态已变化");
+});

@@ -94,7 +94,7 @@ def test_recover_original_session_after_program_and_home_change(
                 assert result["status"] == "failed"
                 assert result["errorCode"] == "session_missing"
                 assert not any(method == "session/prompt" for method, _ in calls)
-                assert store.binding(first.conversationId)["state"] == "restore-failed"
+                assert store.binding(first.conversationId)["state"] == "missing"
                 factory.sessions.add(sid)
                 retry = question(connection=adapter.id, model=model)
                 service.create_turn(retry)

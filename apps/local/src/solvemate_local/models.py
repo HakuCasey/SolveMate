@@ -126,8 +126,17 @@ class ReadingReference(RequestModel):
 
 
 class HistoryMessage(RequestModel):
+    id: str | None = Field(
+        default=None, max_length=200, exclude_if=lambda value: value is None
+    )
     role: Literal["user", "assistant"]
     content: str = Field(max_length=100000)
+    readingContext: ReadingReference | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    references: list[ReadingReference] = Field(
+        default_factory=list, max_length=20, exclude_if=lambda value: not value
+    )
 
 
 class TurnRequest(RequestModel):
@@ -136,8 +145,12 @@ class TurnRequest(RequestModel):
     connectionRevision: int | None = Field(default=None, ge=1)
     robotRevision: int | None = Field(default=None, ge=1)
     client: dict | None = None
+    bindingRevision: int | None = Field(
+        default=None, ge=1, exclude_if=lambda value: value is None
+    )
     externalSessionId: str | None = Field(default=None, max_length=1000)
     connectionId: str = Field(default="", max_length=100)
+    restartSession: bool = Field(default=False, exclude_if=lambda value: not value)
     id: str = Field(pattern=r"^[a-zA-Z0-9-]{1,100}$")
     conversationId: str = Field(pattern=r"^[a-zA-Z0-9-]{1,100}$")
     userMessageId: str = Field(min_length=1, max_length=200)

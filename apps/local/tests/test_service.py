@@ -452,7 +452,7 @@ def test_missing_external_session_is_reported_without_replacing_binding(tmp_path
         result = settled(client, follow["id"])
         assert result["status"] == "failed"
         assert result["errorCode"] == "session_missing"
-        assert "未找到可恢复的原会话" in result["error"]
+        assert result["error"] == "第三方 Harness 中的会话无法匹配。"
         assert not any(
             method == "session/new" for method, _ in FakeAcp.calls[new_calls:]
         )

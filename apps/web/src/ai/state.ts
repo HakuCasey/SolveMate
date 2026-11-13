@@ -1,7 +1,11 @@
+import {
+  retainSessionBindings,
+  receiveSessionBinding,
+  sessionBindings,
+} from "./session-bindings";
 import type {
   AppData,
   Message,
-  SessionBinding,
   SessionTurn,
   AiTurn,
   AiSettings,
@@ -33,29 +37,33 @@ export function mergeAiTurn(data: AppData, turn: AiTurn): AppData {
       conversation.status === "deleted"
     )
       return conversation;
-    if (
-      conversation.aiConfig.connectionId &&
-      conversation.aiConfig.connectionId !== turn.connectionId
-    )
-      throw new Error("执行结果来自另一项服务，已保留当前对话配置。");
     if (conversation.robotId && conversation.robotId !== turn.teacher.id)
       throw new Error(
         "执行结果中的机器人与当前对话不一致，未更改对话的机器人。",
       );
+    const existingBinding = sessionBindings(conversation).find(
+      (binding) => binding.connectionId === turn.connectionId,
+    );
+    let bound = retainSessionBindings(conversation);
+    if (turn.binding) bound = receiveSessionBinding(bound, turn.binding);
+    else if (!existingBinding && turn.externalSessionId && turn.protocol)
+      bound = receiveSessionBinding(bound, {
+        conversationId: conversation.id,
+        connectionId: turn.connectionId,
+        protocol: turn.protocol,
+        externalSessionId: turn.externalSessionId,
+        state: "bound",
+        revision: 1,
+      });
     const previous = conversation.turns.find((item) => item.id === turn.id);
     if (
       previous &&
       ((previous.snapshot && previous.revision >= turn.revision) ||
         (previous.status !== "running" && turn.status === "running"))
     )
-      return conversation;
-    const existingBinding = conversation.binding;
-    if (
-      existingBinding?.externalSessionId &&
-      turn.externalSessionId &&
-      existingBinding.externalSessionId !== turn.externalSessionId
-    )
-      throw new Error("原生会话编号与本地绑定不一致，未替换原会话。");
+      return bound === conversation
+        ? conversation
+        : { ...bound, revision: conversation.revision + 1 };
     const messages = conversation.messages.map((item) =>
       conversation.example && !item.turnId ? { ...item, example: true } : item,
     );
@@ -96,6 +104,10 @@ export function mergeAiTurn(data: AppData, turn: AiTurn): AppData {
       id: turn.id,
       revision: turn.revision,
       submissionStatus: turn.submissionStatus,
+      ...(turn.errorCode ? { errorCode: turn.errorCode } : {}),
+      ...(turn.externalSessionId
+        ? { externalSessionId: turn.externalSessionId }
+        : {}),
       connectionId: turn.connectionId,
       status: turn.status,
       startedAt: turn.startedAt,
@@ -146,20 +158,8 @@ export function mergeAiTurn(data: AppData, turn: AiTurn): AppData {
         ? []
         : [message, ...(replies.get(message.id) ?? [])],
     );
-    const binding: SessionBinding | null =
-      turn.binding ??
-      (turn.externalSessionId && turn.protocol
-        ? {
-            conversationId: conversation.id,
-            connectionId: turn.connectionId,
-            protocol: turn.protocol,
-            externalSessionId: turn.externalSessionId,
-            state: "bound",
-            revision: existingBinding?.revision ?? 1,
-          }
-        : existingBinding);
     return {
-      ...conversation,
+      ...bound,
       revision: conversation.revision + 1,
       example: false,
       aiConfig: conversation.aiConfig.connectionId
@@ -169,7 +169,6 @@ export function mergeAiTurn(data: AppData, turn: AiTurn): AppData {
             modelId: turn.snapshot.requestedModelId,
             reasoningEffort: turn.snapshot.reasoningEffort,
           },
-      binding,
       messages: orderedMessages,
       turns,
       updatedAt: Math.max(

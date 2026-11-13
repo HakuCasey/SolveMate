@@ -58,6 +58,7 @@ export function assertAppData(value: unknown): asserts value is AppData {
     const allowed = new Set([
       ...Object.keys(aiMetadataSchema.$defs.ConversationMetadata.properties),
       "binding",
+      "bindings",
       "turns",
       "messages",
       "example",
@@ -71,14 +72,6 @@ export function assertAppData(value: unknown): asserts value is AppData {
     )
       throw new Error("Conversation records are invalid.");
     for (const turn of conversation.turns) assertMetadata("SessionTurn", turn);
-    if (conversation.binding) {
-      assertMetadata("SessionBinding", conversation.binding);
-      if (
-        conversation.binding.conversationId !== conversation.id ||
-        conversation.binding.connectionId !== conversation.aiConfig.connectionId
-      )
-        throw new Error("Conversation binding does not match its metadata.");
-    }
   }
   const robotIds = data.robots.map((item) => item.id),
     ids = data.conversations.map((item) => item.id);

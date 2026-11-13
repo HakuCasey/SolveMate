@@ -1,3 +1,4 @@
+import { activeSessionBinding, sessionBindings } from "./session-bindings";
 import { describe, expect, it } from "vitest";
 import { createInitialData } from "../data/catalog";
 import { assertAppData } from "../data/validation";
@@ -81,7 +82,7 @@ describe("AI conversation results", () => {
     expect(restored.conversations[0]?.messages[1]?.content).toBe(
       "整数除法先得到 2。",
     );
-    expect(restored.conversations[0]?.binding).toMatchObject({
+    expect(activeSessionBinding(restored.conversations[0])).toMatchObject({
       connectionId: "deepseek-local",
       protocol: "acp",
       externalSessionId: "external-session",
@@ -213,7 +214,11 @@ it("keeps native Codex protocol and turn identifiers when restoring snapshots", 
     externalTurnId: "codex-turn",
     status: "completed",
   });
-  expect(result.conversations[0].binding).toMatchObject({
+  expect(
+    sessionBindings(result.conversations[0]).find(
+      (item) => item.connectionId === "codex-local",
+    ),
+  ).toMatchObject({
     connectionId: "codex-local",
     protocol: "codex-app-server",
     externalSessionId: "external-session",

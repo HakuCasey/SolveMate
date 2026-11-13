@@ -64,3 +64,28 @@ def test_old_requests_and_plain_chat_do_not_invent_a_linked_page():
     assert "readingContext" not in body.model_dump()
     with pytest.raises(ValidationError, match="关联内容尚未读取"):
         request(readingContext=context(content=" "))
+
+
+def test_content_identity_ignores_title_and_old_chapter_but_keeps_version_and_body():
+    from solvemate_local.models import ReadingReference
+    from solvemate_local.prompting import content_key, prepare_prompt
+
+    first = context()
+    renamed = {
+        **first,
+        "title": "renamed",
+        "selection": {**first["selection"], "chapterIndex": 9},
+    }
+    a = ReadingReference.model_validate(first)
+    assert content_key(a) == content_key(ReadingReference.model_validate(renamed))
+    updated = {**first, "selection": {**first["selection"], "version": "new-version"}}
+    assert content_key(a) != content_key(ReadingReference.model_validate(updated))
+    body = request(readingContext=first, references=[first, renamed])
+    prepared = prepare_prompt(body, {"content": set(), "message": set()})
+    assert prepared.text.count("原文：") == 1
+    assert len(prepared.content_keys) == 1
+    repeat = prepare_prompt(
+        body, {"content": set(prepared.content_keys), "message": set()}
+    )
+    assert "原文：" not in repeat.text
+    assert not repeat.content_keys

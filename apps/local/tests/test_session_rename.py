@@ -73,7 +73,9 @@ def test_http_rename_uses_server_binding_and_preserves_records(tmp_path):
             ("connectionId", "other"),
         ]:
             response = client.put(path, json={**request, field: value})
-            assert response.json()["code"] == "binding_mismatch"
+            assert response.json()["code"] == (
+                "binding_missing" if field == "connectionId" else "binding_mismatch"
+            )
         assert len(adapter.names) == 1
         for title in [" ", "line\nbreak", "a" * 101, "nul\0value"]:
             assert client.put(path, json={**request, "title": title}).status_code == 422

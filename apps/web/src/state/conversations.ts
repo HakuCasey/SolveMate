@@ -10,6 +10,7 @@ import type {
   RobotAiDefaults,
 } from "@solvemate/contracts";
 import { clientRuntime } from "../version";
+import { retainSessionBindings } from "../ai/session-bindings";
 import { initialConversationAi, resolveDefaults } from "../ai/robot-config";
 import { isRobotModified } from "./robots";
 
@@ -192,10 +193,9 @@ export function applyRobotAi(
     conversations: data.conversations.map((item) =>
       item.id === currentConversationId &&
       item.robotId === robotId &&
-      item.status === "active" &&
-      item.aiConfig.connectionId === effective.connectionId
+      item.status === "active"
         ? {
-            ...item,
+            ...retainSessionBindings(item),
             revision: item.revision + 1,
             updatedAt: Date.now(),
             aiConfig: {

@@ -18,7 +18,7 @@ class Store:
         self.directory = directory
         self.db = sqlite3.connect(directory / "state.sqlite3")
         self.db.row_factory = sqlite3.Row
-        if self.db.execute("PRAGMA user_version").fetchone()[0] > 3:
+        if self.db.execute("PRAGMA user_version").fetchone()[0] > 4:
             self.db.close()
             raise ValueError("AI database has an unsupported schema version.")
         self.db.executescript("""
@@ -72,6 +72,7 @@ class Store:
             self.db.execute(
                 "UPDATE bindings SET state='uncertain' WHERE external_id='' AND state='bound'"
             )
+        self._migrate_session_bindings()
         # 进程中断后不能把旧请求当作仍在生成，也不能自动重复调用模型。
         for row in self.db.execute("SELECT id, value FROM turns").fetchall():
             turn = json.loads(row["value"])
@@ -92,7 +93,7 @@ class Store:
         row = self.db.execute("SELECT value FROM config WHERE id=1").fetchone()
         old = json.loads(row[0]) if row else None
         version = self.db.execute("PRAGMA user_version").fetchone()[0]
-        if version > 3:
+        if version > 4:
             raise ValueError("AI database has an unsupported schema version.")
         if version >= 2:
             return
@@ -153,7 +154,7 @@ class Store:
             self.db.execute("PRAGMA user_version=2")
 
     def _migrate_connections(self):
-        if self.db.execute("PRAGMA user_version").fetchone()[0] == 3:
+        if self.db.execute("PRAGMA user_version").fetchone()[0] >= 3:
             return
         with self.db:
             backup = {
@@ -270,11 +271,106 @@ class Store:
                 "INSERT OR REPLACE INTO config VALUES (1,?)", (json.dumps(previous),)
             )
 
-    def binding(self, conversation_id):
-        row = self.db.execute(
+    def _migrate_session_bindings(self):
+        if self.db.execute("PRAGMA user_version").fetchone()[0] >= 4:
+            return
+        with self.db:
+            self.db.execute("BEGIN IMMEDIATE")
+            rows = [dict(row) for row in self.db.execute("SELECT * FROM bindings")]
+            self.db.execute(
+                "CREATE TABLE IF NOT EXISTS metadata_backups (version INTEGER PRIMARY KEY, value TEXT NOT NULL)"
+            )
+            self.db.execute(
+                "INSERT OR IGNORE INTO metadata_backups VALUES (3,?)",
+                (json.dumps({"bindings": rows}, ensure_ascii=False),),
+            )
+            self.db.execute("ALTER TABLE bindings RENAME TO bindings_v3")
+            self.db.execute("""CREATE TABLE bindings (
+                conversation_id TEXT NOT NULL, external_id TEXT NOT NULL,
+                executable TEXT NOT NULL, workspace TEXT NOT NULL,
+                harness_home TEXT NOT NULL DEFAULT '', connection_id TEXT NOT NULL,
+                protocol TEXT NOT NULL, revision INTEGER NOT NULL DEFAULT 1,
+                state TEXT NOT NULL DEFAULT 'bound',
+                PRIMARY KEY(conversation_id, connection_id)
+            )""")
+            self.db.execute("""INSERT INTO bindings
+                (conversation_id, external_id, executable, workspace, harness_home,
+                 connection_id, protocol, revision, state)
+                SELECT conversation_id, external_id, executable, workspace, harness_home,
+                       connection_id, protocol, revision, state FROM bindings_v3""")
+            self.db.execute("DROP TABLE bindings_v3")
+            self.db.execute("""CREATE TABLE IF NOT EXISTS session_receipts (
+                connection_id TEXT NOT NULL, external_id TEXT NOT NULL,
+                kind TEXT NOT NULL, receipt_key TEXT NOT NULL,
+                PRIMARY KEY(connection_id, external_id, kind, receipt_key)
+            )""")
+            self.db.execute("PRAGMA user_version=4")
+
+    def binding(self, conversation_id, connection_id=None):
+        if connection_id:
+            row = self.db.execute(
+                "SELECT * FROM bindings WHERE conversation_id=? AND connection_id=?",
+                (conversation_id, connection_id),
+            ).fetchone()
+            return dict(row) if row else None
+        rows = self.db.execute(
             "SELECT * FROM bindings WHERE conversation_id=?", (conversation_id,)
-        ).fetchone()
-        return dict(row) if row else None
+        ).fetchall()
+        # 旧调用仅可读取唯一关联，不能按行顺序猜测当前服务。
+        return dict(rows[0]) if len(rows) == 1 else None
+
+    def receipts(self, connection_id, external_id):
+        result = {"content": set(), "message": set()}
+        for row in self.db.execute(
+            "SELECT kind,receipt_key FROM session_receipts WHERE connection_id=? AND external_id=?",
+            (connection_id, external_id),
+        ):
+            result[row["kind"]].add(row["receipt_key"])
+        return result
+
+    def confirm_receipts(
+        self, connection_id, external_id, contents, messages, turn=None
+    ):
+        with self.db:
+            self.db.executemany(
+                "INSERT OR IGNORE INTO session_receipts VALUES (?,?,?,?)",
+                [
+                    (connection_id, external_id, kind, key)
+                    for kind, keys in [("content", contents), ("message", messages)]
+                    for key in keys
+                ],
+            )
+            if turn is not None:
+                # 收件记录与执行中的确认时间在同一事务中保存。
+                saved = {key: value for key, value in turn.items() if key != "task"}
+                self.save_turn(saved)
+                turn.update(saved)
+
+    def restart_binding(self, conversation_id, connection_id, external_id):
+        from .errors import ConnectionError
+
+        with self.db:
+            cursor = self.db.execute(
+                "UPDATE bindings SET external_id='',state='creating',revision=revision+1 "
+                "WHERE conversation_id=? AND connection_id=? AND external_id=? AND state='missing'",
+                (conversation_id, connection_id, external_id),
+            )
+            if cursor.rowcount != 1:
+                raise ConnectionError(
+                    "原会话状态已变化，请重新读取后再确认。", "binding_mismatch"
+                )
+
+    def retain_binding_revision(
+        self, conversation_id, connection_id, external_id, revision
+    ):
+        if revision is None:
+            return
+        # 同一原生编号在本机备份恢复后保持单调修订号，不以版本差异阻止恢复。
+        with self.db:
+            self.db.execute(
+                "UPDATE bindings SET revision=MAX(revision,?) WHERE conversation_id=? AND connection_id=? AND external_id=?",
+                (revision, conversation_id, connection_id, external_id),
+            )
 
     def bind(
         self,
@@ -285,10 +381,11 @@ class Store:
         harness_home="",
         connection_id="deepseek-local",
         protocol="acp",
+        revision=1,
     ):
         with self.db:
             self.db.execute(
-                "INSERT INTO bindings (conversation_id, external_id, executable, workspace, harness_home, connection_id,protocol,state) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO bindings (conversation_id, external_id, executable, workspace, harness_home, connection_id,protocol,state,revision) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     conversation_id,
                     external_id,
@@ -298,14 +395,18 @@ class Store:
                     connection_id,
                     protocol,
                     "bound" if external_id else "creating",
+                    revision,
                 ),
             )
 
-    def complete_binding(self, conversation_id, external_id):
+    def complete_binding(self, conversation_id, external_id, connection_id=None):
+        binding = self.binding(conversation_id, connection_id)
+        if not binding:
+            raise ValueError("Session binding was not found.")
         with self.db:
             self.db.execute(
-                "UPDATE bindings SET external_id=?,state='bound',revision=revision+1 WHERE conversation_id=? AND external_id=''",
-                (external_id, conversation_id),
+                "UPDATE bindings SET external_id=?,state='bound',revision=revision+1 WHERE conversation_id=? AND connection_id=? AND external_id=''",
+                (external_id, conversation_id, binding["connection_id"]),
             )
 
     def turn(self, ident):
@@ -566,8 +667,8 @@ class Store:
                     (json.dumps(value, ensure_ascii=False), ident),
                 )
 
-    def binding_metadata(self, ident):
-        value = self.binding(ident)
+    def binding_metadata(self, ident, connection_id=None):
+        value = self.binding(ident, connection_id)
         if value is None:
             return None
         result = {
@@ -581,11 +682,14 @@ class Store:
         validate_metadata("SessionBinding", result)
         return result
 
-    def mark_binding(self, ident, state):
+    def mark_binding(self, ident, state, connection_id=None):
+        binding = self.binding(ident, connection_id)
+        if not binding:
+            return
         with self.db:
             self.db.execute(
-                "UPDATE bindings SET state=?,revision=revision+1 WHERE conversation_id=?",
-                (state, ident),
+                "UPDATE bindings SET state=?,revision=revision+1 WHERE conversation_id=? AND connection_id=?",
+                (state, ident, binding["connection_id"]),
             )
 
     def probe(self, ident):

@@ -1004,7 +1004,8 @@
             "creating",
             "bound",
             "uncertain",
-            "restore-failed"
+            "restore-failed",
+            "missing"
           ]
         },
         "revision": {
@@ -1186,6 +1187,32 @@
               "type": "null"
             }
           ]
+        },
+        "templateVersion": {
+          "type": "string",
+          "minLength": 1
+        },
+        "externalSessionId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "contentKeys": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "messageIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "receivedAt": {
+          "type": "integer",
+          "minimum": 0
         }
       },
       "required": [
@@ -1554,6 +1581,13 @@
             "uncertain",
             "rejected"
           ]
+        },
+        "externalSessionId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "errorCode": {
+          "type": "string"
         }
       },
       "required": [
@@ -1668,6 +1702,21 @@
               "content": {
                 "type": "string",
                 "maxLength": 100000
+              },
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "readingContext": {
+                "$ref": "#/$defs/ReadingReference"
+              },
+              "references": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/ReadingReference"
+                },
+                "maxItems": 20
               }
             },
             "required": [
@@ -1701,6 +1750,13 @@
         },
         "readingContext": {
           "$ref": "#/$defs/SupportedReadingReference"
+        },
+        "restartSession": {
+          "type": "boolean"
+        },
+        "bindingRevision": {
+          "type": "integer",
+          "minimum": 1
         }
       },
       "required": [

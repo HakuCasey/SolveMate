@@ -487,6 +487,12 @@
         },
         "example": {
           "type": "boolean"
+        },
+        "bindings": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:solvemate:ai-metadata:3#/$defs/SessionBinding"
+          }
         }
       },
       "required": [

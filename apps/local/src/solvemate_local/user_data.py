@@ -64,7 +64,7 @@ def validate_data(value):
         if (
             set(conversation)
             - set(fields)
-            - {"binding", "turns", "messages", "example"}
+            - {"binding", "bindings", "turns", "messages", "example"}
         ):
             raise UserDataError("对话记录包含不支持的字段，原有记录已保留。")
         try:
@@ -74,11 +74,21 @@ def validate_data(value):
             )
         except ValueError as error:
             raise UserDataError("对话元数据未通过校验，原有记录已保留。") from error
-        binding = conversation["binding"]
-        if binding and (
-            binding["conversationId"] != conversation["id"]
-            or binding["connectionId"] != conversation["aiConfig"]["connectionId"]
+        if conversation.get("bindings") is not None and conversation["binding"]:
+            raise UserDataError("对话同时包含两份会话关联，原记录已保留。")
+        bindings = conversation.get(
+            "bindings", [conversation["binding"]] if conversation["binding"] else []
+        )
+        if (
+            "bindings" not in conversation
+            and conversation["binding"]
+            and conversation["binding"]["connectionId"]
+            != conversation["aiConfig"]["connectionId"]
         ):
+            raise UserDataError("对话与第三方会话的关联不一致。")
+        if len({item["connectionId"] for item in bindings}) != len(bindings):
+            raise UserDataError("对话包含重复的服务会话关联。")
+        if any(binding["conversationId"] != conversation["id"] for binding in bindings):
             raise UserDataError("对话与第三方会话的关联不一致。")
     library = value.get("noteLibrary")
     if library:
