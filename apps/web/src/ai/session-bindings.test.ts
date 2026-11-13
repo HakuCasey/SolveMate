@@ -33,6 +33,39 @@ function fixture() {
 }
 
 describe("service session associations", () => {
+  it("switches an empty conversation without a restart confirmation or native association", () => {
+    const { data, settings, conversation, robot } = fixture();
+    conversation.binding = null;
+    conversation.bindings = [];
+    let current = data;
+    for (const connectionId of ["hermes-local", "deepseek-local"]) {
+      const before = current.conversations[0];
+      expect(serviceSwitchKind(before, connectionId)).toBeNull();
+      current = applyRobotAi(
+        current,
+        robot.id,
+        { connectionId, modelId: "a" },
+        settings,
+        current.robots.find((item) => item.id === robot.id)!.revision,
+        conversation.id,
+      );
+      expect(current.conversations).toHaveLength(1);
+      expect(current.conversations[0].id).toBe(conversation.id);
+      expect(sessionBindings(current.conversations[0])).toEqual([]);
+      expect(current.conversations[0].messages).toEqual([]);
+    }
+    // 没有成功提交 AI 的问题仍属于已有讨论，不能被当成空对话。
+    current.conversations[0].messages.push({
+      id: "saved-question",
+      role: "user",
+      content: "为什么？",
+    });
+    expect(serviceSwitchKind(current.conversations[0], "hermes-local")).toBe(
+      "service",
+    );
+    assertAppData(current);
+  });
+
   it("switches services in the same conversation while retaining the original legacy association", () => {
     const { data, settings, robot, conversation, binding } = fixture();
     const switched = applyRobotAi(

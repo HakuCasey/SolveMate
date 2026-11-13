@@ -68,7 +68,14 @@ export function serviceSwitchKind(
   conversation: Conversation,
   connectionId: string | null,
 ) {
-  return sessionBindings(conversation).some(
+  const bindings = sessionBindings(conversation);
+  // 只选过服务、尚未开始讨论时，不存在需要重新发起的会话。
+  if (
+    !conversation.messages.length &&
+    !bindings.some((binding) => !!binding.externalSessionId)
+  )
+    return null;
+  return bindings.some(
     (binding) =>
       binding.connectionId === connectionId && !!binding.externalSessionId,
   )

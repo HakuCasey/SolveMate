@@ -1112,10 +1112,9 @@ function Workspace({ content }: { content: OfficialContent }) {
     };
     if (currentConversation && before.connectionId !== after.connectionId) {
       setAiSettingsSource(null);
-      setPendingSwitch({
-        kind: serviceSwitchKind(currentConversation, after.connectionId),
-        confirm: commit,
-      });
+      const kind = serviceSwitchKind(currentConversation, after.connectionId);
+      if (kind) setPendingSwitch({ kind, confirm: commit });
+      else await commit();
     } else await commit();
   }
 
