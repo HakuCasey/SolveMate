@@ -37,7 +37,7 @@ apps\server\.venv\Scripts\python.exe -m uvicorn solvemate_local.main:create_app 
 
 ### Hermes
 
-通过原生 `hermes acp` 接入，模型列表、会话和工具均由现有 Hermes 提供。先在终端运行 `hermes acp --check` 确认 ACP 依赖可用，再在 SolveMate 选择 Hermes、检测连接、选择模型并保存。检测列表包含 Hermes 已配置提供方的模型；模型编号原样保存。
+通过原生 `hermes acp` 接入回复、工具和会话恢复。连接检测通过安装自身的 SDK 读取模型目录，不创建检测会话；模型编号与 ACP 保持一致。正式提问在创建原生会话时显式指定所选模型，再由 ACP 加载同一编号，避免先初始化 Hermes 的全局默认模型。先运行 `hermes acp --check` 确认 ACP 依赖，再在 SolveMate 检测连接、选择模型并保存；原生 Gateway SDK 或严格加载能力不支持时，按提示更新 Hermes。
 
 优先使用 PATH 中的原生 `hermes` 命令。找不到时，macOS 尝试 `~/.local/bin/hermes`，Windows 尝试 `%LOCALAPPDATA%/hermes/bin/hermes.exe`，对应官方源码安装器的 CLI 位置。其他位置可手动填写；Windows MSIX 安装优先使用系统执行别名。不通过 shell 执行 `.cmd`、`.bat`，也不跨 Windows 与 WSL 查找程序。
 
@@ -55,11 +55,11 @@ apps\server\.venv\Scripts\python.exe -m uvicorn solvemate_local.main:create_app 
 
 ### 多服务与对话绑定
 
-各服务的配置分别保存并独立启用或停用。全局默认通过单独操作选择，保存其他连接不改变默认。教师使用全局默认或独立选择已配置且启用的连接与模型。旧对话固定使用原连接；更改全局默认不改写旧对话的绑定。
+各服务的连接配置分别保存，检测成功后可在机器人和对话中选择。全局默认通过单独操作选择，保存其他连接不改变默认。机器人使用全局默认或独立选择已连接的服务与模型；更改全局默认不改写已有对话的选择及原生关联。
 
-在对话中切换教师或服务需要确认，确认后开始新对话。原对话、消息和原生 session 保留；新原生 session 在首次实际提问时建立。同一服务内切换模型继续原 session。
+切换机器人建立新对话；切换服务保留当前对话及各服务的原生关联。目标服务已有会话时恢复原编号，明确找不到时由用户确认是否重新发起。同一服务内切换模型继续原 session，空对话切换服务只更新配置。
 
-连接检测会话按连接、程序、配置目录和工作目录保存并复用；手动检测、保存前复检和重启不反复创建。创建结果不明或恢复失败时明确报错，只有用户确认后才重建检测会话。Hermes 检测会话通过原生命令命名为“SolveMate 连接测试”；DSH 的原生标题同步仍待实现。
+DSH 与 Hermes 的检测只读取协议与模型目录，不创建或恢复检测会话；历史检测记录保留。模型鉴权、额度和实际回复在正式提问时确认。
 
 ## DSH 自定义模型配置
 
@@ -147,14 +147,14 @@ PDF 无需安装办公软件。PPTX 需安装 [LibreOffice](https://www.libreoff
 
 `SOLVEMATE_USER_DIR` 可指定本机数据根目录；默认使用项目的 `user/`。`SOLVEMATE_MATERIALS_DIR` 可单独指定上传资料目录，默认是数据根目录下的 `uploads/`；已有 `SOLVEMATE_LOCAL_DATA` 仍指定 AI 数据目录。测试应显式指定独立目录，不使用正式资料。
 
-| 接口 | 用途 |
-| --- | --- |
-| `GET /local-api/v1/materials` | 资料列表；`X-SolveMate-Material-Errors` 记录未能读取的元数据数量 |
-| `POST /local-api/v1/materials?filename=...&courseId=...` | 上传原件，正文为 `application/octet-stream`；课程可不填写 |
-| `PATCH /local-api/v1/materials/{id}/course` | 通过 `courseId` 与 `expectedRevision` 调整归属，原编号和版本不变 |
-| `POST /local-api/v1/materials/{id}/retry` | 重试失败的处理，不重复上传 |
-| `GET /local-api/v1/materials/{id}/{version}/reader` | 读取固定资料版本的 PDF |
-| `GET /local-api/v1/materials/{id}/{version}/pages/{page}` | 取得对应页面文字 |
+| 接口                                                      | 用途                                                             |
+| --------------------------------------------------------- | ---------------------------------------------------------------- |
+| `GET /local-api/v1/materials`                             | 资料列表；`X-SolveMate-Material-Errors` 记录未能读取的元数据数量 |
+| `POST /local-api/v1/materials?filename=...&courseId=...`  | 上传原件，正文为 `application/octet-stream`；课程可不填写        |
+| `PATCH /local-api/v1/materials/{id}/course`               | 通过 `courseId` 与 `expectedRevision` 调整归属，原编号和版本不变 |
+| `POST /local-api/v1/materials/{id}/retry`                 | 重试失败的处理，不重复上传                                       |
+| `GET /local-api/v1/materials/{id}/{version}/reader`       | 读取固定资料版本的 PDF                                           |
+| `GET /local-api/v1/materials/{id}/{version}/pages/{page}` | 取得对应页面文字                                                 |
 
 所有资料接口沿用本机服务的 Host、Origin 和 `X-SolveMate-Client` 检查。文件名只作显示，不参与磁盘目录拼接。网页引用保存资料编号、固定版本、页码和文字快照；文字随问题直接进入现有 Harness 请求。当前不提供扫描件 OCR、图片理解、跨页选区或整本书检索。
 
@@ -167,7 +167,6 @@ PDF 无需安装办公软件。PPTX 需安装 [LibreOffice](https://www.libreoff
 默认上传目录从 `user/materials/` 复制到 `user/uploads/`，复制后逐文件核对 SHA-256，再启用新目录并写入迁移回执。旧目录保留，程序只读写新目录。复制或回执写入中断可重试；两目录存在差异且无回执时拒绝覆盖。显式指定的资料目录保持原位。
 
 本机服务不可达时，网页可查看已有缓存；修改未能保存时保留未确认副本并提示重试，重新打开后可选择恢复。缓存不充当正式记录。需要备份整个用户目录时，先停止应用，再复制 `user/`；恢复前保留当前目录。跨设备同步、自动定期备份及备份导入界面未提供。结构和失败处理详见 [012 本机用户数据保存](../../docs/features/012-local-user-storage/design.md)。
-
 
 ## 笔记本 PDF 导出
 

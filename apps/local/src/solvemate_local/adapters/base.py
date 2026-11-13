@@ -134,7 +134,7 @@ class AcpAdapter(HarnessAdapter):
             "capabilities": info.get("agentCapabilities", {}),
         }
 
-    async def new_session(self, process, workspace):
+    async def new_session(self, process, workspace, model=""):
         result = await process.call("session/new", {"cwd": workspace, "mcpServers": []})
         if (
             not isinstance(result, dict)

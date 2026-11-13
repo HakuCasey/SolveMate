@@ -246,7 +246,7 @@ class CodexAdapter(HarnessAdapter):
             "currentReasoning": current,
         }
 
-    async def new_session(self, process, workspace):
+    async def new_session(self, process, workspace, model=""):
         options = await self.probe_options(process)
         result = await process.call("thread/start", {"cwd": workspace})
         sid = (result.get("thread") or {}).get("id")

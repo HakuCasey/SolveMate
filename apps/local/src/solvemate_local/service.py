@@ -754,9 +754,14 @@ class AiService:
                         adapter.protocol,
                     )
                 fresh = True
-                session = await adapter.new_session(process, str(self.workspace))
+                session = await adapter.new_session(
+                    process, str(self.workspace), turn["model"]
+                )
                 sid = session.id
                 self.store.complete_binding(request.conversationId, sid, adapter.id)
+                turn["externalSessionId"] = sid
+                self.persist(turn)
+                session = await adapter.inspect_session(process, session)
             self.store.mark_binding(request.conversationId, "bound", adapter.id)
             loaded.add(sid)
             self.session_turns[(adapter.id, sid)] = turn["id"]

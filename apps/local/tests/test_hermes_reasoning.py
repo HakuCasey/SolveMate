@@ -183,12 +183,14 @@ def test_timeout_and_cancellation_close_owned_sidecar(monkeypatch, failure):
     assert child.returncode == -1
 
 
-def test_option_read_failure_keeps_registered_session_for_retry(monkeypatch, tmp_path):
-    from test_adapters import FakeHermes
+def test_option_read_failure_keeps_registered_formal_session_for_retry(
+    monkeypatch, tmp_path
+):
+    from test_adapters import FakeHermes, completed, question
     from test_service import fake_registry
 
     from solvemate_local.adapters import hermes
-    from solvemate_local.models import DetectRequest
+    from solvemate_local.models import ConnectionConfig
     from solvemate_local.service import AiService
     from solvemate_local.store import Store
 
@@ -212,13 +214,28 @@ def test_option_read_failure_keeps_registered_session_for_retry(monkeypatch, tmp
         store = Store(tmp_path)
         service = AiService(store, registry=fake_registry(Legacy))
         try:
-            request = DetectRequest(provider="hermes", executablePath=sys.executable)
-            before = len([m for m, _ in Legacy.calls if m == "session/new"])
-            with pytest.raises(ConnectionError):
-                await service.probe(request)
+            await service.save_settings(
+                ConnectionConfig(
+                    provider="hermes",
+                    executablePath=sys.executable,
+                    model="custom:school:c-model",
+                )
+            )
+            request = question("reasoning-retry")
+            service.create_turn(request)
+            first = await completed(service, request.id)
+            assert first["errorCode"] == "reasoning_unavailable"
+            sid = store.binding(request.conversationId)["external_id"]
+            assert first["externalSessionId"] == sid
             fail = False
-            await service.probe(request)
-            assert len([m for m, _ in Legacy.calls if m == "session/new"]) == before + 1
+            retry = question("reasoning-retry")
+            service.create_turn(retry)
+            result = await completed(service, retry.id)
+            assert result["status"] == "completed"
+            assert result["externalSessionId"] == sid
+            assert (
+                len([m for m, _ in Legacy.calls if m == "gateway/session.create"]) == 1
+            )
         finally:
             await service.close()
             store.close()
@@ -249,7 +266,10 @@ def test_acp_reasoning_uses_native_option_and_requires_confirmation(
     async def exercise():
         adapter = HermesAdapter()
         process = Native(sys.executable, "/workspace")
-        session = await adapter.new_session(process, "/workspace")
+        await process.start()
+        session = await adapter.new_session(
+            process, "/workspace", "custom:school:c-model"
+        )
         session = await adapter.inspect_session(process, session)
         assert all(
             model["reasoningOptions"] == session.options["reasoningOptions"]

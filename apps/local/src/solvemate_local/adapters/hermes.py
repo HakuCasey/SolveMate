@@ -3,6 +3,7 @@ import os
 import shutil
 import sys
 from pathlib import Path
+from uuid import uuid4
 
 from ..acp import describe_options
 from ..errors import ConnectionError
@@ -53,10 +54,26 @@ def find_hermes(value=""):
     return str(candidate.resolve())
 
 
+def _require_load_session(process):
+    if not process.capabilities.get("loadSession"):
+        raise ConnectionError(
+            "当前 Hermes 未声明严格加载会话的能力，请更新 Hermes 后重试。",
+            "resume_unsupported",
+        )
+
+
 class HermesProcess(AcpTransport):
     async def start(self):
         try:
-            return await super().start()
+            initialized = await super().start()
+            _require_load_session(self)
+            result = await self.native_request("check")
+            if result.get("ready") is not True:
+                raise ConnectionError(
+                    "Hermes 原生接口未就绪，请更新 Hermes 后重新检测连接。",
+                    "hermes_sdk_unavailable",
+                )
+            return initialized
         except ConnectionError as error:
             if error.code == "process_stopped":
                 raise ConnectionError(
@@ -64,6 +81,11 @@ class HermesProcess(AcpTransport):
                     "program_start_failed",
                 ) from error
             raise
+
+    async def native_request(self, operation, **payload):
+        from .hermes_gateway import native_request
+
+        return await native_request(self, operation, **payload)
 
     async def prepare_launch(self):
         env = os.environ.copy()
@@ -73,6 +95,7 @@ class HermesProcess(AcpTransport):
 
 class HermesAdapter(AcpAdapter):
     supports_rename = True
+    requires_probe_session = False
     short_name = "Hermes"
     id = "hermes-local"
     provider = "hermes"
@@ -89,7 +112,43 @@ class HermesAdapter(AcpAdapter):
             executable, workspace, acp_update(on_update), acp_permission(on_permission)
         )
 
+    async def probe_options(self, process, model=""):
+        result = await process.native_request("catalog", model=model)
+        options = self.describe(result)
+        options.update(
+            {key: result[key] for key in ("reasoningOptions", "currentReasoning")}
+        )
+        for item in options["models"]:
+            item.update(
+                reasoningOptions=options["reasoningOptions"],
+                defaultReasoning=options["currentReasoning"],
+            )
+        if model:
+            if model not in {item["value"] for item in options["models"]}:
+                raise ConnectionError(
+                    "所选模型已不在 Hermes 目录中，请重新选择。", "model_missing"
+                )
+            options["currentModel"] = model
+        return options
+
+    async def new_session(self, process, workspace, model=""):
+        if not model:
+            raise ConnectionError("请先选择 Hermes 模型。", "model_missing")
+        _require_load_session(process)
+        result = await process.native_request(
+            "create", model=model, workspace=workspace, requestId=uuid4().hex
+        )
+        sid = result.get("sessionId")
+        if not isinstance(sid, str) or not sid:
+            raise ConnectionError(
+                "Hermes 未返回有效的原生会话编号。", "session_invalid"
+            )
+        # 先把已知编号交给公共服务保存，再加载；加载失败不能丢失已创建的原生会话。
+        return HarnessSession(sid, {})
+
     async def inspect_session(self, process, session):
+        if not session.options:
+            return await self.resume(process, session.id, process.workspace)
         options = session.options
         native = bool(options["reasoningOptions"])
         if not native:
@@ -112,11 +171,7 @@ class HermesAdapter(AcpAdapter):
 
     async def resume(self, process, sid, workspace):
         # 某些旧版 Hermes 的 resume 会在找不到会话时新建；load 不会替换原编号。
-        if not process.capabilities.get("loadSession"):
-            raise ConnectionError(
-                "当前 Hermes 未声明严格加载会话的能力，请更新 Hermes 后重试。",
-                "resume_unsupported",
-            )
+        _require_load_session(process)
         result = await process.call(
             "session/load", {"sessionId": sid, "cwd": workspace, "mcpServers": []}
         )
@@ -139,16 +194,6 @@ class HermesAdapter(AcpAdapter):
             )
         return await self.inspect_session(
             process, HarnessSession(sid, self.describe(result))
-        )
-
-    async def label_probe(self, process, sid):
-        # Hermes 的 /title 是本地会话命令，不请求模型生成标题。
-        await process.call(
-            "session/prompt",
-            {
-                "sessionId": sid,
-                "prompt": [{"type": "text", "text": "/title SolveMate 连接测试"}],
-            },
         )
 
     async def rename_session(self, executable, sid, title, workspace):

@@ -160,7 +160,9 @@ class ConnectionManager:
             else:
                 # 先保存未知结果，超时或进程中断后不能盲目再建一个会话。
                 self.store.save_probe(key, None)
-                session = await adapter.new_session(process, self.workspace)
+                session = await adapter.new_session(
+                    process, self.workspace, request.model
+                )
                 sid = session.id
                 self.store.save_probe(key, sid)
                 # 先保存原生编号，再读取补充选项；读取失败后仍能恢复同一会话。

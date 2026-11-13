@@ -21,6 +21,31 @@ class FakeHermes(FakeAcp):
     calls: ClassVar[list] = []
     sessions: ClassVar[set] = set()
 
+    async def native_request(self, operation, **payload):
+        if operation == "create":
+            self.calls.append(("gateway/session.create", payload))
+            sid = str(uuid4())
+            self.sessions.add(sid)
+            return {"sessionId": sid}
+        if operation == "check":
+            return {"ready": True}
+        assert operation == "catalog"
+        self.calls.append(("gateway/models", payload))
+        return {
+            "models": {
+                "currentModelId": "custom:school:c-model",
+                "availableModels": [
+                    {"modelId": "custom:school:c-model", "name": "C Model"},
+                    {"modelId": "custom:school:other", "name": "Other Model"},
+                ],
+            },
+            "reasoningOptions": [
+                {"value": level, "name": level, "group": ""}
+                for level in ("medium", "high")
+            ],
+            "currentReasoning": "medium",
+        }
+
     async def start(self):
         self.capabilities["loadSession"] = True
         return await super().start()
@@ -154,7 +179,7 @@ def test_provider_sessions_are_separate_and_model_change_preserves_binding(tmp_p
     asyncio.run(exercise())
 
 
-def test_detection_reuses_one_session_across_detect_save_and_restart(tmp_path):
+def test_detection_reads_catalog_without_creating_sessions_across_restart(tmp_path):
     async def exercise():
         FakeHermes.calls = []
         store = Store(tmp_path)
@@ -173,22 +198,14 @@ def test_detection_reuses_one_session_across_detect_save_and_restart(tmp_path):
             await service.close()
             service = AiService(store, registry=fake_registry(FakeHermes))
             await service.probe(request)
-            creates = [
-                params for method, params in FakeHermes.calls if method == "session/new"
-            ]
-            assert len(creates) == 1
-            assert not any(method == "session/close" for method, _ in FakeHermes.calls)
-            FakeHermes.sessions.clear()
-            before = len(creates)
-            with pytest.raises(ConnectionError) as failed:
-                await service.probe(request)
-            assert failed.value.code == "probe_resume_failed"
-            assert len([m for m, _ in FakeHermes.calls if m == "session/new"]) == before
-            await service.probe(request.model_copy(update={"resetProbe": True}))
-            assert (
-                len([m for m, _ in FakeHermes.calls if m == "session/new"])
-                == before + 1
+            assert not any(
+                method in {"session/new", "gateway/session.create", "session/prompt"}
+                for method, _ in FakeHermes.calls
             )
+            assert store.db.execute("SELECT COUNT(*) FROM probes").fetchone()[0] == 0
+            FakeHermes.sessions.clear()
+            await service.probe(request)
+            assert not FakeHermes.sessions
         finally:
             await service.close()
             store.close()
@@ -377,8 +394,8 @@ def test_hermes_home_honors_platform_suffix_and_expands_override(monkeypatch, tm
     assert hermes.hermes_home() == tmp_path / "自定义"
 
 
-@pytest.mark.parametrize("phase", ["start", "create", "close"])
-def test_detection_deadline_closes_process_and_preserves_uncertain_creation(
+@pytest.mark.parametrize("phase", ["start", "catalog", "close"])
+def test_detection_deadline_closes_process_without_creating_probe_sessions(
     tmp_path, monkeypatch, phase
 ):
     from solvemate_local import connections
@@ -395,10 +412,10 @@ def test_detection_deadline_closes_process_and_preserves_uncertain_creation(
                     await asyncio.sleep(1)
                 return await super().start()
 
-            async def call(self, method, params, timeout=40):
-                if phase == "create" and method == "session/new":
+            async def native_request(self, operation, **payload):
+                if phase == "catalog":
                     await asyncio.sleep(1)
-                return await super().call(method, params, timeout)
+                return await super().native_request(operation, **payload)
 
             async def close(self):
                 if phase == "close":
@@ -415,11 +432,8 @@ def test_detection_deadline_closes_process_and_preserves_uncertain_creation(
             assert len(instances) == 1
             assert not instances[0].is_running()
             assert not service.connections.probe_locks["hermes-local"].locked()
-            if phase == "create":
-                with pytest.raises(ConnectionError) as uncertain:
-                    await service.probe(request)
-                assert uncertain.value.code == "probe_uncertain"
-                assert len(instances) == 1
+            assert store.db.execute("SELECT COUNT(*) FROM probes").fetchone()[0] == 0
+            assert not FakeHermes.sessions
         finally:
             await service.close()
             store.close()

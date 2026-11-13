@@ -60,7 +60,7 @@ class PlainAdapter(HarnessAdapter):
     async def probe_options(self, process, model=""):
         return OPTIONS
 
-    async def new_session(self, process, workspace):
+    async def new_session(self, process, workspace, model=""):
         self.created += 1
         return HarnessSession("opaque-native-id", OPTIONS)
 
