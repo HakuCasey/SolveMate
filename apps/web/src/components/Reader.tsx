@@ -1,5 +1,7 @@
 import { ResourceUnavailable } from "../refresh/ResourceUnavailable";
 import {
+  lazy,
+  Suspense,
   useId,
   useRef,
   type Dispatch,
@@ -11,16 +13,36 @@ import type {
   Course,
   CurrentContent,
   ReadingSelection,
+  LearningLocation,
 } from "@solvemate/contracts";
 import { getCourse, getCurrentContent } from "../data/catalog";
-import { makeReadingReference, readingKey } from "../reading/reference";
-import type { ReadingPositionState } from "../reading/state";
+import {
+  makeReadingReference,
+  readingKey,
+  UNSUPPORTED_READING_REFERENCE,
+} from "../reading/reference";
+import type { ReadingPositionState, ReadingScroll } from "../reading/state";
 import { useReadingScroll } from "../reading/useReadingScroll";
 import { useReadingSelection } from "../reading/useReadingSelection";
 import { Markdown } from "./Markdown";
 import styles from "./Reader.module.css";
 
+const OfficialPdfReader = lazy(() =>
+  import("../content/OfficialPdfReader").then((module) => ({
+    default: module.OfficialPdfReader,
+  })),
+);
+
 interface ReaderProps {
+  loadPdf: (
+    selection: ReadingSelection,
+    retry?: boolean,
+  ) => Promise<{ blob: Blob; warning: string }>;
+  zoom: number;
+  continuous: boolean;
+  onContinuousChange: (continuous: boolean) => void;
+  onPageScroll: (location: LearningLocation, scroll: ReadingScroll) => void;
+  onZoomChange: (zoom: number) => void;
   relatedContent?: ReactNode;
   availableCourses: Course[];
   historical?: boolean;
@@ -29,20 +51,20 @@ interface ReaderProps {
   fontSize: number;
   onChange: (selection: ReadingSelection) => void;
   onBack: () => void;
-  position: ReadingPositionState;
   onAddReference: (
     reference: import("@solvemate/contracts").ReadingReference,
   ) => void;
+  position: ReadingPositionState;
   onPositionChange: Dispatch<SetStateAction<ReadingPositionState>>;
 }
 
-function ReadingBody({
+function QuestionBody({
   content,
   fontSize,
   selection,
   position,
-  onAddReference,
   onPositionChange,
+  onAddReference,
 }: {
   content: CurrentContent;
   fontSize: number;
@@ -58,9 +80,9 @@ function ReadingBody({
   const source = useRef<HTMLDivElement>(null);
   const key = readingKey(selection);
   useReadingScroll(source, key, position.scroll, onPositionChange);
-  const selected = useReadingSelection(source, key, true, (value) => {
-    onAddReference(makeReadingReference(selection, content, value.text, true));
-  });
+  const selected = useReadingSelection(source, key, true, (value) =>
+    onAddReference(makeReadingReference(selection, content, value.text, true)),
+  );
 
   return (
     <div
@@ -78,35 +100,33 @@ function ReadingBody({
       <div className={styles.question} style={{ fontSize }}>
         <Markdown>{content.content}</Markdown>
       </div>
-      {content.kind === "questions" && (
-        <section className={styles.answerArea} aria-label="参考答案">
-          <label className={styles.answerToggle}>
-            <input
-              type="checkbox"
-              checked={answerVisible}
-              aria-controls={answerId}
-              onChange={(event) => {
-                const answerVisible = event.target.checked;
-                onPositionChange((previous) => ({
-                  ...previous,
-                  answerVisible,
-                }));
-              }}
-            />
-            <span>显示参考答案</span>
-          </label>
-          <div
-            id={answerId}
-            hidden={!answerVisible}
-            className={styles.answerBody}
-            style={{ fontSize }}
-          >
-            <Markdown>{content.answer}</Markdown>
-            <div className={styles.answerLabel}>讲解要点</div>
-            <Markdown>{content.explanation}</Markdown>
-          </div>
-        </section>
-      )}
+      <section className={styles.answerArea} aria-label="参考答案">
+        <label className={styles.answerToggle}>
+          <input
+            type="checkbox"
+            checked={answerVisible}
+            aria-controls={answerId}
+            onChange={(event) => {
+              const answerVisible = event.target.checked;
+              onPositionChange((previous) => ({
+                ...previous,
+                answerVisible,
+              }));
+            }}
+          />
+          <span>显示参考答案</span>
+        </label>
+        <div
+          id={answerId}
+          hidden={!answerVisible}
+          className={styles.answerBody}
+          style={{ fontSize }}
+        >
+          <Markdown>{content.answer}</Markdown>
+          <div className={styles.answerLabel}>讲解要点</div>
+          <Markdown>{content.explanation}</Markdown>
+        </div>
+      </section>
       {selected.overlay}
     </div>
   );
@@ -115,18 +135,46 @@ function ReadingBody({
 export function Reader(props: ReaderProps) {
   try {
     getCurrentContent(props.selection, props.availableCourses);
-  } catch {
+  } catch (error) {
     return (
       <ResourceUnavailable
-        message="对应的内容或版本暂不可用，原阅读位置、对话和草稿仍保留，请恢复文件或重新下载后刷新。"
+        message={
+          error instanceof Error &&
+          error.message === UNSUPPORTED_READING_REFERENCE
+            ? UNSUPPORTED_READING_REFERENCE
+            : "对应的内容或版本暂不可用，原阅读位置、对话和草稿仍保留，请恢复文件或重新下载后刷新。"
+        }
         onBack={props.onBack}
       />
     );
   }
-  return <AvailableReader {...props} />;
+  const course = getCourse(
+    props.selection.courseId,
+    props.selection.version,
+    props.availableCourses,
+  );
+  const book =
+    props.selection.kind === "textbooks"
+      ? course.textbooks.find((item) => item.id === props.selection.itemId)
+      : undefined;
+  if (props.selection.kind === "textbooks") {
+    if (!book?.pdf)
+      return (
+        <ResourceUnavailable
+          message="该版本没有可用的 PDF，原有记录已保留，请检查内容更新。"
+          onBack={props.onBack}
+        />
+      );
+    return (
+      <Suspense fallback={<p role="status">正在打开资料阅读器…</p>}>
+        <OfficialPdfReader {...props} book={book} load={props.loadPdf} />
+      </Suspense>
+    );
+  }
+  return <QuestionReader {...props} />;
 }
 
-function AvailableReader({
+function QuestionReader({
   selection,
   fontSize,
   onChange,
@@ -135,9 +183,9 @@ function AvailableReader({
   removed,
   onBack,
   position,
-  onAddReference,
   onPositionChange,
   relatedContent,
+  onAddReference,
 }: ReaderProps) {
   const course = getCourse(
     selection.courseId,
@@ -145,32 +193,24 @@ function AvailableReader({
     availableCourses,
   );
   const content = getCurrentContent(selection, availableCourses);
-  const isTextbook = selection.kind === "textbooks";
-  const selectorId = useId();
-  const book = course.textbooks.find((item) => item.id === selection.itemId);
-  const index = isTextbook
-    ? selection.chapterIndex
-    : course.questions.findIndex((item) => item.id === selection.itemId);
-  const count = isTextbook
-    ? (book?.chapters.length ?? 0)
-    : course.questions.length;
-
+  const index = course.questions.findIndex(
+    (item) => item.id === selection.itemId,
+  );
+  const count = course.questions.length;
   function navigate(offset: number) {
     const next = index + offset;
     if (next < 0 || next >= count) return;
-    if (isTextbook) onChange({ ...selection, chapterIndex: next });
-    else
-      onChange({
-        ...selection,
-        itemId: course.questions[next]!.id,
-        chapterIndex: 0,
-      });
+    onChange({
+      ...selection,
+      itemId: course.questions[next]!.id,
+    });
   }
 
   return (
     <section
       className={styles.reader}
-      aria-label={isTextbook ? "学习资料阅读栏" : "题目阅读栏"}
+      aria-label="题目阅读栏"
+      data-study-area="reading"
     >
       <header className={styles.toolbar}>
         {(historical || removed) && (
@@ -180,52 +220,30 @@ function AvailableReader({
               : "正在阅读历史版本"}
           </span>
         )}
-        <button
-          type="button"
-          className={styles.back}
-          aria-label={isTextbook ? "返回学习资料列表" : "返回题目列表"}
-          onClick={onBack}
-        >
-          <ArrowLeft aria-hidden="true" />
-          {isTextbook ? "学习资料" : "题目"}
-        </button>
-        <span className={styles.documentTitle}>
-          {isTextbook ? book?.title : selection.itemId}
-        </span>
-        {isTextbook && (
-          <>
-            <label className={styles.selectLabel} htmlFor={selectorId}>
-              章节
-            </label>
-            <select
-              className={styles.selector}
-              id={selectorId}
-              value={selection.chapterIndex}
-              onChange={(event) =>
-                onChange({
-                  ...selection,
-                  chapterIndex: Number(event.target.value),
-                })
-              }
-            >
-              {book?.chapters.map((chapter, index) => (
-                <option value={index} key={chapter.id}>
-                  {chapter.title}
-                </option>
-              ))}
-            </select>
-          </>
-        )}
-        {relatedContent}
+        <div className={styles.titleRow}>
+          <button
+            type="button"
+            className={styles.back}
+            aria-label="返回题目列表"
+            onClick={onBack}
+          >
+            <ArrowLeft aria-hidden="true" />
+            题目
+          </button>
+          <span className={styles.documentTitle} title={selection.itemId}>
+            {selection.itemId}
+          </span>
+          {relatedContent}
+        </div>
       </header>
       {/* 按内容重建正文，显示状态和滚动位置由应用层的同一份阅读记录恢复。 */}
-      <ReadingBody
+      <QuestionBody
         key={`${course.id}:${course.version}:${content.kind}:${content.id}`}
+        onAddReference={onAddReference}
         content={content}
         fontSize={fontSize}
         selection={selection}
         position={position}
-        onAddReference={onAddReference}
         onPositionChange={onPositionChange}
       />
       <footer className={styles.navigation}>
@@ -236,11 +254,11 @@ function AvailableReader({
           onClick={() => navigate(-1)}
         >
           <ChevronLeft aria-hidden="true" />
-          <span>{isTextbook ? "上一节" : "上一题"}</span>
+          <span>上一题</span>
         </button>
         <span
           className={styles.position}
-          aria-label={`第 ${index + 1} ${isTextbook ? "节" : "题"}，共 ${count} ${isTextbook ? "节" : "题"}`}
+          aria-label={`第 ${index + 1} 题，共 ${count} 题`}
         >
           {index + 1} / {count}
         </span>
@@ -250,7 +268,7 @@ function AvailableReader({
           disabled={index >= count - 1}
           onClick={() => navigate(1)}
         >
-          <span>{isTextbook ? "下一节" : "下一题"}</span>
+          <span>下一题</span>
           <ChevronRight aria-hidden="true" />
         </button>
       </footer>

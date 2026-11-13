@@ -52,7 +52,7 @@ describe("official material metadata", () => {
           version: saved.version,
           kind: "textbooks",
           itemId: "B001",
-          chapterIndex: 0,
+          pageNumber: 1,
         },
         snapshot.allCourses,
       ).content,
@@ -109,5 +109,38 @@ describe("official material metadata", () => {
     const next = new OfficialLibrary(snapshot, data).remove(data, bookId, 200);
     next.officialMaterials!.push({ ...next.officialMaterials![0] });
     expect(() => assertAppData(next)).toThrow("duplicate IDs");
+  });
+});
+
+describe("actual reading-content versions", () => {
+  const selection = {
+    courseId: "calculus",
+    version: "example-1",
+    kind: "textbooks" as const,
+    itemId: "B001",
+    chapterIndex: 0,
+  };
+  it("does not call the bundled PDF historical when its downloaded package has a different identifier", async () => {
+    const { snapshot, data, saved } = await libraryFixture();
+    expect(saved.version).not.toBe("example-1");
+    expect(new OfficialLibrary(snapshot, data).isHistorical(selection)).toBe(
+      false,
+    );
+  });
+  it("detects a different PDF while keeping question-only changes separate", async () => {
+    const { snapshot, data, saved } = await libraryFixture();
+    const file = saved.manifest.files.find((file) => file.kind === "textbook")!;
+    saved.manifest.files.push({
+      ...file,
+      id: "B001-pdf",
+      kind: "textbook-pdf",
+      path: "textbooks/primer.pdf",
+      sha256: "f".repeat(64),
+    });
+    const library = new OfficialLibrary(snapshot, data);
+    expect(library.isHistorical(selection)).toBe(true);
+    expect(
+      library.isHistorical({ ...selection, kind: "questions", itemId: "M001" }),
+    ).toBe(false);
   });
 });

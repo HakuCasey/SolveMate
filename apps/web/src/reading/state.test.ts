@@ -201,3 +201,42 @@ describe("reading state", () => {
     ).toEqual({ top: 0, left: 0 });
   });
 });
+
+it("preserves continuous-page mode across page changes and keeps other versions independent", () => {
+  const location = { materialId: "book", contentVersion: "v1", pageNumber: 2 };
+  const key = readingDocumentKey(location);
+  let state = updateReadingDocument(empty(), key, {
+    zoom: 1.5,
+    continuous: false,
+  });
+  state = rememberReadingLocation(state, { ...location, pageNumber: 3 });
+  expect(state.documents[key].continuous).toBe(false);
+  state = updateReadingDocument(state, key, (previous) => ({
+    ...previous,
+    continuous: true,
+  }));
+  expect(state.documents[key].continuous).toBe(true);
+  expect(state.documents[key].zoom).toBe(1.5);
+  expect(
+    state.documents[readingDocumentKey({ ...location, contentVersion: "v2" })],
+  ).toBeUndefined();
+});
+
+it("does not invent a page for a chapter-only record", () => {
+  const selection = {
+    courseId: "calculus",
+    version: "example-1",
+    kind: "textbooks" as const,
+    itemId: "B001",
+    chapterIndex: 0,
+  };
+  const state = rememberReadingLocation(empty(), {
+    ...selection,
+    chapterIndex: 1,
+    pageNumber: 3,
+  });
+  const restored = readingLocationForConversation(state, { selection });
+  expect(restored.selection?.pageNumber).toBeUndefined();
+  expect(restored.selection?.version).toBe(selection.version);
+  expect("pageNumber" in selection).toBe(false);
+});

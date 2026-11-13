@@ -26,6 +26,7 @@ from .models import (
     QuestionFile,
     ReleaseManifest,
     SourceCatalog,
+    TextbookPages,
 )
 from .repository import ContentRepository, RepositoryError, json_bytes
 
@@ -47,6 +48,23 @@ def read_course(data_dir: Path, course: CourseSpec) -> dict[str, bytes]:
     if not textbook.strip():
         raise ValueError("Textbook must not be empty.")
     anchors = set(re.findall(r'<a\s+id="([^"]+)"\s*>', textbook))
+    if "textbook-pdf" in by_kind:
+        pdf = files[by_kind["textbook-pdf"].path]
+        pages = TextbookPages.model_validate_json(files[by_kind["textbook-pages"].path])
+        chapter_ids = re.findall(r'<a\s+id="([^"]+)"\s*>', textbook)
+        if (
+            not pdf.startswith(b"%PDF-")
+            or pages.textbookId != by_kind["textbook"].id
+            or pages.sourceSha256
+            != hashlib.sha256(files[by_kind["textbook"].path]).hexdigest()
+            or pages.pdfSha256 != hashlib.sha256(pdf).hexdigest()
+            or len(pages.chapterPages) != len(chapter_ids)
+            or pages.chapterPages != sorted(set(pages.chapterPages))
+            or not all(1 <= page <= len(pages.pages) for page in pages.chapterPages)
+        ):
+            raise ValueError(
+                "Textbook PDF or page index is outdated; export the textbook again."
+            )
     try:
         questions = QuestionFile.model_validate_json(files[by_kind["questions"].path])
     except ValidationError as error:
@@ -93,9 +111,13 @@ def build_release(data_dir: Path, course: CourseSpec) -> tuple[ReleaseManifest, 
     descriptors = [
         ContentFile(
             **item.model_dump(),
-            media_type="text/markdown; charset=utf-8"
-            if item.kind == "textbook"
-            else "application/json",
+            media_type=(
+                "text/markdown; charset=utf-8"
+                if item.kind == "textbook"
+                else "application/pdf"
+                if item.kind == "textbook-pdf"
+                else "application/json"
+            ),
             size_bytes=len(files[item.path]),
             sha256=hashlib.sha256(files[item.path]).hexdigest(),
         )

@@ -151,29 +151,12 @@
       ]
     },
     "ConversationAiConfig": {
-      "title": "ConversationAiConfig",
-      "type": "object",
-      "properties": {
-        "connectionId": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "minLength": 1
-        },
-        "modelId": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "minLength": 1
+      "allOf": [
+        {
+          "$ref": "#/$defs/AiSelection"
         }
-      },
-      "required": [
-        "connectionId",
-        "modelId"
       ],
-      "additionalProperties": false
+      "title": "ConversationAiConfig"
     },
     "ClientRuntime": {
       "type": "object",
@@ -312,13 +295,16 @@
         "chapterIndex": {
           "type": "integer",
           "minimum": 0
+        },
+        "pageNumber": {
+          "type": "integer",
+          "minimum": 1
         }
       },
       "required": [
         "courseId",
         "kind",
-        "itemId",
-        "chapterIndex"
+        "itemId"
       ],
       "additionalProperties": false,
       "title": "ReadingSelection"
@@ -352,6 +338,9 @@
             "page",
             "selection"
           ]
+        },
+        "message": {
+          "$ref": "#/$defs/MessageSource"
         }
       },
       "required": [
@@ -373,14 +362,49 @@
       },
       "then": {
         "required": [
-          "material",
           "quoteKind"
+        ],
+        "oneOf": [
+          {
+            "required": [
+              "material"
+            ],
+            "not": {
+              "required": [
+                "message"
+              ]
+            }
+          },
+          {
+            "required": [
+              "message"
+            ],
+            "not": {
+              "required": [
+                "material"
+              ]
+            },
+            "properties": {
+              "quoteKind": {
+                "const": "selection"
+              }
+            }
+          }
         ]
       },
       "else": {
         "not": {
-          "required": [
-            "material"
+          "anyOf": [
+            {
+              "required": [
+                "material"
+              ]
+            },
+            {
+              "required": [
+                "message"
+              ]
+            }
           ]
         }
       }
@@ -1403,6 +1427,9 @@
             "$ref": "#/$defs/ReadingReference"
           },
           "maxItems": 20
+        },
+        "readingContext": {
+          "$ref": "#/$defs/ReadingReference"
         }
       },
       "required": [
@@ -1448,8 +1475,16 @@
           "minimum": 1
         },
         "connectionId": {
-          "type": "string",
-          "minLength": 1
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Null only for a local attempt that could not be submitted because no AI connection was available."
         },
         "externalTurnId": {
           "type": "string"
@@ -1533,7 +1568,33 @@
         "submissionStatus"
       ],
       "additionalProperties": false,
-      "title": "SessionTurn"
+      "title": "SessionTurn",
+      "if": {
+        "properties": {
+          "connectionId": {
+            "type": "null"
+          }
+        },
+        "required": [
+          "connectionId"
+        ]
+      },
+      "then": {
+        "properties": {
+          "status": {
+            "const": "failed"
+          },
+          "submissionStatus": {
+            "const": "rejected"
+          },
+          "snapshot": {
+            "type": "null"
+          },
+          "dispatch": {
+            "type": "null"
+          }
+        }
+      }
     },
     "TurnInput": {
       "type": "object",
@@ -1585,7 +1646,7 @@
         "reference": {
           "anyOf": [
             {
-              "$ref": "#/$defs/ReadingReference"
+              "$ref": "#/$defs/SupportedReadingReference"
             },
             {
               "type": "null"
@@ -1634,9 +1695,12 @@
         "references": {
           "type": "array",
           "items": {
-            "$ref": "#/$defs/ReadingReference"
+            "$ref": "#/$defs/SupportedReadingReference"
           },
           "maxItems": 4
+        },
+        "readingContext": {
+          "$ref": "#/$defs/SupportedReadingReference"
         }
       },
       "required": [
@@ -1740,6 +1804,13 @@
             "null"
           ],
           "minLength": 1
+        },
+        "reasoningEffort": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 100
         }
       },
       "required": [
@@ -1748,7 +1819,7 @@
       ],
       "additionalProperties": false,
       "title": "AiSelection",
-      "description": "Resolved connection and model. Null members retain unresolved legacy choices until a catalog is available."
+      "description": "Connection, model and optional reasoning effort. Missing reasoning retains existing defaults; an explicit empty string may be a native default option."
     },
     "ConnectionCheck": {
       "type": "object",
@@ -2040,6 +2111,79 @@
       ],
       "additionalProperties": false,
       "title": "ReasoningOption"
+    },
+    "MessageSource": {
+      "type": "object",
+      "properties": {
+        "conversationId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "messageIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "conversationId",
+        "messageIds"
+      ],
+      "additionalProperties": false,
+      "title": "MessageSource"
+    },
+    "SupportedReadingReference": {
+      "$ref": "#/$defs/ReadingReference",
+      "if": {
+        "properties": {
+          "selection": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "selection"
+        ],
+        "type": "object"
+      },
+      "then": {
+        "properties": {
+          "selection": {
+            "required": [
+              "version"
+            ],
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "textbooks"
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            },
+            "then": {
+              "required": [
+                "pageNumber"
+              ]
+            },
+            "type": "object",
+            "properties": {
+              "version": {},
+              "pageNumber": {},
+              "kind": {}
+            }
+          }
+        },
+        "type": "object"
+      },
+      "title": "SupportedReadingReference",
+      "type": "object"
     }
   },
   "anyOf": [

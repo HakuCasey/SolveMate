@@ -18,7 +18,7 @@ import type {
 import { resolveConversationAi } from "../ai/robot-config";
 import type { AiService } from "../ai/useAiService";
 import {
-  messageReferences,
+  messageReadingReferences,
   referencePreview,
   type DraftReference,
 } from "../reading/reference";
@@ -39,6 +39,7 @@ interface ChatPanelProps {
   onToggleRecommendations: () => void;
   onRobotChange: (id: string) => void;
   onSend: (text: string) => Promise<void>;
+  onRetryMessage: (id: string) => Promise<void>;
   references: DraftReference[];
   onRemoveReference: (id: string) => void;
   onOpenReference: (reference: ReadingReference) => void;
@@ -58,6 +59,7 @@ export function ChatPanel({
   onToggleRecommendations,
   onRobotChange,
   onSend,
+  onRetryMessage,
   references,
   onRemoveReference,
   onOpenReference,
@@ -225,7 +227,21 @@ export function ChatPanel({
               重新查询
             </button>
           ) : !busy && !archived && lastUserText ? (
-            <button onClick={() => submit(lastUserText)}>重新提问</button>
+            <button
+              onClick={() => {
+                const messageId = lastTurn?.userMessageId;
+                if (messageId)
+                  void onRetryMessage(messageId).catch((error: unknown) =>
+                    setNotice(
+                      error instanceof Error
+                        ? error.message
+                        : "重试失败，请重试。",
+                    ),
+                  );
+              }}
+            >
+              重新提问
+            </button>
           ) : null}
         </div>
       )}
@@ -376,10 +392,12 @@ export function ChatPanel({
                   {message.example && (
                     <small className={styles.example}>示例记录</small>
                   )}
-                  {messageReferences(message).map((reference, index) => (
+                  {messageReadingReferences(message).map((reference, index) => (
                     <details className={styles.reference} key={index}>
                       <summary>
-                        引用：{referencePreview(reference.content)}
+                        {reference === message.readingContext
+                          ? `关联：${reference.title}`
+                          : `引用：${referencePreview(reference.content)}`}
                       </summary>
                       <button
                         type="button"
@@ -388,7 +406,7 @@ export function ChatPanel({
                       >
                         返回原文
                       </button>
-                      <pre>{reference.content}</pre>
+                      <pre>{reference.content || "关联内容未能读取。"}</pre>
                     </details>
                   ))}
                   <Markdown>{message.content}</Markdown>
@@ -500,7 +518,7 @@ export function ChatPanel({
                       </div>
                       <details>
                         <summary>查看引用内容</summary>
-                        <pre>{reference.content}</pre>
+                        <pre>{reference.content || "关联内容未能读取。"}</pre>
                       </details>
                     </div>
                   ))}

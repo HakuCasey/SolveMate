@@ -193,5 +193,65 @@
       }
     },
     "valid": true
+  },
+  {
+    "name": "SupportedReadingReference",
+    "value": {
+      "title": "C 语言课本 · 第 2 页",
+      "content": "int a = 1;",
+      "selection": {
+        "courseId": "c-language",
+        "version": "example-1",
+        "kind": "textbooks",
+        "itemId": "CB001",
+        "pageNumber": 2
+      },
+      "quoteKind": "page"
+    },
+    "valid": true
+  },
+  {
+    "name": "SupportedReadingReference",
+    "value": {
+      "title": "C 语言课本 · 第 2 页",
+      "content": "int a = 1;",
+      "selection": {
+        "courseId": "c-language",
+        "version": "example-1",
+        "kind": "textbooks",
+        "itemId": "CB001"
+      },
+      "quoteKind": "page"
+    },
+    "valid": false
+  },
+  {
+    "name": "SupportedReadingReference",
+    "value": {
+      "title": "C 语言课本 · 第 2 页",
+      "content": "int a = 1;",
+      "selection": {
+        "courseId": "c-language",
+        "kind": "textbooks",
+        "itemId": "CB001",
+        "pageNumber": 2
+      },
+      "quoteKind": "page"
+    },
+    "valid": false
+  },
+  {
+    "name": "SupportedReadingReference",
+    "value": {
+      "title": "C 语言课本 · 第 2 页",
+      "content": "int a = 1;",
+      "selection": {
+        "courseId": "calculus",
+        "version": "example-1",
+        "kind": "questions",
+        "itemId": "M001"
+      }
+    },
+    "valid": true
   }
 ]

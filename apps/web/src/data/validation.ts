@@ -5,7 +5,7 @@ import {
   type AppData,
   assertUserData,
 } from "@solvemate/contracts";
-import { isSelection, isMessage } from "./legacy-validation";
+import { isMessage } from "./legacy-validation";
 import { assertNoteLibrary } from "../state/notes";
 
 /** 新格式只校验一套共享对象；旧字段由迁移入口处理，不参与运行时解析。 */
@@ -46,12 +46,10 @@ export function assertAppData(value: unknown): asserts value is AppData {
     )
       throw new Error("Local subject metadata is invalid.");
   }
-  if (
-    !Array.isArray(data.robots) ||
-    !Array.isArray(data.conversations) ||
-    !isSelection(data.selection)
-  )
+  if (!Array.isArray(data.robots) || !Array.isArray(data.conversations))
     throw new Error("Local data is incomplete.");
+  // 保存和读取使用共享结构校验；引用能否定位由使用处按当前格式判断。
+  assertMetadata("ReadingSelection", data.selection);
   if (data.materialSelection)
     assertMetadata("MaterialLocation", data.materialSelection);
   for (const robot of data.robots) assertMetadata("Robot", robot);

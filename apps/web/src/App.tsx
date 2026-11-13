@@ -1,3 +1,5 @@
+import { recordQuestion } from "./state/questions";
+import { materialApi } from "./materials/api";
 import { dataRefresh } from "./refresh/coordinator";
 import {
   lazy,
@@ -95,6 +97,9 @@ import {
   appendReference,
   readingKey,
   validateReferenceCount,
+  messageReferences,
+  isSupportedReadingLocation,
+  UNSUPPORTED_READING_REFERENCE,
 } from "./reading/reference";
 import { useReadingState } from "./reading/useReadingState";
 import {
@@ -103,6 +108,7 @@ import {
   restoreReadingLocation,
   readingLocationForConversation,
   type ReadingPositionState,
+  type ReadingScroll,
 } from "./reading/state";
 import type { SetStateAction } from "react";
 import { applyTheme } from "./theme/theme";
@@ -303,14 +309,6 @@ function Workspace({ content }: { content: OfficialContent }) {
   }, [data, reloadCheckpoint]);
   const subjectDirectory = officialLibrary.directory;
   const subjects = subjectDirectory.active;
-  const courses = useMemo(
-    () =>
-      sourceCourses.map((item) => ({
-        ...item,
-        title: subjectDirectory.byId.get(item.id)?.title ?? item.title,
-      })),
-    [sourceCourses, subjectDirectory],
-  );
   const availableCourses = useMemo(
     () =>
       sourceAvailableCourses.map((item) => ({
@@ -403,8 +401,12 @@ function Workspace({ content }: { content: OfficialContent }) {
         : "";
   const readingPosition =
     readingState.positions[quoteKey] ?? emptyReadingPosition();
-  // PDF 的多个页码共享待发送引用；内置章节和题目分别对应各自的对话。
-  const referenceDraftKey = view === "materials" ? documentKey : quoteKey;
+  // 同一资料的多个页码共用待发送引用；题目按自身位置保存。
+  const referenceDraftKey =
+    view === "materials" ||
+    (view === "reading" && data?.selection.kind === "textbooks")
+      ? documentKey
+      : quoteKey;
   const draftReferences = readingState.references[referenceDraftKey] ?? [];
   function addReference(reference: ReadingReference) {
     const references = appendReference(
@@ -423,6 +425,24 @@ function Workspace({ content }: { content: OfficialContent }) {
     (zoom: number) =>
       updateDocument(documentKey, (previous) => ({ ...previous, zoom })),
     [documentKey, updateDocument],
+  );
+  const setReadingContinuous = useCallback(
+    (continuous: boolean) =>
+      updateDocument(documentKey, (previous) => ({ ...previous, continuous })),
+    [documentKey, updateDocument],
+  );
+  const savePdfScroll = useCallback(
+    (location: LearningLocation, scroll: ReadingScroll) => {
+      const key =
+        "materialId" in location ? locationKey(location) : readingKey(location);
+      updatePosition(key, (previous) =>
+        previous.scroll.top === scroll.top &&
+        previous.scroll.left === scroll.left
+          ? previous
+          : { ...previous, scroll },
+      );
+    },
+    [updatePosition],
   );
   useEffect(() => {
     const location =
@@ -559,20 +579,26 @@ function Workspace({ content }: { content: OfficialContent }) {
       />
     );
   }
-  // 阅读位置与会话关联分别保存，普通对话不能继承后台停留的题目。
+  // 对话页与阅读页共用明确的页码，不推断旧章节位置。
+  const linkedLocation =
+    view === "conversations" && currentConversation
+      ? readingLocationForConversation(readingState, currentConversation)
+      : {
+          selection: view === "reading" ? selection : null,
+          material: view === "materials" ? data.materialSelection : null,
+        };
+  const linkedReading =
+    linkedLocation.material || linkedLocation.selection
+      ? relations.material(linkedLocation.material ?? linkedLocation.selection!)
+      : null;
   const chatSelection =
-    view === "materials" || view === "library"
-      ? null
-      : view === "reading"
-        ? selection
-        : (currentConversation?.selection ?? null);
+    linkedReading && !("materialId" in linkedReading.source)
+      ? linkedReading.source
+      : null;
   const materialLocation =
-    view === "materials"
-      ? (data.materialSelection ?? null)
-      : (currentConversation?.material ?? null);
-  const selectedMaterial = materials.items.find(
-    (item) => item.id === materialLocation?.materialId,
-  );
+    linkedReading && "materialId" in linkedReading.source
+      ? linkedReading.source
+      : null;
   const draftConversationId =
     currentConversation?.id ??
     (view === "conversations" ? activeConversationId : null);
@@ -606,13 +632,7 @@ function Workspace({ content }: { content: OfficialContent }) {
       reading: readingState,
     });
   }
-  const contextLabel = materialLocation
-    ? `${selectedMaterial?.title ?? "用户资料"} · 第 ${materialLocation.pageNumber} 页`
-    : !chatSelection
-      ? null
-      : chatSelection.kind === "textbooks"
-        ? "已关联当前章节"
-        : `已关联 ${chatSelection.itemId}`;
+  const contextLabel = linkedReading?.readingLabel ?? null;
 
   function selectMaterial(next: MaterialLocation) {
     const sameReader =
@@ -632,6 +652,11 @@ function Workspace({ content }: { content: OfficialContent }) {
   }
 
   function openReference(reference: ReadingReference) {
+    const source = reference.material ?? reference.selection;
+    if (!source || !isSupportedReadingLocation(source)) {
+      setCommandError(UNSUPPORTED_READING_REFERENCE);
+      return;
+    }
     if (reference.material) {
       updateData((previous) => ({
         ...previous,
@@ -760,6 +785,11 @@ function Workspace({ content }: { content: OfficialContent }) {
       setCommandError("此对话已删除或归档，请重新选择。");
       return;
     }
+    const source = saved.material ?? saved.selection;
+    if (returnToReading && source && !isSupportedReadingLocation(source)) {
+      setCommandError(UNSUPPORTED_READING_REFERENCE);
+      return;
+    }
     conversation = saved;
     const target = returnToReading
       ? readingLocationForConversation(readingState, conversation)
@@ -843,22 +873,14 @@ function Workspace({ content }: { content: OfficialContent }) {
     } else setActiveRobotId(id);
   }
 
-  async function saveQuestion(text: string) {
-    if (
-      !currentRobot ||
-      submitting.current ||
-      currentConversation?.status === "archived" ||
-      currentConversation?.turns.some((turn) => turn.status === "running")
-    )
-      return;
-    validateReferenceCount(draftReferences);
-    const effective = resolveConversationAi(
-      currentConversation,
-      currentRobot,
-      ai.settings,
-    );
-    if (effective.hasSelection && effective.error)
-      throw new Error(effective.error);
+  async function saveQuestion(text: string, retryMessageId?: string) {
+    if (!currentRobot) throw new Error("请先选择机器人。");
+    if (submitting.current) throw new Error("消息正在保存，请稍后重试。");
+    if (currentConversation?.status === "archived")
+      throw new Error("对话已归档，请先移回进行中。");
+    if (currentConversation?.turns.some((turn) => turn.status === "running"))
+      throw new Error("此对话正在生成，请稍后提问。");
+    if (!retryMessageId) validateReferenceCount(draftReferences);
     submitting.current = true;
     try {
       const selected =
@@ -873,91 +895,59 @@ function Workspace({ content }: { content: OfficialContent }) {
           materialLocation,
         );
       const turnId = crypto.randomUUID(),
-        messageId = crypto.randomUUID(),
+        messageId = retryMessageId ?? crypto.randomUUID(),
         createdAt = Date.now();
-      const references = draftReferences.map((item) => item.reference);
-      const saved = await saveChanges((previous) => {
-        const existing =
-          previous.conversations.find((item) => item.id === selected.id) ??
-          selected;
-        if (existing.status !== "active")
-          throw new Error("此对话已归档或删除，请重新打开。");
-        if (existing.turns.some((turn) => turn.status === "running"))
-          throw new Error("此对话正在生成，请稍后提问。");
-        const teacher = previous.robots.find(
-          (item) => item.id === currentRobot.id,
-        );
-        if (!teacher) throw new Error("此教师已删除，请重新选择。");
-        const resolved = resolveConversationAi(existing, teacher, ai.settings);
-        if (
-          resolved.error &&
-          (resolved.configured ||
-            existing.aiConfig.connectionId ||
-            existing.aiConfig.modelId ||
-            teacher.aiDefaults !== null)
-        )
-          throw new Error(resolved.error);
-        const title =
-          existing.titleSource === "default"
-            ? text.slice(0, 24)
-            : existing.title;
-        const changed = {
-          ...existing,
-          revision: existing.revision + 1,
-          ...(view === "materials" && materialLocation
-            ? { material: { ...materialLocation } }
-            : {}),
-          title,
-          titleSource:
-            existing.titleSource === "default"
-              ? ("first-message" as const)
-              : existing.titleSource,
-          aiConfig: {
-            connectionId: resolved.connectionId || null,
-            modelId: resolved.model || null,
+      const references = retryMessageId
+        ? []
+        : draftReferences.map((item) => item.reference);
+      const original = retryMessageId
+        ? currentConversation?.messages.find(
+            (message) => message.id === retryMessageId,
+          )
+        : undefined;
+      let readingContext = retryMessageId
+        ? original?.readingContext
+        : linkedReading?.contextReference();
+      let contextError = "";
+      if (
+        readingContext &&
+        (!retryMessageId || !readingContext.content.trim())
+      ) {
+        const location = readingContext.material ?? readingContext.selection;
+        try {
+          if (!location)
+            throw new Error("关联位置已失效，请重新打开资料后提问。");
+          readingContext = await relations
+            .material(location)
+            .readContext(materialApi.page);
+        } catch (error) {
+          contextError =
+            error instanceof Error
+              ? error.message
+              : "关联内容读取失败，请重试。";
+        }
+      }
+      const saved = await saveChanges((previous) =>
+        recordQuestion(
+          previous,
+          {
+            conversation: selected,
+            robotId: currentRobot.id,
+            messageId,
+            turnId,
+            text,
+            references,
+            createdAt,
+            retry: !!retryMessageId,
+            create: !currentConversation,
+            readingContext,
+            contextError,
           },
-          messages: [
-            ...existing.messages,
-            {
-              id: messageId,
-              turnId,
-              role: "user" as const,
-              content: text,
-              createdAt,
-              ...(references.length ? { references } : {}),
-            },
-          ],
-          turns: resolved.configured
-            ? [
-                ...existing.turns,
-                {
-                  id: turnId,
-                  revision: 1,
-                  connectionId: resolved.connectionId,
-                  status: "running" as const,
-                  submissionStatus: "pending" as const,
-                  phase: "queued" as const,
-                  startedAt: createdAt,
-                  userMessageId: messageId,
-                  snapshot: null,
-                  dispatch: null,
-                  reportedModelId: null,
-                },
-              ]
-            : existing.turns,
-          updatedAt: createdAt,
-          lastActivityAt: createdAt,
-        };
-        return {
-          ...previous,
-          conversations: [
-            changed,
-            ...previous.conversations.filter((item) => item.id !== changed.id),
-          ],
-        };
-      });
+          ai.settings,
+        ),
+      );
       const sentIds = new Set(draftReferences.map((item) => item.id));
-      if (sentIds.size)
+      if (!retryMessageId && sentIds.size)
         updateReferences(referenceDraftKey, (previous) =>
           previous.filter((item) => !sentIds.has(item.id)),
         );
@@ -974,36 +964,58 @@ function Workspace({ content }: { content: OfficialContent }) {
       setActiveConversationId((current) =>
         current === activeConversationId ? conversation.id : current,
       );
-      if (resolved.configured)
-        await ai.start({
-          id: turnId,
-          conversationId: conversation.id,
-          connectionId: resolved.connectionId,
-          ...(resolved.connectionRevision
-            ? { connectionRevision: resolved.connectionRevision }
-            : {}),
-          ...(conversation.binding?.externalSessionId
-            ? { externalSessionId: conversation.binding.externalSessionId }
-            : {}),
-          conversationSnapshot: conversationMetadata(conversation),
-          robotRevision: teacher.revision,
-          client: clientRuntime(),
-          userMessageId: messageId,
-          text,
-          teacher: {
-            id: teacher.id,
-            name: teacher.name,
-            prompt: teacher.prompt,
-            icon: teacher.icon,
-          },
-          model: resolved.model,
-          reference: null,
-          references,
-          history: selected.messages.slice(-24).map((item) => ({
-            role: item.role,
-            content: item.content.slice(-5000),
-          })),
-        });
+      const attempt = conversation.turns.find((item) => item.id === turnId)!;
+      const question = conversation.messages.find(
+        (item) => item.id === messageId,
+      )!;
+      if (attempt.status === "running")
+        void ai
+          .start({
+            id: turnId,
+            conversationId: conversation.id,
+            connectionId: resolved.connectionId,
+            ...(resolved.connectionRevision
+              ? { connectionRevision: resolved.connectionRevision }
+              : {}),
+            ...(conversation.binding?.externalSessionId
+              ? { externalSessionId: conversation.binding.externalSessionId }
+              : {}),
+            conversationSnapshot: conversationMetadata(conversation),
+            robotRevision: teacher.revision,
+            client: clientRuntime(),
+            userMessageId: messageId,
+            text: question.content,
+            teacher: {
+              id: teacher.id,
+              name: teacher.name,
+              prompt: teacher.prompt,
+              icon: teacher.icon,
+            },
+            model: resolved.model,
+            reasoningEffort: resolved.reasoningEffort,
+            reference: null,
+            ...(question.readingContext
+              ? { readingContext: question.readingContext }
+              : {}),
+            references: messageReferences(question),
+            history: conversation.messages
+              .slice(
+                0,
+                conversation.messages.findIndex(
+                  (item) => item.id === messageId,
+                ),
+              )
+              .slice(-24)
+              .map((item) => ({
+                role: item.role,
+                content: item.content.slice(-5000),
+              })),
+          })
+          .catch((error) =>
+            setCommandError(
+              error instanceof Error ? error.message : "读取 AI 执行结果失败。",
+            ),
+          );
     } finally {
       submitting.current = false;
     }
@@ -1031,6 +1043,7 @@ function Workspace({ content }: { content: OfficialContent }) {
           config,
           ai.settings,
           currentRobot.revision,
+          currentConversation?.id,
         );
         if (currentConversation && before.connectionId !== after.connectionId) {
           const fresh = createConversation(
@@ -1152,19 +1165,24 @@ function Workspace({ content }: { content: OfficialContent }) {
           >
             {view === "reading" && (
               <Reader
-                key={`reader:${selection.courseId}:${selection.version}:${selection.kind}:${selection.itemId}:${selection.chapterIndex}`}
+                onAddReference={addReference}
+                key={`reader:${selection.courseId}:${selection.version}:${selection.kind}:${selection.itemId}:${selection.kind === "textbooks" ? "pdf" : selection.chapterIndex}`}
                 availableCourses={availableCourses}
-                removed={!officialLibrary.scopeForSelection(selection)}
-                historical={
-                  courses.find((course) => course.id === selection.courseId)
-                    ?.version !== selection.version
+                loadPdf={content.readPdf}
+                zoom={readingState.documents[documentKey]?.zoom ?? 1}
+                onZoomChange={setReadingZoom}
+                continuous={
+                  readingState.documents[documentKey]?.continuous ?? true
                 }
+                onContinuousChange={setReadingContinuous}
+                onPageScroll={savePdfScroll}
+                removed={!officialLibrary.scopeForSelection(selection)}
+                historical={officialLibrary.isHistorical(selection)}
                 selection={selection}
                 fontSize={data.settings.fontSize}
                 onChange={selectContent}
                 onBack={returnToList}
                 position={readingPosition}
-                onAddReference={addReference}
                 onPositionChange={setReadingPosition}
                 relatedContent={relatedContent(selection)}
               />
@@ -1178,7 +1196,11 @@ function Workspace({ content }: { content: OfficialContent }) {
                   onChange={selectMaterial}
                   onBack={returnToList}
                   position={readingPosition}
-                  onPositionChange={setReadingPosition}
+                  onPageScroll={savePdfScroll}
+                  continuous={
+                    readingState.documents[documentKey]?.continuous ?? true
+                  }
+                  onContinuousChange={setReadingContinuous}
                   zoom={readingState.documents[documentKey]?.zoom ?? 1}
                   onZoomChange={setReadingZoom}
                   relatedContent={
@@ -1415,6 +1437,7 @@ function Workspace({ content }: { content: OfficialContent }) {
                 }
                 onRobotChange={changeRobot}
                 onSend={saveQuestion}
+                onRetryMessage={(id) => saveQuestion("", id)}
                 onOpenReference={openReference}
                 references={draftReferences}
                 onRemoveReference={(id) =>

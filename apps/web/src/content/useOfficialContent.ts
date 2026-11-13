@@ -1,3 +1,7 @@
+import { bundledTextbookPdf } from "../data/textbook-pdfs";
+import { sha256 } from "./package";
+import { unzipSync } from "fflate";
+import type { ReadingSelection } from "@solvemate/contracts";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ContentApi } from "./api";
 import {
@@ -10,6 +14,7 @@ import {
   storedVersion,
   type ContentSnapshot,
   type InstalledCourse,
+  type InstallOptions,
 } from "./storage";
 import { contentStorage } from "./local-storage";
 import { logError } from "../logger";
@@ -20,6 +25,7 @@ type Phase =
   "downloading" | "verifying" | "saving" | "done" | "error" | "cancelled";
 export interface Transfer {
   courseId: string;
+  materialId?: string;
   phase: Phase;
   received: number;
   total: number;
@@ -43,6 +49,7 @@ export function useOfficialContent() {
   const [remote, setRemote] = useState<RemoteCourse[]>([]);
   const [updates, setUpdates] = useState<Record<string, UpdateResponse>>({});
   const [checking, setChecking] = useState(false);
+  const [checkedAt, setCheckedAt] = useState<number | null>(null);
   const [connectionError, setConnectionError] = useState("");
   const [transfer, setTransfer] = useState<Transfer | null>(null);
   const downloading = useRef<AbortController | null>(null);
@@ -124,6 +131,7 @@ export function useOfficialContent() {
         setUpdates(
           Object.fromEntries(results.map((item) => [item.course_id, item])),
         );
+        setCheckedAt(Date.now());
       } catch (error) {
         if (request !== contentGeneration.current) return;
         logError("Failed to check official course updates.", error);
@@ -143,6 +151,7 @@ export function useOfficialContent() {
     async (
       courseId: string,
       forceUpdate = false,
+      options: InstallOptions = {},
     ): Promise<InstalledCourse | null> => {
       if (downloading.current) return null;
       contentGeneration.current++;
@@ -154,12 +163,28 @@ export function useOfficialContent() {
         (item) =>
           item.courseId === courseId && item.version === previousVersion,
       );
-      const repair =
-        !forceUpdate && local?.available === false ? local : undefined;
+      const repairVersion = options.repairVersion;
+      const repair = !forceUpdate
+        ? repairVersion
+          ? current.installed.find(
+              (item) =>
+                item.courseId === courseId && item.version === repairVersion,
+            )
+          : local?.available === false
+            ? local
+            : undefined
+        : undefined;
       const operation: { phase: Phase } = { phase: "downloading" };
       const report = (next: Phase, received = 0, total = 0, text = "") => {
         operation.phase = next;
-        setTransfer({ courseId, phase: next, received, total, message: text });
+        setTransfer({
+          courseId,
+          materialId: options.materialId,
+          phase: next,
+          received,
+          total,
+          message: text,
+        });
       };
       report("downloading");
       try {
@@ -263,7 +288,76 @@ export function useOfficialContent() {
     [api, applySnapshot],
   );
 
+  // 新包读取包内 PDF；旧包只使用原文匹配的随应用 PDF，版本指针保持不变。
+  const readPdf = useCallback(
+    async (selection: ReadingSelection, retry = false) => {
+      const current = retry ? await reloadLocal() : snapshotRef.current;
+      const saved = current.installed.find(
+        (item) =>
+          item.courseId === selection.courseId &&
+          item.version === selection.version,
+      );
+      const course = current.allCourses.find(
+        (item) =>
+          item.id === selection.courseId &&
+          item.version === (selection.version ?? "example-1"),
+      );
+      const book = course?.textbooks.find(
+        (item) => item.id === selection.itemId,
+      );
+      if (!book?.pdf)
+        throw new ContentError(
+          "该版本的 PDF 不可用，请刷新数据或重新下载资料。",
+        );
+      let bytes: Uint8Array;
+      const declaredPdf = saved?.manifest.files.find(
+        (file) => file.kind === "textbook-pdf",
+      );
+      if (saved && declaredPdf) {
+        const path = book.pdf.path;
+        const files = unzipSync(saved.archive, {
+          filter: (entry) => entry.name === path,
+        });
+        if (!files[path])
+          throw new ContentError(
+            "资料包缺少 PDF，原有记录已保留，请重新下载。",
+          );
+        bytes = files[path];
+      } else {
+        const source = bundledTextbookPdf(
+          book.id,
+          saved?.manifest.files.find((file) => file.kind === "textbook")
+            ?.sha256,
+        );
+        if (!source)
+          throw new ContentError(
+            "该版本没有匹配的 PDF，原有记录已保留，请检查内容更新。",
+          );
+        const response = await fetch(source.url, {
+          credentials: "omit",
+          signal: AbortSignal.timeout(30000),
+        });
+        if (!response.ok)
+          throw new ContentError(
+            "无法读取随应用提供的 PDF，请更新应用后重试。",
+          );
+        bytes = new Uint8Array(await response.arrayBuffer());
+        if ((await sha256(bytes)) !== source.index.pdfSha256)
+          throw new ContentError("PDF 校验失败，请更新应用后重试。");
+      }
+      return {
+        blob: new Blob([new Uint8Array(bytes).buffer], {
+          type: "application/pdf",
+        }),
+        warning: "",
+      };
+    },
+    [reloadLocal],
+  );
+
   return {
+    readPdf,
+    checkedAt,
     snapshot,
     readSnapshot,
     reloadLocal,

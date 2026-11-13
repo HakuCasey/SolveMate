@@ -71,17 +71,15 @@ export type ModelSelection =
       modelId: string;
     };
 export type RobotAiDefaults = null | AiSelection;
+export type ConversationAiConfig = AiSelection;
 
 /**
- * Resolved connection and model. Null members retain unresolved legacy choices until a catalog is available.
+ * Connection, model and optional reasoning effort. Missing reasoning retains existing defaults; an explicit empty string may be a native default option.
  */
 export interface AiSelection {
   connectionId: string | null;
   modelId: string | null;
-}
-export interface ConversationAiConfig {
-  connectionId: string | null;
-  modelId: string | null;
+  reasoningEffort?: string | null;
 }
 export interface ClientRuntime {
   appVersion: string | null;
@@ -104,7 +102,8 @@ export interface ReadingSelection {
   version?: string;
   kind: "questions" | "textbooks";
   itemId: string;
-  chapterIndex: number;
+  chapterIndex?: number;
+  pageNumber?: number;
 }
 export interface ReadingReference {
   title: string;
@@ -112,11 +111,19 @@ export interface ReadingReference {
   selection: ReadingSelection | null;
   material?: MaterialLocation;
   quoteKind?: "page" | "selection";
+  message?: MessageSource;
 }
 export interface MaterialLocation {
   materialId: string;
   contentVersion: string;
   pageNumber: number;
+}
+export interface MessageSource {
+  conversationId: string;
+  /**
+   * @minItems 1
+   */
+  messageIds: [string, ...string[]];
 }
 export interface ModelOption {
   value: string;
@@ -319,11 +326,15 @@ export interface AiTurn {
    * @maxItems 20
    */
   references?: ReadingReference[];
+  readingContext?: ReadingReference;
 }
 export interface SessionTurn {
   id: string;
   revision: number;
-  connectionId: string;
+  /**
+   * Null only for a local attempt that could not be submitted because no AI connection was available.
+   */
+  connectionId: string | null;
   externalTurnId?: string;
   status: TurnStatus;
   startedAt: number;
@@ -348,7 +359,7 @@ export interface TurnInput {
   teacher: TeacherSnapshot;
   model: string;
   reasoningEffort?: string;
-  reference: ReadingReference | null;
+  reference: SupportedReadingReference | null;
   /**
    * @maxItems 100
    */
@@ -363,7 +374,16 @@ export interface TurnInput {
   /**
    * @maxItems 4
    */
-  references?: ReadingReference[];
+  references?: SupportedReadingReference[];
+  readingContext?: SupportedReadingReference;
+}
+export interface SupportedReadingReference {
+  title: string;
+  content: string;
+  selection: ReadingSelection | null;
+  material?: MaterialLocation;
+  quoteKind?: "page" | "selection";
+  message?: MessageSource;
 }
 export interface Material {
   id: string;

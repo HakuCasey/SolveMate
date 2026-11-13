@@ -28,6 +28,24 @@ const output = await format(generated, {
 });
 const files = [
   [
+    "apps/local/src/solvemate_local/schemas/conversation-limits.json",
+    normalizeLineEndings(
+      await readFile(
+        new URL("packages/contracts/conversation-limits.json", root),
+        "utf8",
+      ),
+    ),
+  ],
+  [
+    "apps/local/src/solvemate_local/schemas/robot-limits.json",
+    normalizeLineEndings(
+      await readFile(
+        new URL("packages/contracts/robot-limits.json", root),
+        "utf8",
+      ),
+    ),
+  ],
+  [
     "apps/local/src/solvemate_local/schemas/app-data.schema.json",
     normalizeLineEndings(
       await readFile(

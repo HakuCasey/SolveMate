@@ -2,7 +2,7 @@
 
 使用 Python + FastAPI 提供课程目录、版本查询、更新判断与内容包下载。当前发布高等数学和 C 语言两门课程，每门课程包含教材、题目、记忆点和讨论点。
 
-服务只分发官方学习内容，不接收或保存个人会话、笔记、机器人配置与 AI 凭据。网页已通过“设置 → 官方内容”接入下载更新；未下载时使用随应用提供的基础内容，下载后通过本地 IndexedDB 保存。
+服务只分发官方学习内容，不接收或保存个人会话、笔记、机器人配置与 AI 凭据。网页已通过“设置 → 官方内容”接入下载更新；未下载时使用随应用提供的基础内容，下载后由本机服务保存到 `user/community/`，浏览器只保留缓存。
 
 ## 安装与启动
 
@@ -28,6 +28,10 @@ uvicorn solvemate_server.main:create_app --factory --host 127.0.0.1 --port 8000
 
 `data/catalog.json` 声明课程信息与允许发布的文件。原始教材、题目及课程记忆仍保存在各课程目录中，不复制到服务源码。修改原始内容后，在同一虚拟环境再次执行 `solvemate-publish`。
 
+维护学习资料正文后，先生成 PDF 和逐页索引，再发布内容。仓库根目录的 `scripts/export-textbooks.mjs` 使用 Chrome/Chromium 排版，使用本机服务已有的 pypdf 提取文字。生成前将 `SOLVEMATE_CHROME` 设为浏览器可执行文件的完整路径，然后运行 `node scripts/export-textbooks.mjs`；默认使用 `apps/server/.venv` 中的 Python，也可通过 `SOLVEMATE_PYTHON` 指定。普通启动直接发布已有 PDF，不要求终端安装浏览器来生成文件。
+
+发布前核对原文、PDF 和索引的校验值；源文件变化后未重新生成 PDF 时，发布失败并保留旧目录。旧版四文件包保留原文件与版本，客户端根据原文校验值匹配同源 PDF 进行阅读。
+
 发布工具会检查 JSON 格式、题目编号、记忆点引用的题号、教材路径与章节锚点，再生成每门课程的 ZIP。它不会扫描整个仓库或自动打包未列出的文件。路径必须位于相应课程目录内。
 
 同一环境下，源文件和课程信息不变时，重复发布不会新增版本。版本标识是 ZIP 字节的 SHA-256；`release` 是便于阅读的名称，例如 `example-1`，不能用它替代版本标识判断更新。
@@ -36,7 +40,9 @@ uvicorn solvemate_server.main:create_app --factory --host 127.0.0.1 --port 8000
 
 ```text
 course.json                  # 包格式版本、课程信息、原文件列表及校验值
-textbooks/primer.md
+textbooks/primer.md           # 维护源文件，保留章节锚点
+textbooks/primer.pdf          # 学习资料阅读文件
+textbooks/primer.pages.json   # 逐页文字、章节页码与校验值
 questions/questions.json
 memory/learning-points.json
 memory/discussion-points.json

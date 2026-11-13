@@ -110,9 +110,10 @@ describe("built-in study content", () => {
     ).toBe(true);
   });
 
-  it("reads a selected question or chapter from its own course", () => {
+  it("reads a selected question or PDF page from its own course", () => {
     const question = getCurrentContent({
       courseId: "c-language",
+      version: "example-1",
       kind: "questions",
       itemId: "C008",
       chapterIndex: 0,
@@ -120,15 +121,18 @@ describe("built-in study content", () => {
     expect(question.content).toContain("sizeof");
     const chapter = getCurrentContent({
       courseId: "calculus",
+      version: "example-1",
       kind: "textbooks",
       itemId: "B001",
       chapterIndex: 0,
+      pageNumber: 2,
     });
-    expect(chapter.id).toBe("B001:limits");
-    expect(chapter.content).toContain("\\frac");
+    expect(chapter.id).toBe("B001:page:2");
+    expect(chapter.content).toContain("极限");
     expect(() =>
       getCurrentContent({
         courseId: "calculus",
+        version: "example-1",
         kind: "questions",
         itemId: "C008",
         chapterIndex: 0,
@@ -163,7 +167,7 @@ describe("built-in study content", () => {
     }
   });
 
-  it("rejects an out-of-range chapter in a saved conversation", () => {
+  it("rejects an unsupported chapter-only location without changing the saved record", () => {
     const data = createInitialData();
     data.conversations[0]!.selection = {
       courseId: "calculus",
@@ -172,7 +176,7 @@ describe("built-in study content", () => {
       chapterIndex: 99,
     };
     expect(() => validateContentReferences(data)).toThrow(
-      "Textbook chapter was not found",
+      "当前版本已不支持该引用方式",
     );
     expect(data.conversations[0]!.selection?.chapterIndex).toBe(99);
   });

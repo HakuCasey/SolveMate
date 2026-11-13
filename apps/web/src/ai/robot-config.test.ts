@@ -73,7 +73,7 @@ describe("shared robot and conversation AI metadata", () => {
       resolveRobotAi(robot, settings),
       resolveConversationAi(session, robot, settings),
     ]) {
-      expect(selection.label).toBe("AI 配置");
+      expect(selection.label).toBe("AI 选择");
       expect(selection.modelName).toBe("");
       expect(selection.error).toContain("已删除");
     }
@@ -81,7 +81,7 @@ describe("shared robot and conversation AI metadata", () => {
       connectionId: "deepseek-local",
       modelId: "b",
     });
-    expect(session.aiConfig).toEqual(robot.aiDefaults);
+    expect(session.aiConfig).toMatchObject(robot.aiDefaults!);
     expect(resolveConversationAi(session, robot, aiSettings()).label).toBe(
       "DSH | DeepSeek-V4-Pro",
     );
@@ -157,7 +157,7 @@ describe("shared robot and conversation AI metadata", () => {
       },
       [],
     );
-    expect(session.aiConfig).toEqual({
+    expect(session.aiConfig).toMatchObject({
       connectionId: "deepseek-local",
       modelId: "b",
     });
@@ -178,7 +178,7 @@ describe("shared robot and conversation AI metadata", () => {
     expect(resolveConversationAi(session, robot, aiSettings()).model).toBe("a");
     expect(defaultsForConversation(session, robot)).toEqual(session.aiConfig);
   });
-  it("updates same-service conversations together but preserves another service and history", () => {
+  it("updates only the selected active conversation and robot defaults, preserving other history", () => {
     const data = createInitialData(),
       robot = data.robots[0];
     const first = createConversation(data, null, robot.id, aiSettings()),
@@ -193,6 +193,7 @@ describe("shared robot and conversation AI metadata", () => {
       },
       aiSettings(),
       robot.revision,
+      first.id,
     );
     expect(next.conversations[0].aiConfig).toMatchObject({
       modelId: "b",
@@ -290,7 +291,7 @@ describe("external connections and internal AI selections", () => {
       data.defaultRobotId,
       settings,
     );
-    expect(session.aiConfig).toEqual({
+    expect(session.aiConfig).toMatchObject({
       connectionId: "deepseek-local",
       modelId: "a",
     });
@@ -326,9 +327,9 @@ it("retains a deleted connection and model instead of falling back to the global
   const result = resolveConversationAi(conversation, robot, settings);
   expect(result.connectionId).toBe("deepseek-local");
   expect(result.model).toBe("a");
-  expect(result.label).toBe("AI 配置");
+  expect(result.label).toBe("AI 选择");
   expect(result.deleted).toBe(true);
-  expect(conversation.aiConfig).toEqual({
+  expect(conversation.aiConfig).toMatchObject({
     connectionId: "deepseek-local",
     modelId: "a",
   });
@@ -347,4 +348,88 @@ it("orders connected services by the shared supported directory", async () => {
   );
   expect(supportedServices(settings)[0].provider).toBe("deepseek-harness");
   expect(configuredConnections(settings)[0].config.provider).toBe("hermes");
+});
+
+describe("shared reasoning selection", () => {
+  function settingsWithReasoning() {
+    const settings = aiSettings();
+    const connection = settings.connections[0];
+    connection.config.reasoningEffort = "medium";
+    connection.detection.models[0].reasoningOptions = [
+      { value: "", name: "默认", group: "" },
+      { value: "medium", name: "Medium", group: "" },
+      { value: "high", name: "High", group: "" },
+    ];
+    connection.detection.models[0].defaultReasoning = "medium";
+    return settings;
+  }
+  it("reads global reasoning and persists an explicit choice in new conversations", () => {
+    const settings = settingsWithReasoning(),
+      data = createInitialData(),
+      robot = data.robots[0];
+    expect(resolveRobotAi(robot, settings).reasoningEffort).toBe("medium");
+    robot.aiDefaults = {
+      connectionId: "deepseek-local",
+      modelId: "a",
+      reasoningEffort: "high",
+    };
+    const conversation = createConversation(data, null, robot.id, settings);
+    expect(conversation.aiConfig.reasoningEffort).toBe("high");
+    settings.connections[0].config.reasoningEffort = "";
+    expect(
+      resolveConversationAi(conversation, robot, settings).reasoningEffort,
+    ).toBe("high");
+  });
+  it("keeps the native empty option and rejects missing levels without guessing", () => {
+    const settings = settingsWithReasoning(),
+      robot = createRobot();
+    robot.aiDefaults = {
+      connectionId: "deepseek-local",
+      modelId: "a",
+      reasoningEffort: "",
+    };
+    expect(resolveRobotAi(robot, settings).reasoningEffort).toBe("");
+    robot.aiDefaults.reasoningEffort = "unavailable";
+    expect(resolveRobotAi(robot, settings).error).toContain("推理等级已不可用");
+    robot.aiDefaults = { connectionId: "deepseek-local", modelId: "b" };
+    expect(resolveRobotAi(robot, settings).reasoningOptions).toEqual([]);
+    expect(resolveRobotAi(robot, settings).reasoningEffort).toBe("");
+  });
+  it("updates current selection without changing other active or archived conversations", () => {
+    const settings = settingsWithReasoning(),
+      data = createInitialData(),
+      robot = data.robots[0];
+    const current = createConversation(data, null, robot.id, settings);
+    const other = createConversation(data, null, robot.id, settings);
+    const archived = {
+      ...createConversation(data, null, robot.id, settings),
+      status: "archived" as const,
+    };
+    data.conversations = [current, other, archived];
+    const selection = {
+      connectionId: "deepseek-local",
+      modelId: "a",
+      reasoningEffort: "high",
+    };
+    const next = applyRobotAi(
+      data,
+      robot.id,
+      selection,
+      settings,
+      robot.revision,
+      current.id,
+    );
+    expect(next.conversations[0].aiConfig).toEqual(selection);
+    expect(next.conversations[1]).toBe(other);
+    expect(next.conversations[2]).toBe(archived);
+    const robotOnly = applyRobotAi(
+      data,
+      robot.id,
+      selection,
+      settings,
+      robot.revision,
+    );
+    expect(robotOnly.conversations).toEqual(data.conversations);
+    expect(robotOnly.robots[0].aiDefaults).toEqual(selection);
+  });
 });

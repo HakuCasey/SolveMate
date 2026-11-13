@@ -9,11 +9,13 @@ export async function packageFixture(
     badReference?: boolean;
     extraFile?: boolean;
     invalidQuestions?: boolean;
+    pdf?: boolean;
+    badPdfIndex?: boolean;
   } = {},
 ) {
   const files: Record<string, Uint8Array> = {};
   const descriptors: ContentFile[] = [];
-  const declarations = [
+  const declarations: [string, ContentFile["kind"], string][] = [
     ["B001", "textbook", "textbooks/primer.md"],
     ["calculus-questions", "questions", "questions/questions.json"],
     [
@@ -26,7 +28,12 @@ export async function packageFixture(
       "discussion-points",
       "memory/discussion-points.json",
     ],
-  ] as const;
+  ];
+  if (options.pdf || options.badPdfIndex)
+    declarations.push(
+      ["B001-pdf", "textbook-pdf", "textbooks/primer.pdf"],
+      ["B001-pages", "textbook-pages", "textbooks/primer.pages.json"],
+    );
   for (const [id, kind, path] of declarations) {
     let bytes = new Uint8Array(
       readFileSync(
@@ -45,6 +52,11 @@ export async function packageFixture(
       data.points[0].source.question_ids = ["M999"];
       bytes = new TextEncoder().encode(JSON.stringify(data));
     }
+    if (kind === "textbook-pages" && options.badPdfIndex) {
+      const index = JSON.parse(new TextDecoder().decode(bytes));
+      index.chapterPages[0] = index.pages.length + 1;
+      bytes = new TextEncoder().encode(JSON.stringify(index));
+    }
     files[path] = bytes;
     descriptors.push({
       id,
@@ -53,7 +65,9 @@ export async function packageFixture(
       media_type:
         kind === "textbook"
           ? "text/markdown; charset=utf-8"
-          : "application/json",
+          : kind === "textbook-pdf"
+            ? "application/pdf"
+            : "application/json",
       size_bytes: bytes.length,
       sha256: await sha256(bytes),
     });

@@ -101,7 +101,7 @@ export default defineConfig({
       workbox: {
         // 教材、题库及公式字体随应用缓存，离线启动不依赖外部字体服务。
         globPatterns: [
-          "**/*.{js,mjs,css,html,svg,png,jpg,woff,woff2,ttf,bcmap,pfb,bin,wasm}",
+          "**/*.{js,mjs,css,html,svg,png,jpg,pdf,woff,woff2,ttf,bcmap,pfb,bin,wasm}",
         ],
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         navigateFallback: "index.html",

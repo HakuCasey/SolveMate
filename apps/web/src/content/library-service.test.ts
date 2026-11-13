@@ -63,7 +63,11 @@ describe("official library service", () => {
     expect(
       getData().subjects?.find((subject) => subject.id === "calculus")?.deleted,
     ).toBe(true);
-    expect(getData().officialMaterials).toBeUndefined();
+    expect(
+      getData().officialMaterials?.every(
+        (item) => item.version === fixture.saved.version,
+      ),
+    ).toBe(true);
   });
   it("checks the latest metadata before opening a stale reading button", async () => {
     const { ports, service, fixture, setData } = await setup();
@@ -100,7 +104,10 @@ it("repairs a missing package file from the verified copy before restoring metad
     return fixture.saved;
   });
   await service.acquire(id);
-  expect(ports.install).toHaveBeenCalledWith("calculus", false);
+  expect(ports.install).toHaveBeenCalledWith("calculus", false, {
+    materialId: id,
+    repairVersion: fixture.saved.version,
+  });
   expect(ports.load).toHaveBeenCalledOnce();
   expect(ports.read().get(id).downloaded).toBe(true);
 });

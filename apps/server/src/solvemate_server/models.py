@@ -8,7 +8,14 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 Identifier = Annotated[str, Field(pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")]
 Digest = Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")]
 Text = Annotated[str, Field(min_length=1)]
-Kind = Literal["textbook", "questions", "learning-points", "discussion-points"]
+Kind = Literal[
+    "textbook",
+    "questions",
+    "learning-points",
+    "discussion-points",
+    "textbook-pdf",
+    "textbook-pages",
+]
 
 
 class Model(BaseModel):
@@ -45,17 +52,19 @@ class CourseInfo(Model):
 
 
 class CourseSpec(CourseInfo):
-    files: list[SourceFile] = Field(min_length=4, max_length=4)
+    files: list[SourceFile] = Field(min_length=4, max_length=6)
 
     @model_validator(mode="after")
     def complete_files(self) -> "CourseSpec":
-        if {item.kind for item in self.files} != {
-            "textbook",
-            "questions",
-            "learning-points",
-            "discussion-points",
-        }:
-            raise ValueError("Each course must contain all four content kinds.")
+        required = {"textbook", "questions", "learning-points", "discussion-points"}
+        kinds = {item.kind for item in self.files}
+        if len(kinds) != len(self.files) or kinds not in (
+            required,
+            required | {"textbook-pdf", "textbook-pages"},
+        ):
+            raise ValueError(
+                "A course requires four source files and an optional PDF/index pair."
+            )
         if len({item.path for item in self.files}) != len(self.files) or len(
             {item.id for item in self.files}
         ) != len(self.files):
@@ -191,3 +200,11 @@ class DiscussionFile(Model):
     course: Text
     origin: Text
     points: list[DiscussionPoint] = Field(min_length=1)
+
+
+class TextbookPages(Model):
+    textbookId: Text
+    sourceSha256: Digest
+    pdfSha256: Digest
+    pages: list[str] = Field(min_length=1, max_length=1000)
+    chapterPages: list[int] = Field(min_length=1)

@@ -4,9 +4,50 @@ import { readPackage } from "./package";
 import { parseCatalog, parseManifest, parseUpdate } from "./contracts";
 import { createInitialData, getCurrentContent } from "../data/catalog";
 import { sameContent } from "../state/conversations";
-import { pinLegacyVersions, updatedSelection } from "./selection";
+import { updatedSelection } from "./selection";
 
 describe("official course package validation", () => {
+  it("reads both release formats with the matching PDF and preserves the original version references", async () => {
+    const old = await packageFixture();
+    const next = await packageFixture("", { pdf: true });
+    const legacy = await readPackage(old.manifest, old.archive);
+    const course = await readPackage(next.manifest, next.archive);
+    expect(course.version).not.toBe(legacy.version);
+    expect(legacy.textbooks[0].pdf?.pages).toEqual(
+      course.textbooks[0].pdf?.pages,
+    );
+    expect(course.textbooks[0].pdf?.pages.length).toBeGreaterThan(1);
+    const previous = {
+      courseId: legacy.id,
+      version: legacy.version,
+      kind: "textbooks" as const,
+      itemId: "B001",
+      pageNumber: 3,
+    };
+    const selection = updatedSelection(previous, course);
+    expect(selection.pageNumber).toBe(1);
+    expect(getCurrentContent(selection, [legacy, course]).title).toBe(
+      `第 ${selection.pageNumber} 页`,
+    );
+    expect(previous.version).toBe(legacy.version);
+    expect(getCurrentContent(previous, [legacy, course]).title).toBe("第 3 页");
+  });
+  it("rejects an invalid PDF page index or a missing index before replacing any content", async () => {
+    const invalid = await packageFixture("", { badPdfIndex: true });
+    await expect(
+      readPackage(invalid.manifest, invalid.archive),
+    ).rejects.toThrow("页码");
+    const valid = await packageFixture("", { pdf: true });
+    expect(() =>
+      parseManifest({
+        ...valid.manifest,
+        files: valid.manifest.files.filter(
+          (file) => file.kind !== "textbook-pages",
+        ),
+      }),
+    ).toThrow();
+  });
+
   it("reads the real textbook, questions and both memory files without losing formulas", async () => {
     const fixture = await packageFixture();
     const course = await readPackage(fixture.manifest, fixture.archive);
@@ -105,25 +146,21 @@ describe("official course package validation", () => {
       ),
     ).toThrow();
   });
-  it("pins legacy history and keeps selection valid when a newer course changes IDs", async () => {
+  it("rejects unspecified versions and keeps explicit selections valid when a newer course changes IDs", async () => {
     const data = createInitialData();
+    const previous = { ...data.selection };
     delete data.selection.version;
-    data.conversations.forEach((session) => {
-      if (session.selection) delete session.selection.version;
-    });
-    const pinned = pinLegacyVersions(data);
-    expect(pinned.conversations[0].selection?.version).toBe("example-1");
-    expect(data.conversations[0].selection?.version).toBeUndefined();
-    expect(pinLegacyVersions(pinned)).toBe(pinned);
+    expect(() => getCurrentContent(data.selection)).toThrow(
+      "当前版本已不支持该引用方式",
+    );
+    expect(data.selection.version).toBeUndefined();
     const fixture = await packageFixture("新版内容");
     const course = await readPackage(fixture.manifest, fixture.archive);
-    const next = updatedSelection(pinned.selection, course, [course]);
+    const next = updatedSelection(previous, course);
     expect(next.version).toBe(course.version);
-    expect(sameContent(pinned.selection, next)).toBe(false);
+    expect(sameContent(previous, next)).toBe(false);
     expect(getCurrentContent(next, [course]).content).toContain("新版内容");
     const removed = { ...course, questions: course.questions.slice(1) };
-    expect(updatedSelection(pinned.selection, removed, [course]).itemId).toBe(
-      "M002",
-    );
+    expect(updatedSelection(previous, removed).itemId).toBe("M002");
   });
 });

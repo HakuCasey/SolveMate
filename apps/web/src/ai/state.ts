@@ -66,6 +66,9 @@ export function mergeAiTurn(data: AppData, turn: AiTurn): AppData {
         content: turn.text,
         createdAt: turn.startedAt,
         turnId: turn.id,
+        ...(turn.readingContext
+          ? { readingContext: structuredClone(turn.readingContext) }
+          : {}),
         ...(turn.references
           ? { references: structuredClone(turn.references) }
           : {}),
@@ -114,6 +117,35 @@ export function mergeAiTurn(data: AppData, turn: AiTurn): AppData {
       result,
     ].toSorted((a, b) => a.startedAt - b.startedAt);
     messages.sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0));
+    // 重试较早的问题时，回复仍紧随原问题；执行时间不能改变问题与回复的对应关系。
+    const questionIds = new Set(
+      messages.filter((item) => item.role === "user").map((item) => item.id),
+    );
+    const questionByTurn = new Map(
+      turns.map((item) => [item.id, item.userMessageId]),
+    );
+    const replies = new Map<string, Message[]>();
+    const linkedReplies = new Set<string>();
+    for (const message of messages) {
+      const questionId = message.turnId
+        ? questionByTurn.get(message.turnId)
+        : undefined;
+      if (
+        message.role === "assistant" &&
+        questionId &&
+        questionIds.has(questionId)
+      ) {
+        const group = replies.get(questionId) ?? [];
+        group.push(message);
+        replies.set(questionId, group);
+        linkedReplies.add(message.id);
+      }
+    }
+    const orderedMessages = messages.flatMap((message) =>
+      linkedReplies.has(message.id)
+        ? []
+        : [message, ...(replies.get(message.id) ?? [])],
+    );
     const binding: SessionBinding | null =
       turn.binding ??
       (turn.externalSessionId && turn.protocol
@@ -135,9 +167,10 @@ export function mergeAiTurn(data: AppData, turn: AiTurn): AppData {
         : {
             connectionId: turn.connectionId,
             modelId: turn.snapshot.requestedModelId,
+            reasoningEffort: turn.snapshot.reasoningEffort,
           },
       binding,
-      messages,
+      messages: orderedMessages,
       turns,
       updatedAt: Math.max(
         conversation.updatedAt,

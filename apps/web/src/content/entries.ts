@@ -39,7 +39,7 @@ export function contentEntries(
         version: local!.version,
         kind: "textbooks",
         itemId: book.id,
-        chapterIndex: 0,
+        ...(book.pdf ? { pageNumber: 1 } : {}),
       },
     });
   }
@@ -73,7 +73,6 @@ export function contentEntries(
             version: local.version,
             kind: "questions",
             itemId: local.questions[0]!.id,
-            chapterIndex: 0,
           }
         : undefined,
     });

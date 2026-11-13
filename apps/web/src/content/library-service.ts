@@ -1,5 +1,5 @@
 import type { AppData, ReadingSelection } from "@solvemate/contracts";
-import type { InstalledCourse } from "./storage";
+import type { InstalledCourse, InstallOptions } from "./storage";
 import type { OfficialLibrary } from "./library";
 import { removeSubject } from "../state/subjects";
 import { DataRequestError } from "../refresh/errors";
@@ -8,7 +8,11 @@ interface Ports {
   read(): OfficialLibrary;
   refresh(): Promise<unknown>;
   load(): Promise<unknown>;
-  install(courseId: string, update?: boolean): Promise<InstalledCourse | null>;
+  install(
+    courseId: string,
+    update?: boolean,
+    options?: InstallOptions,
+  ): Promise<InstalledCourse | null>;
   save(change: (data: AppData) => AppData): Promise<AppData>;
 }
 
@@ -47,36 +51,75 @@ export class OfficialLibraryService {
     this.run(async () => {
       await this.ports.refresh();
       const before = this.ports.read().get(id);
-      if (
-        update ||
-        !before.packageState.saved ||
-        before.packageState.saved.available === false
-      ) {
-        const installed = await this.ports.install(before.source.id, update);
-        await this.ports.load();
-        if (
-          !installed &&
-          (before.packageState.saved ||
-            !this.ports.read().get(id).packageState.saved)
-        )
-          return false;
+      let target = before.packageState.saved;
+      if (update || !target || target.available === false) {
+        const desiredVersion =
+          !update && target
+            ? target.version
+            : before.packageState.latestVersion;
+        const cached = this.ports
+          .read()
+          .snapshot.installed.find(
+            (item) =>
+              item.courseId === before.source.id &&
+              item.version === desiredVersion &&
+              item.available !== false,
+          );
+        if (cached && (!update || before.packageState.checked)) target = cached;
+        else {
+          // 先固定各条目原来的版本，再写入课程包，避免下载期间其他条目切换版本。
+          await this.ports.save((data) => {
+            const library = this.ports.read().withData(data);
+            if (library.get(id).membershipKey !== before.membershipKey)
+              throw new DataRequestError(
+                "资料状态已变化，请重新选择后下载。",
+                "official_material_changed",
+                409,
+              );
+            return library.pinVersions(data, before.source.id);
+          });
+          const repairVersion =
+            !update && target?.available === false ? target.version : undefined;
+          const installed = await this.ports.install(before.source.id, update, {
+            materialId: id,
+            ...(repairVersion ? { repairVersion } : {}),
+          });
+          await this.ports.load();
+          target =
+            installed ??
+            this.ports
+              .read()
+              .snapshot.installed.find(
+                (item) =>
+                  item.courseId === before.source.id &&
+                  item.version === desiredVersion &&
+                  item.available !== false &&
+                  (item.version !== before.version ||
+                    !before.packageState.saved ||
+                    before.packageState.saved.available === false),
+              );
+        }
       }
+      if (!target) return false;
+      const version = target.version;
       await this.ports.save((data) => {
-        const library = this.ports.read();
+        const library = this.ports.read().withData(data);
         if (library.get(id).membershipKey !== before.membershipKey)
           throw new DataRequestError(
-            "下载期间资料归属或删除状态已变化，请核对后重新添加。",
+            "下载期间资料归属、版本或删除状态已变化，请核对后重新添加。",
             "official_material_changed",
             409,
           );
-        return library.restore(data, id);
+        return library.restore(data, id, version, Date.now());
       });
       return true;
     });
   remove = (id: string) =>
     this.run(async () => {
       await this.ports.refresh();
-      await this.ports.save((data) => this.ports.read().remove(data, id));
+      await this.ports.save((data) =>
+        this.ports.read().withData(data).remove(data, id),
+      );
     });
   removeSubject = (id: string) =>
     this.run(async () => {

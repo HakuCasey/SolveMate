@@ -11,7 +11,12 @@ export interface RemoteCourse extends CourseInfo {
   download_url: string;
 }
 export type ContentKind =
-  "textbook" | "questions" | "learning-points" | "discussion-points";
+  | "textbook"
+  | "questions"
+  | "learning-points"
+  | "discussion-points"
+  | "textbook-pdf"
+  | "textbook-pages";
 export interface ContentFile {
   id: string;
   kind: ContentKind;
@@ -109,7 +114,9 @@ export function parseFiles(value: unknown): ContentFile[] {
       kind !== "textbook" &&
       kind !== "questions" &&
       kind !== "learning-points" &&
-      kind !== "discussion-points"
+      kind !== "discussion-points" &&
+      kind !== "textbook-pdf" &&
+      kind !== "textbook-pages"
     )
       throw new ContentError("暂不支持这种内容文件。");
     return {
@@ -122,8 +129,13 @@ export function parseFiles(value: unknown): ContentFile[] {
     };
   });
   if (
-    files.length !== 4 ||
-    new Set(files.map((file) => file.kind)).size !== 4 ||
+    ![4, 6].includes(files.length) ||
+    new Set(files.map((file) => file.kind)).size !== files.length ||
+    !["textbook", "questions", "learning-points", "discussion-points"].every(
+      (kind) => files.some((file) => file.kind === kind),
+    ) ||
+    files.some((file) => file.kind === "textbook-pdf") !==
+      files.some((file) => file.kind === "textbook-pages") ||
     files.some((file) => file.path === "course.json") ||
     files.reduce((sum, file) => sum + file.size_bytes, 0) > MAX_CONTENT_BYTES
   )

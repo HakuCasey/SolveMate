@@ -16,7 +16,9 @@ import cMarkdown from "../../../../data/c-language/textbooks/primer.md?raw";
 import cLearning from "../../../../data/c-language/memory/learning-points.json";
 import cDiscussion from "../../../../data/c-language/memory/discussion-points.json";
 import seedData from "./seed-data.json";
+import { bundledTextbookPdf } from "./textbook-pdfs";
 import { parseTextbook } from "./textbooks";
+import { requireReadingLocation } from "../reading/reference";
 import { migrateAiMetadata } from "./migrate-ai-metadata";
 import { initializeNotes } from "../state/notes";
 
@@ -32,7 +34,12 @@ export const courses: Course[] = [
     title: calculusQuestions.course,
     version: "example-1",
     questions: calculusQuestions.questions,
-    textbooks: [parseTextbook("B001", calculusMarkdown)],
+    textbooks: [
+      {
+        ...parseTextbook("B001", calculusMarkdown),
+        pdf: bundledTextbookPdf("B001")!.metadata,
+      },
+    ],
     memory: {
       learningPoints: calculusLearning.points,
       discussionPoints: calculusDiscussion.points,
@@ -43,7 +50,12 @@ export const courses: Course[] = [
     title: cQuestions.course,
     version: "example-1",
     questions: cQuestions.questions,
-    textbooks: [parseTextbook("CB001", cMarkdown)],
+    textbooks: [
+      {
+        ...parseTextbook("CB001", cMarkdown),
+        pdf: bundledTextbookPdf("CB001")!.metadata,
+      },
+    ],
     memory: {
       learningPoints: cLearning.points,
       discussionPoints: cDiscussion.points,
@@ -116,6 +128,7 @@ export function getCurrentContent(
   selection: ReadingSelection,
   available = courses,
 ): CurrentContent {
+  requireReadingLocation(selection);
   const course = getCourse(selection.courseId, selection.version, available);
   if (selection.kind === "questions") {
     const question = course.questions.find(
@@ -132,17 +145,20 @@ export function getCurrentContent(
   }
 
   const book = course.textbooks.find((item) => item.id === selection.itemId);
-  const chapter = book?.chapters[selection.chapterIndex];
-  if (!book || !chapter)
-    throw new Error(`Textbook chapter was not found: ${selection.itemId}`);
+  if (!book?.pdf)
+    throw new Error(`Textbook PDF was not found: ${selection.itemId}`);
+  const pageNumber = selection.pageNumber!;
+  const page = book.pdf.pages[pageNumber - 1];
+  if (page === undefined)
+    throw new Error(`Textbook page was not found: ${pageNumber}`);
   return {
-    id: `${book.id}:${chapter.id}`,
+    id: `${book.id}:page:${pageNumber}`,
     courseId: course.id,
     kind: "textbooks",
-    title: chapter.title,
+    title: `第 ${pageNumber} 页`,
     topic: book.title,
     difficulty: "学习资料",
-    content: chapter.content,
+    content: page,
     answer: "",
     explanation: "",
   };

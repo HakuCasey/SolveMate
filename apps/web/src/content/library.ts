@@ -12,9 +12,12 @@ import {
 import { DataRequestError } from "../refresh/errors";
 import { contentEntries, officialEntryId } from "./entries";
 import { courseState } from "./course-state";
+import { materialState } from "./material-state";
 import { updatedSelection } from "./selection";
 import type { CourseInfo, RemoteCourse, UpdateResponse } from "./contracts";
 import type { ContentSnapshot } from "./storage";
+import { isSupportedReadingLocation } from "../reading/reference";
+import { bundledTextbookPdf } from "../data/textbook-pdfs";
 
 type LibraryData = Pick<AppData, "subjects" | "officialMaterials">;
 type Entry = ReturnType<typeof contentEntries>[number];
@@ -23,12 +26,12 @@ type Entry = ReturnType<typeof contentEntries>[number];
 export class OfficialMaterial {
   readonly metadata: OfficialMaterialMetadata | undefined;
   readonly subjectId: string | null;
-  readonly packageState: ReturnType<typeof courseState>;
+  readonly packageState: ReturnType<typeof materialState>;
   constructor(
     readonly source: CourseInfo,
     readonly entry: Entry,
     readonly course: Course | undefined,
-    private readonly snapshot: ContentSnapshot,
+    snapshot: ContentSnapshot,
     data: LibraryData,
     private readonly directory: SubjectDirectory,
     update?: UpdateResponse,
@@ -37,10 +40,24 @@ export class OfficialMaterial {
       (item) => item.id === entry.id,
     );
     this.subjectId = this.metadata ? this.metadata.subjectId : source.id;
-    this.packageState = courseState(snapshot, source.id, update);
+    this.packageState = materialState(
+      snapshot,
+      source.id,
+      entry.kind,
+      this.version,
+      update,
+    );
   }
   get id() {
     return this.entry.id;
+  }
+  get version() {
+    return this.metadata?.version !== undefined
+      ? this.metadata.version
+      : (this.course?.version ?? null);
+  }
+  get updatedAt() {
+    return this.metadata?.updatedAt ?? this.packageState.saved?.installedAt;
   }
   get kind() {
     return this.entry.kind;
@@ -66,7 +83,10 @@ export class OfficialMaterial {
     return (
       this.metadata?.deletedAt != null ||
       !!this.subject?.deleted ||
-      (!!this.metadata && this.subjectId !== null && !this.subject)
+      (!!this.metadata &&
+        this.metadata.version !== null &&
+        this.subjectId !== null &&
+        !this.subject)
     );
   }
   get membershipKey() {
@@ -74,6 +94,7 @@ export class OfficialMaterial {
       this.subjectId,
       this.metadata?.deletedAt ?? null,
       this.subject?.deleted ?? false,
+      this.version,
     ]);
   }
   get listed() {
@@ -94,11 +115,13 @@ export class OfficialMaterial {
       );
     const target = this.entry.selection;
     if (
-      previous?.courseId === target.courseId &&
+      previous &&
+      isSupportedReadingLocation(previous) &&
+      previous.courseId === target.courseId &&
       previous.kind === target.kind &&
       (target.kind === "questions" || previous.itemId === target.itemId)
     )
-      return updatedSelection(previous, this.course, this.snapshot.allCourses);
+      return updatedSelection(previous, this.course);
     return { ...target };
   }
 }
@@ -110,8 +133,8 @@ export class OfficialLibrary {
   constructor(
     readonly snapshot: ContentSnapshot,
     private readonly data: LibraryData = {},
-    remote: RemoteCourse[] = [],
-    updates: Record<string, UpdateResponse> = {},
+    private readonly remote: RemoteCourse[] = [],
+    private readonly updates: Record<string, UpdateResponse> = {},
   ) {
     this.directory = createSubjectDirectory(
       snapshot.activeCourses,
@@ -138,19 +161,92 @@ export class OfficialLibrary {
         source,
         local,
         updates[source.id]?.latest.files,
-      ).map(
-        (entry) =>
-          new OfficialMaterial(
-            source,
-            entry,
-            local,
-            snapshot,
-            data,
-            this.directory,
-            updates[source.id],
-          ),
-      );
+      ).map((entry) => {
+        const metadata = data.officialMaterials?.find(
+          (item) => item.id === entry.id,
+        );
+        const selected =
+          metadata?.version !== undefined
+            ? snapshot.allCourses.find(
+                (item) =>
+                  item.id === source.id && item.version === metadata.version,
+              )
+            : local;
+        const selectedEntry = contentEntries(
+          source,
+          selected,
+          updates[source.id]?.latest.files,
+        ).find((item) => item.id === entry.id);
+        return new OfficialMaterial(
+          source,
+          selectedEntry ?? { ...entry, selection: undefined },
+          selected,
+          snapshot,
+          data,
+          this.directory,
+          updates[source.id],
+        );
+      });
     });
+  }
+  withData(data: LibraryData) {
+    return new OfficialLibrary(this.snapshot, data, this.remote, this.updates);
+  }
+  /** 比较当前条目的实际内容，课程包编号不同不代表这份 PDF 已变化。 */
+  isHistorical(selection: ReadingSelection) {
+    const current = this.entries.find(
+      (entry) => entry.id === officialEntryId(selection),
+    );
+    const previous = this.snapshot.allCourses.find(
+      (course) =>
+        course.id === selection.courseId &&
+        course.version === selection.version,
+    );
+    if (!current?.course || !previous) return false;
+    if (selection.kind === "questions") {
+      const oldQuestion = previous.questions.find(
+        (item) => item.id === selection.itemId,
+      );
+      const question = current.course.questions.find(
+        (item) => item.id === selection.itemId,
+      );
+      const body = (value: typeof question) =>
+        value && [
+          value.title,
+          value.topic,
+          value.difficulty,
+          value.question,
+          value.answer,
+          value.explanation,
+        ];
+      return (
+        !!oldQuestion &&
+        !!question &&
+        JSON.stringify(body(oldQuestion)) !== JSON.stringify(body(question))
+      );
+    }
+    const digest = (course: Course) => {
+      const book = course.textbooks.find(
+        (item) => item.id === selection.itemId,
+      );
+      if (!book?.pdf) return undefined;
+      const saved = this.snapshot.installed.find(
+        (item) =>
+          item.courseId === course.id && item.version === course.version,
+      );
+      const file = saved?.manifest.files.find(
+        (file) => file.kind === "textbook-pdf" && file.path === book.pdf!.path,
+      );
+      if (file) return file.sha256;
+      const original = saved?.manifest.files.find(
+        (file) => file.kind === "textbook" && file.id === book.id,
+      );
+      if (saved && !original) return undefined;
+      return bundledTextbookPdf(book.id, original?.sha256)?.index.pdfSha256;
+    };
+    const oldDigest = digest(previous),
+      currentDigest = digest(current.course);
+    return !!oldDigest && !!currentDigest && oldDigest !== currentDigest;
   }
   get(id: string) {
     const entry = this.entries.find((item) => item.id === id);
@@ -187,12 +283,47 @@ export class OfficialLibrary {
   remove(data: AppData, id: string, now = Date.now()): AppData {
     const item = this.get(id);
     if (item.removed) return data;
-    return this.record(data, { id, subjectId: item.subjectId, deletedAt: now });
+    return this.record(data, {
+      ...item.metadata,
+      id,
+      subjectId: item.subjectId,
+      deletedAt: now,
+    });
   }
-  restore(data: AppData, id: string): AppData {
+  /** 在下载改变课程包指针前固定旧记录；没有资料的条目明确保持未添加。 */
+  pinVersions(data: AppData, courseId: string): AppData {
+    for (const item of this.entries.filter(
+      (entry) => entry.source.id === courseId,
+    )) {
+      const metadata = data.officialMaterials?.find(
+        (entry) => entry.id === item.id,
+      );
+      if (metadata?.version !== undefined) continue;
+      data = this.record(data, {
+        ...metadata,
+        id: item.id,
+        subjectId: item.subjectId,
+        deletedAt: metadata?.deletedAt ?? null,
+        version: item.version,
+        ...(item.updatedAt !== undefined ? { updatedAt: item.updatedAt } : {}),
+      });
+    }
+    return data;
+  }
+  restore(
+    data: AppData,
+    id: string,
+    version?: string,
+    updatedAt?: number,
+  ): AppData {
     const item = this.get(id);
-    if (!item.packageState.saved)
-      throw new Error("资料尚未下载并校验，不能添加到资料库。");
+    const selectedVersion = version ?? item.version;
+    const saved = this.snapshot.installed.find(
+      (record) =>
+        record.courseId === item.source.id &&
+        record.version === selectedVersion,
+    );
+    if (!saved) throw new Error("资料尚未下载并校验，不能添加到资料库。");
     let subjectId = item.subjectId;
     if (subjectId !== null && (!item.subject || item.subject.deleted)) {
       const title = item.subject?.title ?? item.source.title;
@@ -206,7 +337,14 @@ export class OfficialLibrary {
         data = addSubject(data, this.snapshot.activeCourses, title, subjectId);
       }
     }
-    return this.record(data, { id, subjectId, deletedAt: null });
+    return this.record(data, {
+      ...item.metadata,
+      id,
+      subjectId,
+      deletedAt: null,
+      version: selectedVersion,
+      updatedAt: updatedAt ?? item.updatedAt ?? saved.installedAt,
+    });
   }
   private record(data: AppData, metadata: OfficialMaterialMetadata): AppData {
     return {

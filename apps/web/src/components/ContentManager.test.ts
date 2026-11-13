@@ -14,6 +14,8 @@ function render(snapshot = makeSnapshot()) {
     readSnapshot: () => snapshot,
     reloadLocal: async () => snapshot,
     ready: true,
+    checkedAt: null,
+    readPdf: async () => ({ blob: new Blob(), warning: "" }),
     loadError: "",
     remote: [],
     updates: {},

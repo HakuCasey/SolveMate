@@ -101,18 +101,30 @@ export function defaultConnection(settings: AiSettings | null) {
 export function conversationConnectionId(conversation?: Conversation) {
   return conversation?.aiConfig.connectionId ?? undefined;
 }
+/** 旧对话缺少等级时，表单和提问共同读取同一连接、模型最近一轮的快照。 */
+function conversationSelection(conversation: Conversation | undefined) {
+  const config = conversation?.aiConfig;
+  if (!config?.connectionId && !config?.modelId) return null;
+  const last = conversation?.turns?.at(-1)?.snapshot;
+  return config.reasoningEffort === undefined &&
+    last?.connectionId === config.connectionId &&
+    last?.requestedModelId === config.modelId
+    ? { ...config, reasoningEffort: last.reasoningEffort }
+    : config;
+}
 export function defaultsForConversation(
   conversation: Conversation | undefined,
   robot: Robot | undefined,
 ): RobotAiDefaults {
-  return conversation?.aiConfig.connectionId
-    ? structuredClone(conversation.aiConfig)
-    : (robot?.aiDefaults ?? null);
+  return structuredClone(
+    conversationSelection(conversation) ?? robot?.aiDefaults ?? null,
+  );
 }
 function resolveSelection(
   connectionId: string | null | undefined,
   modelId: string | null,
   settings: AiSettings | null,
+  reasoningEffort?: string | null,
 ) {
   const connection = connectionFor(settings, connectionId ?? null),
     config = connection?.config;
@@ -127,6 +139,19 @@ function resolveSelection(
     AI_PROVIDERS.find((item) => item.id === connectionId)?.provider ??
     "";
   const info = providerInfo(provider, settings);
+  const reasoning = reasoningForModel(connection?.detection ?? null, model);
+  const inherited =
+    model === config?.model ? config.reasoningEffort : reasoning.defaultValue;
+  const effort =
+    reasoningEffort ??
+    (reasoning.options.some((item) => item.value === inherited)
+      ? inherited
+      : reasoning.defaultValue) ??
+    "";
+  const invalidReasoning =
+    reasoningEffort != null &&
+    effort !== "" &&
+    !reasoning.options.some((item) => item.value === effort);
   const deleted =
     !connection &&
     !!connectionId &&
@@ -136,21 +161,27 @@ function resolveSelection(
       ? "所选 AI 连接已删除，请重新配置或选择其他服务。"
       : modelId
         ? "原模型所属连接尚未确认，请重新选择服务和模型。"
-        : "请先在设置中配置 AI。"
+        : configuredConnections(settings).length
+          ? "请选择 AI 服务和模型。"
+          : "请先在设置中配置 AI。"
     : !connectionIsConnected(connection)
       ? "所选 AI 服务未连接，请在设置中检测连接。"
       : !option
         ? "所选模型已不可用，请重新配置 AI 或选择其他模型。"
-        : "";
+        : invalidReasoning
+          ? "所选推理等级已不可用，请重新选择。"
+          : "";
   return {
     connectionId: connection?.id ?? connectionId ?? "",
     connectionRevision: connection?.revision ?? null,
     model,
+    reasoningEffort: effort,
+    reasoningOptions: reasoning.options,
     modelName: error ? "" : (option?.name ?? ""),
     harness: info.name,
     hasSelection: !!connectionId || !!modelId,
     deleted,
-    label: !error && option ? `${info.shortName} | ${option.name}` : "AI 配置",
+    label: !error && option ? `${info.shortName} | ${option.name}` : "AI 选择",
     configured: !!config,
     error,
   };
@@ -165,7 +196,12 @@ export function resolveDefaults(
         globalModel(settings)?.modelId ?? null,
         settings,
       )
-    : resolveSelection(config.connectionId, config.modelId, settings);
+    : resolveSelection(
+        config.connectionId,
+        config.modelId,
+        settings,
+        config.reasoningEffort,
+      );
 }
 export function resolveRobotAi(
   robot: Robot | undefined,
@@ -178,12 +214,9 @@ export function resolveConversationAi(
   robot: Robot | undefined,
   settings: AiSettings | null,
 ) {
-  return conversation?.aiConfig.connectionId || conversation?.aiConfig.modelId
-    ? resolveSelection(
-        conversation.aiConfig.connectionId,
-        conversation.aiConfig.modelId,
-        settings,
-      )
+  const config = conversationSelection(conversation);
+  return config
+    ? resolveDefaults(config, settings)
     : resolveRobotAi(robot, settings);
 }
 export function robotAiError(
@@ -200,5 +233,20 @@ export function initialConversationAi(
   return {
     connectionId: effective.connectionId || null,
     modelId: effective.model || null,
+    reasoningEffort: effective.reasoningEffort,
   };
+}
+
+/** 模型改变时保留仍被支持的等级，否则使用该模型明确返回的默认值。 */
+export function reasoningAfterModelChange(
+  detection: Detection,
+  model: string,
+  current?: string | null,
+) {
+  const { options, defaultValue } = reasoningForModel(detection, model);
+  return current != null && options.some((item) => item.value === current)
+    ? current
+    : options.some((item) => item.value === defaultValue)
+      ? defaultValue
+      : null;
 }

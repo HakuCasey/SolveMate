@@ -1,3 +1,4 @@
+import { isSupportedReadingLocation } from "../reading/reference";
 import { requireCurrentRecord } from "../refresh/errors";
 import type {
   AppData,
@@ -18,11 +19,12 @@ export function sameContent(
 ): boolean {
   if (!a || !b) return a === b;
   return (
+    isSupportedReadingLocation(a) &&
+    isSupportedReadingLocation(b) &&
     a.courseId === b.courseId &&
-    (a.version ?? "example-1") === (b.version ?? "example-1") &&
+    a.version === b.version &&
     a.kind === b.kind &&
-    a.itemId === b.itemId &&
-    (a.kind === "questions" || a.chapterIndex === b.chapterIndex)
+    a.itemId === b.itemId
   );
 }
 
@@ -170,9 +172,10 @@ export function applyRobotAi(
   config: RobotAiDefaults,
   settings: AiSettings | null,
   expectedRevision?: number,
+  currentConversationId?: string,
 ): AppData {
   const robot = data.robots.find((item) => item.id === robotId);
-  requireCurrentRecord(robot, expectedRevision, "教师配置");
+  requireCurrentRecord(robot, expectedRevision, "机器人配置");
   const effective = resolveDefaults(config, settings);
   if (effective.error) throw new Error(effective.error);
   return {
@@ -187,8 +190,9 @@ export function applyRobotAi(
         : item,
     ),
     conversations: data.conversations.map((item) =>
+      item.id === currentConversationId &&
       item.robotId === robotId &&
-      item.status !== "deleted" &&
+      item.status === "active" &&
       item.aiConfig.connectionId === effective.connectionId
         ? {
             ...item,
@@ -197,6 +201,7 @@ export function applyRobotAi(
             aiConfig: {
               connectionId: effective.connectionId,
               modelId: effective.model,
+              reasoningEffort: effective.reasoningEffort,
             },
           }
         : item,

@@ -140,9 +140,9 @@ def test_updates_keep_previous_versions_available_without_restart(
         ]
         == "up_to_date"
     )
-    textbook = content_settings.data_dir / "calculus/textbooks/primer.md"
-    textbook.write_text(
-        textbook.read_text(encoding="utf-8") + "\n新增的课程说明。\n",
+    questions = content_settings.data_dir / "calculus/questions/questions.json"
+    questions.write_text(
+        questions.read_text(encoding="utf-8") + "\n",
         encoding="utf-8",
     )
     publish(content_settings.data_dir, content_settings.content_dir)

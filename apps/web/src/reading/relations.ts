@@ -5,10 +5,16 @@ import type {
   LearningLocation,
   Material,
   Note,
+  MaterialLocation,
+  ReadingReference,
 } from "@solvemate/contracts";
 import type { OfficialLibrary } from "../content/library";
 import { materialMembership } from "./library";
-import { messageReferences } from "./reference";
+import {
+  messageReadingReferences,
+  isSupportedReadingLocation,
+  UNSUPPORTED_READING_REFERENCE,
+} from "./reference";
 import { officialEntryId } from "../content/entries";
 
 /** 资料身份不含学科名称、页码或版本；位置与版本仍由原记录各自保留。 */
@@ -39,7 +45,7 @@ function sourcesForConversation(conversation: Conversation) {
   if (conversation.material) sources.push(conversation.material);
   if (conversation.selection) sources.push(conversation.selection);
   for (const message of conversation.messages) {
-    for (const reference of messageReferences(message)) {
+    for (const reference of messageReadingReferences(message)) {
       if (reference.material) sources.push(reference.material);
       if (reference.selection) sources.push(reference.selection);
     }
@@ -55,6 +61,7 @@ export class LearningMaterial {
   readonly subjectTitle: string;
   readonly available: boolean;
   readonly removed: boolean;
+  private readonly pageText?: string;
   constructor(
     readonly source: LearningLocation,
     courses: Course[],
@@ -77,8 +84,7 @@ export class LearningMaterial {
     } else {
       const course = courses.find(
         (item) =>
-          item.id === source.courseId &&
-          item.version === (source.version ?? "example-1"),
+          item.id === source.courseId && item.version === source.version,
       );
       const book =
         source.kind === "textbooks"
@@ -89,10 +95,17 @@ export class LearningMaterial {
           ? course?.questions.find((item) => item.id === source.itemId)
           : undefined;
       this.title = book?.title ?? question?.title ?? "原资料不可用";
-      this.position =
-        book?.chapters[source.chapterIndex]?.title ??
-        (question ? source.itemId : "原位置不可用");
-      this.available = !!question || !!book?.chapters[source.chapterIndex];
+      this.position = !isSupportedReadingLocation(source)
+        ? UNSUPPORTED_READING_REFERENCE
+        : source.kind === "textbooks"
+          ? `第 ${source.pageNumber} 页`
+          : source.itemId;
+      this.pageText =
+        question?.question ??
+        (book?.pdf && source.pageNumber
+          ? book.pdf.pages[source.pageNumber - 1]
+          : undefined);
+      this.available = !!question || this.pageText !== undefined;
       const scope = official.scopeForSelection(source);
       this.subjectId = scope?.courseId ?? null;
       this.subjectTitle =
@@ -103,7 +116,46 @@ export class LearningMaterial {
       this.removed = scope === null;
     }
   }
+  get readingLabel() {
+    if (!isSupportedReadingLocation(this.source))
+      return UNSUPPORTED_READING_REFERENCE;
+    return `${this.title} · ${this.position}`;
+  }
+  /** 空正文仅用于保存读取失败的问题；提交 Harness 前必须读取成功。 */
+  contextReference(content = ""): ReadingReference {
+    return {
+      title: this.readingLabel,
+      content,
+      selection: "materialId" in this.source ? null : { ...this.source },
+      ...("materialId" in this.source
+        ? { material: { ...this.source }, quoteKind: "page" as const }
+        : this.source.kind === "textbooks"
+          ? { quoteKind: "page" as const }
+          : {}),
+    };
+  }
+  async readContext(readPage: (location: MaterialLocation) => Promise<string>) {
+    if (!isSupportedReadingLocation(this.source))
+      throw new Error(UNSUPPORTED_READING_REFERENCE);
+    if (!this.available)
+      throw new Error(
+        "关联资料或版本暂不可用，问题和原位置已保留，请刷新资料后重试。",
+      );
+    const text =
+      "materialId" in this.source ? await readPage(this.source) : this.pageText;
+    if (!text?.trim())
+      throw new Error(
+        "关联内容没有可读取的文字，当前暂不支持图片识别。问题已保留，请补充文字或在普通对话中继续。",
+      );
+    if (text.length > 100000)
+      throw new Error(
+        "关联页文字超过 100,000 字符，问题已保留，请换页或在普通对话中继续。",
+      );
+    return this.contextReference(text);
+  }
   get context() {
+    if (!isSupportedReadingLocation(this.source))
+      return UNSUPPORTED_READING_REFERENCE;
     return "materialId" in this.source
       ? `${this.title} · ${this.position}`
       : `${this.subjectTitle} · ${this.source.kind === "textbooks" ? this.position : this.title}`;
@@ -139,11 +191,28 @@ export class LearningRelations {
       );
     for (const note of data.noteLibrary?.notes ?? []) {
       const source = sourceForNote(note);
-      if (!source) continue;
-      const id = learningMaterialId(source);
-      const list = this.notes.get(id) ?? [];
-      list.push(note);
-      this.notes.set(id, list);
+      const origin = note.excerpt?.message;
+      const conversation = origin
+        ? data.conversations.find(
+            (item) =>
+              item.id === origin.conversationId && item.status !== "deleted",
+          )
+        : undefined;
+      const sources = source
+        ? [source]
+        : conversation && origin
+          ? sourcesForConversation({
+              ...conversation,
+              messages: conversation.messages.filter((item) =>
+                origin.messageIds.includes(item.id),
+              ),
+            })
+          : [];
+      for (const id of new Set(sources.map(learningMaterialId))) {
+        const list = this.notes.get(id) ?? [];
+        list.push(note);
+        this.notes.set(id, list);
+      }
     }
   }
   material(source: LearningLocation) {

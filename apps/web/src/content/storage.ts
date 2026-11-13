@@ -4,6 +4,11 @@ import { courses as bundledCourses } from "../data/catalog";
 import { parseManifest, ContentError, type ReleaseManifest } from "./contracts";
 import { readPackage } from "./package";
 
+export interface InstallOptions {
+  materialId?: string;
+  repairVersion?: string;
+}
+
 export interface SavedCourse {
   courseId: string;
   version: string;

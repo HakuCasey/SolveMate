@@ -7,7 +7,6 @@ import {
   sampleNotebooks,
   sampleNotes,
 } from "../data/catalog";
-import { pinLegacyVersions } from "../content/selection";
 import { upgradeRobotCatalog } from "../state/robots";
 import { appStorage, userStorageStatus } from "./local-service";
 import { LocalDataController } from "./controller";
@@ -22,7 +21,7 @@ function loadInitialData(available: Course[]): Promise<AppData> {
     .then(async (saved) => {
       if (saved) {
         const upgraded = initializeNotes(
-          pinLegacyVersions(upgradeRobotCatalog(saved)),
+          upgradeRobotCatalog(saved),
           sampleNotebooks,
           sampleNotes,
         );

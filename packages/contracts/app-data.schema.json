@@ -41,7 +41,10 @@
           "maximum": 21
         },
         "appearance": {
-          "enum": ["light", "dark"]
+          "enum": [
+            "light",
+            "dark"
+          ]
         },
         "themeId": {
           "type": "string",
@@ -56,7 +59,11 @@
           "exclusiveMaximum": 1
         }
       },
-      "required": ["fontSize", "appearance", "globalModel"],
+      "required": [
+        "fontSize",
+        "appearance",
+        "globalModel"
+      ],
       "additionalProperties": false
     },
     "selection": {
@@ -93,7 +100,11 @@
             "type": "boolean"
           }
         },
-        "required": ["id", "title", "deleted"],
+        "required": [
+          "id",
+          "title",
+          "deleted"
+        ],
         "additionalProperties": false
       }
     },
@@ -119,7 +130,11 @@
                 "minimum": 1
               }
             },
-            "required": ["id", "title", "revision"],
+            "required": [
+              "id",
+              "title",
+              "revision"
+            ],
             "additionalProperties": false
           }
         },
@@ -175,6 +190,9 @@
                     "type": "null"
                   }
                 ]
+              },
+              "excerpt": {
+                "$ref": "urn:solvemate:ai-metadata:3#/$defs/ReadingReference"
               }
             },
             "required": [
@@ -205,12 +223,19 @@
                 "minLength": 1
               }
             },
-            "required": ["id", "title"],
+            "required": [
+              "id",
+              "title"
+            ],
             "additionalProperties": false
           }
         }
       },
-      "required": ["notebooks", "notes", "customTags"],
+      "required": [
+        "notebooks",
+        "notes",
+        "customTags"
+      ],
       "additionalProperties": false
     },
     "readingProgress": {
@@ -233,14 +258,20 @@
                     "minimum": 0
                   }
                 },
-                "required": ["top", "left"],
+                "required": [
+                  "top",
+                  "left"
+                ],
                 "additionalProperties": false
               },
               "answerVisible": {
                 "type": "boolean"
               }
             },
-            "required": ["scroll", "answerVisible"],
+            "required": [
+              "scroll",
+              "answerVisible"
+            ],
             "additionalProperties": false
           }
         },
@@ -254,6 +285,9 @@
                 "minimum": 0.5,
                 "maximum": 3
               },
+              "continuous": {
+                "type": "boolean"
+              },
               "location": {
                 "anyOf": [
                   {
@@ -265,12 +299,17 @@
                 ]
               }
             },
-            "required": ["zoom"],
+            "required": [
+              "zoom"
+            ],
             "additionalProperties": false
           }
         }
       },
-      "required": ["positions", "documents"],
+      "required": [
+        "positions",
+        "documents"
+      ],
       "additionalProperties": false
     },
     "drafts": {
@@ -301,6 +340,22 @@
               }
             ]
           },
+          "version": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "updatedAt": {
+            "type": "number",
+            "minimum": 0
+          },
           "deletedAt": {
             "anyOf": [
               {
@@ -313,7 +368,11 @@
             ]
           }
         },
-        "required": ["id", "subjectId", "deletedAt"],
+        "required": [
+          "id",
+          "subjectId",
+          "deletedAt"
+        ],
         "additionalProperties": false
       }
     }
@@ -336,7 +395,10 @@
           "minLength": 1
         },
         "role": {
-          "enum": ["user", "assistant"]
+          "enum": [
+            "user",
+            "assistant"
+          ]
         },
         "content": {
           "type": "string"
@@ -365,7 +427,11 @@
           "type": "string"
         },
         "botIcon": {
-          "enum": ["graduation-cap", "sparkles", "bot"]
+          "enum": [
+            "graduation-cap",
+            "sparkles",
+            "bot"
+          ]
         },
         "example": {
           "type": "boolean"
@@ -382,9 +448,16 @@
         },
         "model": {
           "type": "string"
+        },
+        "readingContext": {
+          "$ref": "urn:solvemate:ai-metadata:3#/$defs/ReadingReference"
         }
       },
-      "required": ["id", "role", "content"],
+      "required": [
+        "id",
+        "role",
+        "content"
+      ],
       "additionalProperties": false
     },
     "Conversation": {
@@ -416,7 +489,12 @@
           "type": "boolean"
         }
       },
-      "required": ["binding", "turns", "messages", "example"],
+      "required": [
+        "binding",
+        "turns",
+        "messages",
+        "example"
+      ],
       "additionalProperties": true,
       "title": "ConversationMetadata",
       "if": {
@@ -425,7 +503,9 @@
             "type": "object"
           }
         },
-        "required": ["material"]
+        "required": [
+          "material"
+        ]
       },
       "then": {
         "properties": {

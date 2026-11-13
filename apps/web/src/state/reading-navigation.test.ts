@@ -36,13 +36,13 @@ describe("reading conversation recovery", () => {
     );
   });
 
-  it("matches the exact course version, material kind and chapter", () => {
+  it("matches a fixed PDF version across pages and rejects unsupported positions", () => {
     const data = createInitialData();
     const selection = {
       ...data.selection,
       kind: "textbooks" as const,
       itemId: "B001",
-      chapterIndex: 1,
+      pageNumber: 1,
     };
     const right = {
       ...data.conversations[0],
@@ -55,7 +55,13 @@ describe("reading conversation recovery", () => {
       { ...selection, version: "other" },
       { ...selection, kind: "questions" as const },
       { ...selection, itemId: "other" },
-      { ...selection, chapterIndex: 2 },
+      {
+        courseId: "calculus",
+        version: "example-1",
+        kind: "textbooks" as const,
+        itemId: "B001",
+        chapterIndex: 2,
+      },
       null,
     ].map((selection, index) => ({
       ...right,
@@ -67,6 +73,9 @@ describe("reading conversation recovery", () => {
       "right",
     );
     expect(conversationForReading(wrong, selection)).toBeUndefined();
+    expect(
+      conversationForReading([right], { ...selection, pageNumber: 2 })?.id,
+    ).toBe("right");
   });
 
   it("returns an explicitly selected older conversation and skips unavailable ones", () => {

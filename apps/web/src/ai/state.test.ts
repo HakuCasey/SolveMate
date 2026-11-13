@@ -99,7 +99,7 @@ describe("AI conversation results", () => {
     };
     const result = mergeAiTurn(data, { ...turn, status: "completed" });
     result.conversations[0]!.robotId = "another-teacher";
-    result.selection.chapterIndex += 1;
+    result.selection.itemId = "M002";
     expect(result.conversations[0]?.messages[0]?.reference?.content).toBe(
       "double b = a / 2;",
     );

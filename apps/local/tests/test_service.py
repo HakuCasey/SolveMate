@@ -237,7 +237,8 @@ def test_real_text_reference_teacher_and_custom_model_are_sent(tmp_path):
                 "courseId": "c-language",
                 "kind": "textbooks",
                 "itemId": "CB001",
-                "chapterIndex": 0,
+                "version": "example-1",
+                "pageNumber": 2,
             },
         }
         body["history"] = [{"role": "user", "content": "Earlier question"}]
@@ -755,7 +756,8 @@ def test_reference_list_rejects_excess_content_and_ambiguous_legacy_field(tmp_pa
                 "courseId": "c-language",
                 "kind": "textbooks",
                 "itemId": "CB001",
-                "chapterIndex": 0,
+                "version": "example-1",
+                "pageNumber": 2,
             },
         }
         body["references"] = [reference, reference]
@@ -766,3 +768,73 @@ def test_reference_list_rejects_excess_content_and_ambiguous_legacy_field(tmp_pa
         body["reference"] = reference
         assert client.post("/local-api/v1/turns", json=body).status_code == 422
         assert not any(method == "session/prompt" for method, _ in FakeAcp.calls)
+
+
+def test_linked_page_snapshot_and_followup_keep_one_native_session(tmp_path):
+    with client_for(tmp_path) as client:
+        connect(client)
+        first = payload("解释当前页的代码")
+        first["readingContext"] = {
+            "title": "C 语言课本 · 第 20 页",
+            "content": "int a = 1;",
+            "selection": {
+                "courseId": "c-language",
+                "version": "example-1",
+                "kind": "textbooks",
+                "itemId": "CB001",
+                "pageNumber": 20,
+            },
+            "quoteKind": "page",
+        }
+        assert client.post("/local-api/v1/turns", json=first).status_code == 202
+        completed = settled(client, first["id"])
+        assert completed["status"] == "completed"
+        assert completed["readingContext"] == first["readingContext"]
+        second = payload("再看看下一页", first["conversationId"])
+        second["readingContext"] = {
+            **first["readingContext"],
+            "title": "C 语言课本 · 第 21 页",
+            "content": "int *p = &a;",
+            "selection": {**first["readingContext"]["selection"], "pageNumber": 21},
+        }
+        assert client.post("/local-api/v1/turns", json=second).status_code == 202
+        followed = settled(client, second["id"])
+        assert followed["externalSessionId"] == completed["externalSessionId"]
+        assert (
+            client.get(f"/local-api/v1/turns/{first['id']}").json()["readingContext"]
+            == first["readingContext"]
+        )
+        prompts = [
+            params["prompt"][0]["text"]
+            for method, params in FakeAcp.calls
+            if method == "session/prompt"
+        ]
+        assert "int a = 1;" in prompts[0] and "第 20 页" in prompts[0]
+        assert "int *p = &a;" in prompts[1] and "第 21 页" in prompts[1]
+        assert client.post("/local-api/v1/turns", json=first).status_code == 202
+        assert (
+            len([method for method, _ in FakeAcp.calls if method == "session/prompt"])
+            == 2
+        )
+
+
+def test_unsupported_reading_mode_is_reported_before_any_harness_request(tmp_path):
+    with client_for(tmp_path) as client:
+        connect(client)
+        before = len(FakeAcp.calls)
+        body = payload("旧位置引用")
+        body["readingContext"] = {
+            "title": "旧章节",
+            "content": "原正文",
+            "selection": {
+                "courseId": "calculus",
+                "version": "example-1",
+                "kind": "textbooks",
+                "itemId": "B001",
+                "chapterIndex": 0,
+            },
+        }
+        response = client.post("/local-api/v1/turns", json=body)
+        assert response.status_code == 422
+        assert "当前版本已不支持该引用方式" in response.text
+        assert len(FakeAcp.calls) == before

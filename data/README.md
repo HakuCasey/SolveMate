@@ -35,7 +35,7 @@ data/
 - [记忆点](c-language/memory/learning-points.json)：12 个知识要点，编号 CK001–CK012，附常见误区及来源。
 - [讨论点](c-language/memory/discussion-points.json)：6 组讨论主题，编号 CD001–CD006，每组含 3 个建议追问、讲解方向及来源。
 
-教材采用 Markdown，数学公式使用 LaTeX，程序与输出使用带语言标记的代码块；题目、记忆点和讨论点采用 JSON。当前教材与记忆均为 AI 生成的示例内容，不对应指定教材，也不代表真实用户的学习记录或已经发生的对话。
+学习资料以 PDF 发布和阅读，Markdown 保留为维护源，数学公式使用 LaTeX，程序与输出使用带语言标记的代码块。`textbooks/primer.pages.json` 保存与 PDF 对应的逐页文字、章节页码和校验值；修改原文后先重新生成 PDF 和索引，命令见[后端说明](../apps/server/README.md#源内容与发布)。题目、记忆点和讨论点采用 JSON。当前教材与记忆均为 AI 生成的示例内容，不对应指定教材，也不代表真实用户的学习记录或已经发生的对话。
 
 ## 题目格式
 

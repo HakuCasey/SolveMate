@@ -111,13 +111,17 @@ class ReadingReference(RequestModel):
     content: str = Field(max_length=100000)
     selection: dict | None
     material: dict | None = Field(default=None, exclude_if=lambda value: value is None)
+    message: dict | None = Field(default=None, exclude_if=lambda value: value is None)
     quoteKind: Literal["page", "selection"] | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
 
     @model_validator(mode="after")
     def shared_reference(self):
-        validate_metadata("ReadingReference", self.model_dump())
+        try:
+            validate_metadata("SupportedReadingReference", self.model_dump())
+        except ValueError as error:
+            raise ValueError("当前版本已不支持该引用方式") from error
         return self
 
 
@@ -141,6 +145,9 @@ class TurnRequest(RequestModel):
     teacher: Teacher
     model: str = Field(default="", max_length=1000)
     reasoningEffort: str = Field(default="", max_length=100)
+    readingContext: ReadingReference | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     reference: ReadingReference | None = None
     references: list[ReadingReference] = Field(
         default_factory=list,
@@ -156,6 +163,8 @@ class TurnRequest(RequestModel):
             self.conversationSnapshot = upgrade_conversation_metadata(
                 self.conversationSnapshot
             )
+        if self.readingContext and not self.readingContext.content.strip():
+            raise ValueError("关联内容尚未读取，不能提交只有位置的上下文。")
         if self.references and self.reference:
             raise ValueError("不能同时提交单条引用和引用列表。")
         references = self.references or ([self.reference] if self.reference else [])

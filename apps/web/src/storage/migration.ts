@@ -1,6 +1,5 @@
 import type { AppData } from "@solvemate/contracts";
 import { migrateAiMetadata } from "../data/migrate-ai-metadata";
-import { validateContentReferences } from "../data/catalog";
 import { ContentStorage } from "../content/storage";
 import { sha256 } from "../content/package";
 import { DexieStorage, LocalDataConflictError } from "./index";
@@ -145,8 +144,7 @@ async function initialize() {
       ),
       heads: oldContent.heads,
     };
-    if (payload.value)
-      validateContentReferences(payload.value, oldContent.allCourses);
+    // 迁移只校验记录结构，资料是否可定位在使用时判断；失效引用不能阻止读取其他记录。
     // 请求结构不发送解析后的 Course，也不改变旧数据和任何第三方会话编号。
     const fingerprint = await sha256(
       new TextEncoder().encode(JSON.stringify(payload)),

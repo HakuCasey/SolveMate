@@ -15,6 +15,7 @@ export interface ReadingPositionState {
 }
 export interface ReadingDocumentState {
   zoom: number;
+  continuous?: boolean;
   location?: ReadingSelection | MaterialLocation;
 }
 export interface ReadingState {
@@ -58,7 +59,11 @@ export function updateReadingDocument(
   const next = typeof change === "function" ? change(previous) : change;
   if (!Number.isFinite(next.zoom) || next.zoom < 0.5 || next.zoom > 3)
     throw new Error("资料缩放比例应在 50% 到 300% 之间。");
-  return previous.zoom === next.zoom && previous.location === next.location
+  if (next.continuous !== undefined && typeof next.continuous !== "boolean")
+    throw new Error("页面连续设置必须为布尔值。");
+  return previous.zoom === next.zoom &&
+    previous.continuous === next.continuous &&
+    previous.location === next.location
     ? state
     : { ...state, documents: { ...state.documents, [key]: next } };
 }
@@ -96,8 +101,7 @@ export function rememberReadingLocation(
     last &&
     ("materialId" in last
       ? "materialId" in location && last.pageNumber === location.pageNumber
-      : !("materialId" in location) &&
-        last.chapterIndex === location.chapterIndex)
+      : !("materialId" in location) && last.pageNumber === location.pageNumber)
   )
     return state;
   return updateReadingDocument(state, key, {
@@ -111,8 +115,12 @@ export function readingLocationForConversation(
   state: ReadingState,
   conversation: Pick<Conversation, "selection" | "material">,
 ) {
+  const selection = conversation.selection;
   return {
-    selection: conversation.selection,
+    selection:
+      selection?.kind === "textbooks" && selection.pageNumber !== undefined
+        ? restoreReadingLocation(state, selection)
+        : selection,
     material: conversation.material
       ? restoreReadingLocation(state, conversation.material)
       : conversation.material,

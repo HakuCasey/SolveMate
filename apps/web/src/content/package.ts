@@ -6,6 +6,7 @@ import type {
   DiscussionPoint,
   MemorySource,
 } from "@solvemate/contracts";
+import { bundledTextbookPdf } from "../data/textbook-pdfs";
 import { parseTextbook } from "../data/textbooks";
 import {
   ContentError,
@@ -116,6 +117,44 @@ export async function readPackage(
     new TextDecoder("utf-8", { fatal: true }).decode(files[textbookFile.path]),
   );
   unique(book.chapters.map((chapter) => chapter.id));
+  const pdfFile = manifest.files.find((file) => file.kind === "textbook-pdf");
+  const pageFile = manifest.files.find(
+    (file) => file.kind === "textbook-pages",
+  );
+  if (pdfFile && pageFile) {
+    const index = record(json(files[pageFile.path]));
+    const pages = items(index.pages).map((page) => {
+      if (typeof page !== "string")
+        throw new ContentError("PDF 页内文字格式不正确。");
+      return page;
+    });
+    const chapterPages = items(index.chapterPages).map((page) => {
+      if (
+        typeof page !== "number" ||
+        !Number.isInteger(page) ||
+        page < 1 ||
+        page > pages.length
+      )
+        throw new ContentError("PDF 章节页码不正确。");
+      return page;
+    });
+    if (
+      !pages.length ||
+      pages.length > 1000 ||
+      index.textbookId !== book.id ||
+      index.sourceSha256 !== textbookFile.sha256 ||
+      index.pdfSha256 !== pdfFile.sha256 ||
+      pdfFile.media_type !== "application/pdf" ||
+      new TextDecoder().decode(files[pdfFile.path].slice(0, 5)) !== "%PDF-" ||
+      chapterPages.length !== book.chapters.length ||
+      chapterPages.some((page, i) => i > 0 && page <= chapterPages[i - 1])
+    )
+      throw new ContentError("PDF 与资料原文或页码索引不一致。");
+    book.pdf = { path: pdfFile.path, pages, chapterPages };
+  } else {
+    book.pdf = bundledTextbookPdf(book.id, textbookFile.sha256)?.metadata;
+  }
+
   const questionsFile = record(json(files[byKind("questions").path]));
   if (questionsFile.course !== manifest.course.title)
     throw new ContentError("题库不属于当前课程。");

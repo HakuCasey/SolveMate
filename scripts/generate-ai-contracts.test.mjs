@@ -20,8 +20,12 @@ const outputs = [
   "apps/local/src/solvemate_local/schemas/ai-metadata.schema.json",
   "apps/local/src/solvemate_local/schemas/ai-metadata-v2.schema.json",
   "apps/local/src/solvemate_local/schemas/app-data.schema.json",
+  "apps/local/src/solvemate_local/schemas/robot-limits.json",
+  "apps/local/src/solvemate_local/schemas/conversation-limits.json",
 ];
 const sources = [
+  "packages/contracts/conversation-limits.json",
+  "packages/contracts/robot-limits.json",
   "packages/contracts/ai-metadata.schema.json",
   "packages/contracts/legacy/ai-metadata-v2.schema.json",
   "packages/contracts/app-data.schema.json",

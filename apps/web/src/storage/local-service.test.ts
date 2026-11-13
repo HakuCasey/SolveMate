@@ -78,6 +78,63 @@ afterEach(() => {
 });
 
 describe("local service storage and migration", () => {
+  it("preserves unsupported reading positions during browser migration instead of blocking startup", async () => {
+    const old = new DexieStorage();
+    const original = createInitialData();
+    original.selection = {
+      courseId: "c-language",
+      version: "example-1",
+      kind: "textbooks",
+      itemId: "CB001",
+      chapterIndex: 0,
+    };
+    original.conversations[0].selection = { ...original.selection };
+    await old.save(original);
+    const rawBefore = await old.rawRecord();
+    old.close();
+    const service = await import("./local-service");
+    try {
+      await service.ensureUserStorage();
+      expect(await service.appStorage.load()).toEqual(original);
+      expect(state.value).toEqual(original);
+      expect(
+        (migrations[0].payload as { legacyState: unknown }).legacyState,
+      ).toEqual(rawBefore);
+      const reopened = new DexieStorage();
+      expect(await reopened.rawRecord()).toEqual(rawBefore);
+      reopened.close();
+    } finally {
+      service.userCache.close();
+    }
+  });
+  it("loads and saves explicit PDF pages and question locations without chapter metadata", async () => {
+    const service = await import("./local-service");
+    const storage = new service.LocalAppStorage();
+    const original = createInitialData();
+    original.selection = {
+      courseId: "c-language",
+      version: "example-1",
+      kind: "textbooks",
+      itemId: "CB001",
+      pageNumber: 2,
+    };
+    original.conversations[0].selection = { ...original.selection };
+    try {
+      await storage.load();
+      await storage.save(original);
+      expect(await storage.refresh()).toEqual(original);
+      original.selection = {
+        courseId: "c-language",
+        version: "example-1",
+        kind: "questions",
+        itemId: "C001",
+      };
+      await storage.save(original);
+      expect(await storage.refresh()).toEqual(original);
+    } finally {
+      service.userCache.close();
+    }
+  });
   it("migrates the original envelope and course archives without modifying the old databases", async () => {
     const old = new DexieStorage();
     const original = createInitialData();

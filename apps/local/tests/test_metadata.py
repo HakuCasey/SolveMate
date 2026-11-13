@@ -426,7 +426,8 @@ def test_new_questions_allow_four_references_and_reject_five():
             "courseId": "c-language",
             "kind": "textbooks",
             "itemId": "CB001",
-            "chapterIndex": 0,
+            "version": "example-1",
+            "pageNumber": 2,
         },
     }
     body["references"] = [reference] * 4
@@ -434,3 +435,120 @@ def test_new_questions_allow_four_references_and_reject_five():
     body["references"].append(reference)
     with pytest.raises(ValidationError):
         TurnRequest.model_validate(body)
+
+
+@pytest.mark.parametrize("effort", ["off", ""])
+def test_conversation_reasoning_is_authoritative_and_keeps_native_default(
+    tmp_path, effort
+):
+    from copy import deepcopy
+
+    metadata = deepcopy(
+        next(
+            case["value"] for case in FIXTURES if case["name"] == "ConversationMetadata"
+        )
+    )
+    metadata["aiConfig"]["reasoningEffort"] = effort
+    with client_for(tmp_path) as client:
+        connect(client)
+        request = {
+            **payload(conversation_id=metadata["id"]),
+            "model": "opaque-model-a",
+            "conversationSnapshot": metadata,
+            "reasoningEffort": effort,
+        }
+        response = client.post("/local-api/v1/turns", json=request)
+        assert response.status_code == 202, response.text
+        result = settled(client, request["id"])
+        assert result["status"] == "completed", result
+        assert result["snapshot"]["reasoningEffort"] == effort
+        assert result["reasoningEffort"] == effort
+
+
+def test_request_reasoning_must_match_saved_conversation(tmp_path):
+    from copy import deepcopy
+
+    metadata = deepcopy(
+        next(
+            case["value"] for case in FIXTURES if case["name"] == "ConversationMetadata"
+        )
+    )
+    metadata["aiConfig"]["reasoningEffort"] = "off"
+    with client_for(tmp_path) as client:
+        connect(client)
+        response = client.post(
+            "/local-api/v1/turns",
+            json={
+                **payload(conversation_id=metadata["id"]),
+                "model": "opaque-model-a",
+                "conversationSnapshot": metadata,
+                "reasoningEffort": "",
+            },
+        )
+        assert response.status_code == 422
+        assert response.json()["code"] == "reasoning_mismatch"
+
+
+def test_native_empty_reasoning_option_is_dispatched_when_resuming(
+    tmp_path, monkeypatch
+):
+    from copy import deepcopy
+
+    import test_service
+
+    models = deepcopy(test_service.MODELS)
+    models[1]["options"].append({"value": "", "name": "Default"})
+    monkeypatch.setattr(test_service, "MODELS", models)
+    metadata = deepcopy(
+        next(
+            case["value"] for case in FIXTURES if case["name"] == "ConversationMetadata"
+        )
+    )
+    metadata["aiConfig"]["reasoningEffort"] = "off"
+    with client_for(tmp_path) as client:
+        connect(client)
+        request = {
+            **payload(conversation_id=metadata["id"]),
+            "model": "opaque-model-a",
+            "conversationSnapshot": metadata,
+            "reasoningEffort": "off",
+        }
+        assert client.post("/local-api/v1/turns", json=request).status_code == 202
+        first = settled(client, request["id"])
+        assert first["status"] == "completed"
+        before = len(test_service.FakeAcp.calls)
+        metadata["aiConfig"]["reasoningEffort"] = ""
+        followup = {
+            **payload(conversation_id=metadata["id"]),
+            "model": "opaque-model-a",
+            "externalSessionId": first["externalSessionId"],
+            "conversationSnapshot": metadata,
+            "reasoningEffort": "",
+        }
+        response = client.post("/local-api/v1/turns", json=followup)
+        assert response.status_code == 202, response.text
+        result = settled(client, followup["id"])
+        assert result["status"] == "completed", result
+        assert result["externalSessionId"] == first["externalSessionId"]
+        assert any(
+            method == "session/set_config_option"
+            and args.get("configId") == "reasoning_effort"
+            and args.get("value") == ""
+            for method, args in test_service.FakeAcp.calls[before:]
+        )
+
+
+def test_retry_of_an_already_answered_message_does_not_create_another_ai_turn(tmp_path):
+    from uuid import uuid4
+
+    with client_for(tmp_path) as client:
+        connect(client)
+        request = payload()
+        assert client.post("/local-api/v1/turns", json=request).status_code == 202
+        first = settled(client, request["id"])
+        assert first["status"] == "completed"
+        retry = {**request, "id": str(uuid4())}
+        rejected = client.post("/local-api/v1/turns", json=retry)
+        assert rejected.status_code == 422
+        assert rejected.json()["code"] == "message_already_answered"
+        assert client.get(f"/local-api/v1/turns/{retry['id']}").status_code == 404

@@ -1,3 +1,9 @@
+import limits from "../conversation-limits.json";
+import robotLimits from "../robot-limits.json";
+
+export const conversationLimits = limits;
+export const maxRobots = robotLimits.maxCount;
+
 export type CourseId = string;
 
 export interface Question {
@@ -21,6 +27,12 @@ export interface Textbook {
   title: string;
   description?: string;
   chapters: Chapter[];
+  /** PDF 与逐页文字属于同一固定版本，旧内容包不含此字段。 */
+  pdf?: {
+    path: string;
+    pages: string[];
+    chapterPages: number[];
+  };
 }
 
 export interface MemorySource {
@@ -70,6 +82,9 @@ export interface OfficialMaterialMetadata {
   id: string;
   subjectId: CourseId | null;
   deletedAt: number | null;
+  /** 缺少字段表示旧记录；null 表示尚未添加，字符串固定这份资料使用的版本。 */
+  version?: string | null;
+  updatedAt?: number;
 }
 
 export type * from "./ai-metadata.generated";
@@ -102,6 +117,7 @@ export interface Message {
   example?: boolean;
   reference?: ReadingReference;
   references?: ReadingReference[];
+  readingContext?: ReadingReference;
   model?: string;
 }
 
@@ -132,6 +148,8 @@ export interface Note {
   revision: number;
   tagIds: string[];
   source?: LearningLocation | null;
+  /** 记录时的选段快照；对话来源不冒充资料原文。 */
+  excerpt?: ReadingReference;
 }
 
 export interface NoteTag {
@@ -177,7 +195,11 @@ export interface ReadingProgress {
   >;
   documents: Record<
     string,
-    { zoom: number; location?: ReadingSelection | MaterialLocation }
+    {
+      zoom: number;
+      continuous?: boolean;
+      location?: ReadingSelection | MaterialLocation;
+    }
   >;
 }
 

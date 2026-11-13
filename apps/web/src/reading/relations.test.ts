@@ -22,7 +22,7 @@ const book: ReadingSelection = {
   version: "example-1",
   kind: "textbooks",
   itemId: "B001",
-  chapterIndex: 0,
+  pageNumber: 2,
 };
 const material = {
   id: page.materialId,
@@ -203,5 +203,63 @@ describe("learning material relations", () => {
       conversations: [],
     });
     expect(sourceForNote(data.noteLibrary!.notes[0])).toBeNull();
+  });
+});
+
+describe("linked reading context", () => {
+  it("requires an explicit PDF page and does not infer a chapter's first page", async () => {
+    const data = createInitialData();
+    const library = new OfficialLibrary(makeSnapshot([], []), data);
+    const index = new LearningRelations(data, courses, [], library);
+    const legacySource = { ...book };
+    delete legacySource.pageNumber;
+    const legacy = index.material(legacySource);
+    expect(legacy.readingLabel).toBe("当前版本已不支持该引用方式");
+    await expect(legacy.readContext(async () => "Unexpected")).rejects.toThrow(
+      "当前版本已不支持该引用方式",
+    );
+    expect(legacySource.pageNumber).toBeUndefined();
+    const material = index.material({ ...book, pageNumber: 2 });
+    const reference = await material.readContext(async () => {
+      throw new Error("Unexpected upload request");
+    });
+    expect(reference.title).toBe(material.readingLabel);
+    expect(reference.selection?.pageNumber).toBe(2);
+    expect(reference.content).toBe(courses[0].textbooks[0].pdf!.pages[1]);
+  });
+  it("reads an upload by fixed identity, version and page, and refuses empty text", async () => {
+    const data = createInitialData();
+    const upload = {
+      id: page.materialId,
+      title: "C 语言课本",
+      currentVersion: page.contentVersion,
+      courseId: "c-language",
+    } as Material;
+    const material = new LearningRelations(
+      data,
+      courses,
+      [upload],
+      new OfficialLibrary(makeSnapshot([], []), data),
+    ).material(page);
+    const calls: unknown[] = [];
+    const reference = await material.readContext(async (location) => {
+      calls.push(location);
+      return "int *p = &a;";
+    });
+    expect(calls).toEqual([page]);
+    expect(reference).toMatchObject({
+      title: "C 语言课本 · 第 3 页",
+      material: page,
+      quoteKind: "page",
+      content: "int *p = &a;",
+    });
+    await expect(material.readContext(async () => "  ")).rejects.toThrow(
+      "没有可读取的文字",
+    );
+    await expect(
+      material.readContext(async () => {
+        throw new Error("文件已删除");
+      }),
+    ).rejects.toThrow("文件已删除");
   });
 });

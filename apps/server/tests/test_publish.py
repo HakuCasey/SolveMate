@@ -97,10 +97,8 @@ def test_package_write_failure_does_not_commit_new_catalog(
 
     root = content_settings.content_dir
     before = (root / "catalog.json").read_bytes()
-    path = content_settings.data_dir / "calculus/textbooks/primer.md"
-    path.write_text(
-        path.read_text(encoding="utf-8") + "\nNew content.\n", encoding="utf-8"
-    )
+    path = content_settings.data_dir / "calculus/questions/questions.json"
+    path.write_text(path.read_text(encoding="utf-8") + "\n", encoding="utf-8")
     original_replace = module.os.replace
 
     def fail_package_commit(source, destination):
@@ -114,3 +112,15 @@ def test_package_write_failure_does_not_commit_new_catalog(
     assert (root / "catalog.json").read_bytes() == before
     ContentRepository(root).validate()
     assert not (root / ".publish-lock").exists()
+
+
+def test_outdated_pdf_cannot_replace_published_catalog(content_settings: Settings):
+    data, root = content_settings.data_dir, content_settings.content_dir
+    before = (root / "catalog.json").read_bytes()
+    source = data / "calculus/textbooks/primer.md"
+    source.write_text(
+        source.read_text(encoding="utf-8") + "\n内容变更\n", encoding="utf-8"
+    )
+    with pytest.raises(ValueError, match="PDF or page index is outdated"):
+        publish(data, root)
+    assert (root / "catalog.json").read_bytes() == before
