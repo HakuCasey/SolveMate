@@ -1,0 +1,424 @@
+[
+  {
+    "path": "state.conversations[0].messages[0].references[0].selection",
+    "before": {
+      "chapterIndex": 3,
+      "courseId": "calculus",
+      "itemId": "B001",
+      "kind": "textbooks",
+      "pageNumber": 5,
+      "version": "c85100ead59b202c8e1c6602f34b1b84c6e82a1c85271dc86c37115ae1433a45"
+    },
+    "after": {
+      "courseId": "calculus",
+      "itemId": "B001",
+      "kind": "textbooks",
+      "pageNumber": 5,
+      "version": "c85100ead59b202c8e1c6602f34b1b84c6e82a1c85271dc86c37115ae1433a45"
+    }
+  },
+  {
+    "path": "state.conversations[0].selection",
+    "before": {
+      "chapterIndex": 3,
+      "courseId": "calculus",
+      "itemId": "B001",
+      "kind": "textbooks",
+      "pageNumber": 5,
+      "version": "c85100ead59b202c8e1c6602f34b1b84c6e82a1c85271dc86c37115ae1433a45"
+    },
+    "after": {
+      "courseId": "calculus",
+      "itemId": "B001",
+      "kind": "textbooks",
+      "pageNumber": 5,
+      "version": "c85100ead59b202c8e1c6602f34b1b84c6e82a1c85271dc86c37115ae1433a45"
+    }
+  },
+  {
+    "path": "state.conversations[22].selection",
+    "before": {
+      "chapterIndex": 0,
+      "courseId": "calculus",
+      "itemId": "B001",
+      "kind": "textbooks",
+      "version": "784b5242434cdf6d6d5500c74a074328bae0ecc4f8713cc3a92327f1b28a7be9"
+    },
+    "after": {
+      "courseId": "calculus",
+      "itemId": "B001",
+      "kind": "textbooks",
+      "version": "784b5242434cdf6d6d5500c74a074328bae0ecc4f8713cc3a92327f1b28a7be9",
+      "pageNumber": 2
+    }
+  },
+  {
+    "path": "state.conversations[24].messages[0].reference.selection",
+    "before": {
+      "chapterIndex": 0,
+      "courseId": "calculus",
+      "itemId": "B001",
+      "kind": "textbooks",
+      "version": "example-1"
+    },
+    "after": {
+      "courseId": "calculus",
+      "itemId": "B001",
+      "kind": "textbooks",
+      "version": "example-1",
+      "pageNumber": 2
+    }
+  },
+  {
+    "path": "state.conversations[24].selection",
+    "before": {
+      "chapterIndex": 0,
+      "courseId": "calculus",
+      "itemId": "B001",
+      "kind": "textbooks",
+      "version": "example-1"
+    },
+    "after": {
+      "courseId": "calculus",
+      "itemId": "B001",
+      "kind": "textbooks",
+      "version": "example-1",
+      "pageNumber": 2
+    }
+  },
+  {
+    "path": "state.conversations[25].messages[0].reference.selection",
+    "before": {
+      "chapterIndex": 0,
+      "courseId": "c-language",
+      "itemId": "CB001",
+      "kind": "textbooks",
+      "version": "example-1"
+    },
+    "after": {
+      "courseId": "c-language",
+      "itemId": "CB001",
+      "kind": "textbooks",
+      "version": "example-1",
+      "pageNumber": 2
+    }
+  },
+  {
+    "path": "state.conversations[25].messages[2].reference.selection",
+    "before": {
+      "chapterIndex": 0,
+      "courseId": "c-language",
+      "itemId": "CB001",
+      "kind": "textbooks",
+      "version": "example-1"
+    },
+    "after": {
+      "courseId": "c-language",
+      "itemId": "CB001",
+      "kind": "textbooks",
+      "version": "example-1",
+      "pageNumber": 2
+    }
+  },
+  {
+    "path": "state.conversations[25].messages[4].reference.selection",
+    "before": {
+      "chapterIndex": 0,
+      "courseId": "c-language",
+      "itemId": "CB001",
+      "kind": "textbooks",
+      "version": "example-1"
+    },
+    "after": {
+      "courseId": "c-language",
+      "itemId": "CB001",
+      "kind": "textbooks",
+      "version": "example-1",
+      "pageNumber": 2
+    }
+  },
+  {
+    "path": "state.conversations[25].messages[6].reference.selection",
+    "before": {
+      "chapterIndex": 0,
+      "courseId": "c-language",
+      "itemId": "CB001",
+      "kind": "textbooks",
+      "version": "example-1"
+    },
+    "after": {
+      "courseId": "c-language",
+      "itemId": "CB001",
+      "kind": "textbooks",
+      "version": "example-1",
+      "pageNumber": 2
+    }
+  },
+  {
+    "path": "state.conversations[25].selection",
+    "before": {
+      "chapterIndex": 0,
+      "courseId": "c-language",
+      "itemId": "CB001",
+      "kind": "textbooks",
+      "version": "example-1"
+    },
+    "after": {
+      "courseId": "c-language",
+      "itemId": "CB001",
+      "kind": "textbooks",
+      "version": "example-1",
+      "pageNumber": 2
+    }
+  },
+  {
+    "path": "state.conversations[27].selection",
+    "before": {
+      "chapterIndex": 0,
+      "courseId": "calculus",
+      "itemId": "M001",
+      "kind": "questions",
+      "version": "example-1"
+    },
+    "after": {
+      "courseId": "calculus",
+      "itemId": "M001",
+      "kind": "questions",
+      "version": "example-1"
+    }
+  },
+  {
+    "path": "state.conversations[28].selection",
+    "before": {
+      "chapterIndex": 0,
+      "courseId": "calculus",
+      "itemId": "M005",
+      "kind": "questions",
+      "version": "example-1"
+    },
+    "after": {
+      "courseId": "calculus",
+      "itemId": "M005",
+      "kind": "questions",
+      "version": "example-1"
+    }
+  },
+  {
+    "path": "state.conversations[29].selection",
+    "before": {
+      "chapterIndex": 0,
+      "courseId": "c-language",
+      "itemId": "C008",
+      "kind": "questions",
+      "version": "example-1"
+    },
+    "after": {
+      "courseId": "c-language",
+      "itemId": "C008",
+      "kind": "questions",
+      "version": "example-1"
+    }
+  },
+  {
+    "path": "state.conversations[30].selection",
+    "before": {
+      "chapterIndex": 0,
+      "courseId": "c-language",
+      "itemId": "C010",
+      "kind": "questions",
+      "version": "example-1"
+    },
+    "after": {
+      "courseId": "c-language",
+      "itemId": "C010",
+      "kind": "questions",
+      "version": "example-1"
+    }
+  },
+  {
+    "path": "state.readingProgress.documents.content:[\"c-language\",\"57bfeecd3bfbbbc5e9b5869098a55e3dd480f86d4cf9aece73cb44f91eca8d08\",\"textbooks\",\"CB001\"].location",
+    "before": {
+      "chapterIndex": 4,
+      "courseId": "c-language",
+      "itemId": "CB001",
+      "kind": "textbooks",
+      "pageNumber": 8,
+      "version": "57bfeecd3bfbbbc5e9b5869098a55e3dd480f86d4cf9aece73cb44f91eca8d08"
+    },
+    "after": {
+      "courseId": "c-language",
+      "itemId": "CB001",
+      "kind": "textbooks",
+      "pageNumber": 8,
+      "version": "57bfeecd3bfbbbc5e9b5869098a55e3dd480f86d4cf9aece73cb44f91eca8d08"
+    }
+  },
+  {
+    "path": "state.readingProgress.documents.content:[\"c-language\",\"example-1\",\"textbooks\",\"CB001\"].location",
+    "before": {
+      "chapterIndex": 0,
+      "courseId": "c-language",
+      "itemId": "CB001",
+      "kind": "textbooks",
+      "version": "example-1"
+    },
+    "after": {
+      "courseId": "c-language",
+      "itemId": "CB001",
+      "kind": "textbooks",
+      "version": "example-1",
+      "pageNumber": 2
+    }
+  },
+  {
+    "path": "state.readingProgress.documents.content:[\"calculus\",\"784b5242434cdf6d6d5500c74a074328bae0ecc4f8713cc3a92327f1b28a7be9\",\"textbooks\",\"B001\"].location",
+    "before": {
+      "chapterIndex": 1,
+      "courseId": "calculus",
+      "itemId": "B001",
+      "kind": "textbooks",
+      "pageNumber": 3,
+      "version": "784b5242434cdf6d6d5500c74a074328bae0ecc4f8713cc3a92327f1b28a7be9"
+    },
+    "after": {
+      "courseId": "calculus",
+      "itemId": "B001",
+      "kind": "textbooks",
+      "pageNumber": 3,
+      "version": "784b5242434cdf6d6d5500c74a074328bae0ecc4f8713cc3a92327f1b28a7be9"
+    }
+  },
+  {
+    "path": "state.readingProgress.documents.content:[\"calculus\",\"c85100ead59b202c8e1c6602f34b1b84c6e82a1c85271dc86c37115ae1433a45\",\"questions\",\"M001\"].location",
+    "before": {
+      "chapterIndex": 0,
+      "courseId": "calculus",
+      "itemId": "M001",
+      "kind": "questions",
+      "version": "c85100ead59b202c8e1c6602f34b1b84c6e82a1c85271dc86c37115ae1433a45"
+    },
+    "after": {
+      "courseId": "calculus",
+      "itemId": "M001",
+      "kind": "questions",
+      "version": "c85100ead59b202c8e1c6602f34b1b84c6e82a1c85271dc86c37115ae1433a45"
+    }
+  },
+  {
+    "path": "state.readingProgress.documents.content:[\"calculus\",\"c85100ead59b202c8e1c6602f34b1b84c6e82a1c85271dc86c37115ae1433a45\",\"questions\",\"M002\"].location",
+    "before": {
+      "chapterIndex": 0,
+      "courseId": "calculus",
+      "itemId": "M002",
+      "kind": "questions",
+      "version": "c85100ead59b202c8e1c6602f34b1b84c6e82a1c85271dc86c37115ae1433a45"
+    },
+    "after": {
+      "courseId": "calculus",
+      "itemId": "M002",
+      "kind": "questions",
+      "version": "c85100ead59b202c8e1c6602f34b1b84c6e82a1c85271dc86c37115ae1433a45"
+    }
+  },
+  {
+    "path": "state.readingProgress.documents.content:[\"calculus\",\"c85100ead59b202c8e1c6602f34b1b84c6e82a1c85271dc86c37115ae1433a45\",\"questions\",\"M003\"].location",
+    "before": {
+      "chapterIndex": 0,
+      "courseId": "calculus",
+      "itemId": "M003",
+      "kind": "questions",
+      "version": "c85100ead59b202c8e1c6602f34b1b84c6e82a1c85271dc86c37115ae1433a45"
+    },
+    "after": {
+      "courseId": "calculus",
+      "itemId": "M003",
+      "kind": "questions",
+      "version": "c85100ead59b202c8e1c6602f34b1b84c6e82a1c85271dc86c37115ae1433a45"
+    }
+  },
+  {
+    "path": "state.readingProgress.documents.content:[\"calculus\",\"c85100ead59b202c8e1c6602f34b1b84c6e82a1c85271dc86c37115ae1433a45\",\"questions\",\"M004\"].location",
+    "before": {
+      "chapterIndex": 0,
+      "courseId": "calculus",
+      "itemId": "M004",
+      "kind": "questions",
+      "version": "c85100ead59b202c8e1c6602f34b1b84c6e82a1c85271dc86c37115ae1433a45"
+    },
+    "after": {
+      "courseId": "calculus",
+      "itemId": "M004",
+      "kind": "questions",
+      "version": "c85100ead59b202c8e1c6602f34b1b84c6e82a1c85271dc86c37115ae1433a45"
+    }
+  },
+  {
+    "path": "state.readingProgress.documents.content:[\"calculus\",\"c85100ead59b202c8e1c6602f34b1b84c6e82a1c85271dc86c37115ae1433a45\",\"questions\",\"M005\"].location",
+    "before": {
+      "chapterIndex": 0,
+      "courseId": "calculus",
+      "itemId": "M005",
+      "kind": "questions",
+      "version": "c85100ead59b202c8e1c6602f34b1b84c6e82a1c85271dc86c37115ae1433a45"
+    },
+    "after": {
+      "courseId": "calculus",
+      "itemId": "M005",
+      "kind": "questions",
+      "version": "c85100ead59b202c8e1c6602f34b1b84c6e82a1c85271dc86c37115ae1433a45"
+    }
+  },
+  {
+    "path": "state.readingProgress.documents.content:[\"calculus\",\"c85100ead59b202c8e1c6602f34b1b84c6e82a1c85271dc86c37115ae1433a45\",\"textbooks\",\"B001\"].location",
+    "before": {
+      "chapterIndex": 3,
+      "courseId": "calculus",
+      "itemId": "B001",
+      "kind": "textbooks",
+      "pageNumber": 5,
+      "version": "c85100ead59b202c8e1c6602f34b1b84c6e82a1c85271dc86c37115ae1433a45"
+    },
+    "after": {
+      "courseId": "calculus",
+      "itemId": "B001",
+      "kind": "textbooks",
+      "pageNumber": 5,
+      "version": "c85100ead59b202c8e1c6602f34b1b84c6e82a1c85271dc86c37115ae1433a45"
+    }
+  },
+  {
+    "path": "state.readingProgress.documents.content:[\"calculus\",\"example-1\",\"textbooks\",\"B001\"].location",
+    "before": {
+      "chapterIndex": 0,
+      "courseId": "calculus",
+      "itemId": "B001",
+      "kind": "textbooks",
+      "version": "example-1"
+    },
+    "after": {
+      "courseId": "calculus",
+      "itemId": "B001",
+      "kind": "textbooks",
+      "version": "example-1",
+      "pageNumber": 2
+    }
+  },
+  {
+    "path": "state.selection",
+    "before": {
+      "chapterIndex": 3,
+      "courseId": "calculus",
+      "itemId": "B001",
+      "kind": "textbooks",
+      "pageNumber": 5,
+      "version": "c85100ead59b202c8e1c6602f34b1b84c6e82a1c85271dc86c37115ae1433a45"
+    },
+    "after": {
+      "courseId": "calculus",
+      "itemId": "B001",
+      "kind": "textbooks",
+      "pageNumber": 5,
+      "version": "c85100ead59b202c8e1c6602f34b1b84c6e82a1c85271dc86c37115ae1433a45"
+    }
+  }
+]

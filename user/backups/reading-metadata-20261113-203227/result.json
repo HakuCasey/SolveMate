@@ -1,0 +1,15 @@
+{
+  "beforeRevision": 762,
+  "afterRevision": 763,
+  "changes": {
+    "locations": 25,
+    "chapter_to_page": 10,
+    "note_sources": 4,
+    "position_keys": 24,
+    "draft_keys": 2
+  },
+  "conversationsPreserved": 31,
+  "notesPreserved": 4,
+  "robotsPreserved": 3,
+  "originalAiRecordsPreserved": true
+}
