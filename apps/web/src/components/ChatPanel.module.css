@@ -293,6 +293,34 @@
   opacity: 0.55;
   cursor: default;
 }
+.manage {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 28px;
+  padding: 4px 7px;
+  flex-shrink: 0;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  color: var(--sm-soft);
+  font-size: 11px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.manage:hover:not(:disabled) {
+  border-color: var(--sm-line);
+  background: var(--sm-active);
+  color: var(--sm-accent);
+}
+.manage:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.manage svg {
+  width: 16px;
+  height: 16px;
+}
 .compose {
   border: 1px solid var(--sm-line);
   border-radius: 13px;
@@ -461,7 +489,8 @@
   margin: 0 0 8px;
 }
 .failure button,
-.permission button {
+.permission button,
+.retryButton {
   padding: 5px 10px;
   border: 1px solid var(--sm-line);
   border-radius: 6px;

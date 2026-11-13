@@ -85,6 +85,7 @@ export function useLocalData(available: Course[] = courses) {
     setData: store.update,
     saveChanges: store.commit,
     retrySave: store.retry,
+    restoreRecovery: store.restoreRecovery,
     resolveConflict: store.resolve,
   };
 }

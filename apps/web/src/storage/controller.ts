@@ -44,6 +44,7 @@ export class LocalDataController {
   private refreshPromise?: Promise<void>;
   private refreshWanted = false;
   private recoveryId = crypto.randomUUID();
+  private restoringRecoveryId: string | null = null;
   constructor(private readonly storage: AppStorage) {}
   snapshot = () => this.state;
   readData = () => this.state.data;
@@ -105,6 +106,20 @@ export class LocalDataController {
       .then(() => this.storage.save(data))
       .then(() => {
         this.base = structuredClone(data);
+        if (this.restoringRecoveryId && !this.state.conflicts.length) {
+          const restored = this.restoringRecoveryId;
+          this.restoringRecoveryId = null;
+          this.publish({
+            recoveries: this.state.recoveries.filter(
+              (item) => item.id !== restored,
+            ),
+          });
+          void this.storage
+            .forget?.(restored)
+            .catch((error) =>
+              logError("Failed to remove a saved recovery snapshot.", error),
+            );
+        }
         if (this.state.recoveries.some((item) => item.id === this.recoveryId))
           this.recoveryId = crypto.randomUUID();
         if (generation === this.generation)
@@ -182,13 +197,55 @@ export class LocalDataController {
       void dataRefresh.refresh(["records"], true);
     }
   }
-  retry = () => {
-    if (!this.state.data || this.state.conflicts.length) return;
-    if (this.state.conflict) {
-      void dataRefresh.refresh(["records"]);
-      return;
+  /** 只恢复失败记录相对原基线的修改；与当前记录冲突时交给现有核对流程。 */
+  restoreRecovery = async (id: string): Promise<boolean> => {
+    if (this.locked) throw new Error("正在保存其他修改，请稍后重试。");
+    if (this.state.conflicts.length) throw new Error("请先处理当前修改冲突。");
+    await this.refresh();
+    if (this.locked || this.state.conflicts.length)
+      throw new Error("记录已变化，请先处理当前修改冲突。");
+    const record = this.state.recoveries.find((item) => item.id === id);
+    if (!record || !this.state.data)
+      throw new Error("未找到这份记录，请重新打开后查看。");
+    this.locked = true;
+    try {
+      const current = this.state.data;
+      const result = mergeData(record.base, record.value, current);
+      const restored = {
+        ...result.data,
+        selection: current.selection,
+        materialSelection: current.materialSelection,
+      };
+      this.restoringRecoveryId = id;
+      if (result.conflicts.length) {
+        this.publish({
+          data: restored,
+          conflicts: result.conflicts,
+          conflict: true,
+          saveState: "error",
+          saveError: "备份与当前记录存在修改冲突，请选择要保留的内容。",
+        });
+        return false;
+      }
+      await this.persist(restored, true);
+      this.publish({ data: restored });
+      return true;
+    } catch (error) {
+      // 恢复未成功时，后续无关保存不能把这份备份误当作已恢复而移除。
+      this.restoringRecoveryId = null;
+      this.requestRefresh(error);
+      throw error;
+    } finally {
+      this.unlock();
     }
-    void this.persist(this.state.data).catch(() => undefined);
+  };
+  retry = () => {
+    if (!this.state.data || this.state.conflicts.length)
+      return Promise.resolve();
+    if (this.state.conflict) {
+      return dataRefresh.refresh(["records"]).then(() => undefined);
+    }
+    return this.persist(this.state.data).catch(() => undefined);
   };
   resolve = (index: number, choice: "local" | "remote") => {
     const conflict = this.state.conflicts[index];

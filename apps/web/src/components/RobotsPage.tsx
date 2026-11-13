@@ -1,8 +1,16 @@
 import { useEditRevision } from "../refresh/useEditRevision";
-import { useRef, useState, type Dispatch, type SetStateAction } from "react";
+import {
+  useId,
+  useRef,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 import {
   Bot,
   Copy,
+  FileDown,
+  FileUp,
   GraduationCap,
   Plus,
   Sparkles,
@@ -10,7 +18,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { ContextMenu, Tabs } from "radix-ui";
-import { RobotAiFields } from "./RobotAiFields";
+import { AiSelectionFields } from "./AiSelectionFields";
 import { useSaveFeedback } from "./SaveFeedback";
 import type { AiSettings } from "../ai/local-api";
 import {
@@ -18,12 +26,23 @@ import {
   robotAiError,
   resolveRobotAi,
 } from "../ai/robot-config";
-import type { Robot } from "@solvemate/contracts";
+import { maxRobots, type Robot } from "@solvemate/contracts";
 import {
   createRobot,
+  newRobotName,
+  robotNameError,
+  duplicateRobotNameMessage,
+  robotLimitMessage,
   isRobotModified,
   restoreRobotDefaults,
 } from "../state/robots";
+import { DataRequestError } from "../refresh/errors";
+import { ExportDialog } from "./ExportDialog";
+import {
+  maxRobotImportBytes,
+  parseRobotConfiguration,
+  robotConfigurationBlob,
+} from "../state/robot-transfer";
 import styles from "./RobotsPage.module.css";
 
 interface RobotsPageProps {
@@ -31,6 +50,7 @@ interface RobotsPageProps {
   defaultRobotId: string | null;
   onChange: (robots: Robot[], defaultRobotId: string | null) => Promise<void>;
   onUse: (robot: Robot) => Promise<void>;
+  onImport: (robot: Robot) => Promise<Robot>;
   disabled?: boolean;
   aiSettings: AiSettings | null;
   drafts: Record<string, Robot>;
@@ -58,26 +78,34 @@ export function RobotsPage({
   defaultRobotId,
   onChange,
   onUse,
+  onImport,
   disabled = false,
   aiSettings,
   drafts,
   onDraftsChange: setDrafts,
 }: RobotsPageProps) {
   const showSaved = useSaveFeedback();
+  const atRobotLimit = robots.length >= maxRobots;
   const [selectedId, setSelectedId] = useState<string | null>(
     robots[0]?.id ?? null,
   );
   const [status, setStatus] = useState("");
   const [saving, setSaving] = useState(false);
-  disabled ||= saving;
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState("");
+  const [exportedRobot, setExportedRobot] = useState<Robot | null>(null);
+  const importInput = useRef<HTMLInputElement>(null),
+    importPending = useRef(false);
+  disabled ||= saving || importing;
   const [invalidField, setInvalidField] = useState<
-    "name" | "prompt" | "model" | null
+    "name" | "duplicate-name" | "prompt" | "model" | null
   >(null);
   const [portalContainer, setPortalContainer] = useState<HTMLElement | null>(
     null,
   );
   const [tab, setTab] = useState("persona");
   const nameInput = useRef<HTMLInputElement>(null);
+  const nameErrorId = useId();
   const promptInput = useRef<HTMLTextAreaElement>(null);
 
   const selected =
@@ -136,8 +164,40 @@ export function RobotsPage({
     setDraft({ ...draft, [field]: value });
   }
 
+  async function importFile(file: File) {
+    if (importPending.current) return;
+    if (atRobotLimit) {
+      setImportError(robotLimitMessage);
+      return;
+    }
+    importPending.current = true;
+    setImporting(true);
+    setImportError("");
+    try {
+      if (file.size > maxRobotImportBytes)
+        throw new Error("机器人配置文件不能超过 1 MB。");
+      const robot = await onImport(parseRobotConfiguration(await file.text()));
+      setSelectedId(robot.id);
+      setTab("persona");
+      setInvalidField(null);
+      setStatus("");
+      showSaved("机器人配置已导入");
+    } catch (error) {
+      setImportError(
+        error instanceof Error ? error.message : "导入失败，请重试。",
+      );
+    } finally {
+      importPending.current = false;
+      setImporting(false);
+    }
+  }
+
   async function addRobot() {
-    const robot = createRobot();
+    if (atRobotLimit) {
+      setImportError(robotLimitMessage);
+      return;
+    }
+    const robot = { ...createRobot(), name: newRobotName(robots) };
     try {
       await onChange([...robots, robot], defaultRobotId ?? robot.id);
     } catch (error) {
@@ -159,12 +219,19 @@ export function RobotsPage({
 
       skills: [...draft.skills],
     };
-    if (!next.name || !next.prompt) {
-      const field = !next.name ? "name" : "prompt";
+    const nameError = robotNameError(robots, next);
+    if (nameError || !next.prompt) {
+      const field = nameError
+        ? nameError === duplicateRobotNameMessage
+          ? "duplicate-name"
+          : "name"
+        : "prompt";
       setInvalidField(field);
       setTab("persona");
-      setStatus(field === "name" ? "请填写机器人名称。" : "请填写角色指令。");
-      if (field === "name") nameInput.current?.focus();
+      setStatus(
+        field === "duplicate-name" ? "" : nameError || "请填写角色指令。",
+      );
+      if (nameError) nameInput.current?.focus();
       else promptInput.current?.focus();
       return null;
     }
@@ -186,8 +253,18 @@ export function RobotsPage({
         defaultRobotId,
       );
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "保存配置失败。");
-      setInvalidField("model");
+      if (
+        error instanceof DataRequestError &&
+        error.code === "robot_name_duplicate"
+      ) {
+        setInvalidField("duplicate-name");
+        setTab("persona");
+        setStatus("");
+        nameInput.current?.focus();
+      } else {
+        setStatus(error instanceof Error ? error.message : "保存配置失败。");
+        setInvalidField("model");
+      }
       return null;
     } finally {
       setSaving(false);
@@ -204,10 +281,14 @@ export function RobotsPage({
   }
 
   async function copyRobot(robot: Robot) {
+    if (atRobotLimit) {
+      setImportError(robotLimitMessage);
+      return;
+    }
     const base = robot.name.slice(0, 16);
     let name = `${base}（副本）`;
     let number = 2;
-    while (robots.some((item) => item.name === name))
+    while (robots.some((item) => item.name.trim() === name))
       name = `${base}（副本 ${number++}）`;
     const copy = {
       ...robot,
@@ -256,22 +337,70 @@ export function RobotsPage({
       aria-label="机器人配置"
       ref={setPortalContainer}
     >
+      {exportedRobot && (
+        <ExportDialog
+          title="机器人导出"
+          name={exportedRobot.name}
+          icon={Bot}
+          extension="json"
+          description={`${exportedRobot.name} · 已保存的配置`}
+          generate={async () => robotConfigurationBlob(exportedRobot)}
+          onClose={() => setExportedRobot(null)}
+        />
+      )}
       <aside className={styles.roster}>
         <header className={styles.listHeading}>
-          <div>
+          <div className={styles.listTitle}>
+            <Bot aria-hidden="true" />
             <h2>机器人</h2>
-            <span>{robots.length} 个机器人</span>
+            <span>
+              {robots.length}/{maxRobots}
+            </span>
           </div>
-          <button
-            type="button"
-            className={styles.addButton}
-            aria-label="新建机器人"
-            onClick={addRobot}
-            disabled={disabled}
-          >
-            <Plus aria-hidden="true" />
-          </button>
+          <div className={styles.listActions}>
+            <input
+              ref={importInput}
+              type="file"
+              accept=".json,application/json"
+              hidden
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                event.target.value = "";
+                if (file) void importFile(file);
+              }}
+            />
+            <button
+              type="button"
+              className={styles.addButton}
+              aria-label="导入机器人配置"
+              title={atRobotLimit ? robotLimitMessage : "导入配置"}
+              disabled={disabled || atRobotLimit}
+              onClick={() => importInput.current?.click()}
+            >
+              <FileUp aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              className={styles.addButton}
+              aria-label="新建机器人"
+              title={atRobotLimit ? robotLimitMessage : "新建机器人"}
+              onClick={addRobot}
+              disabled={disabled || atRobotLimit}
+            >
+              <Plus aria-hidden="true" />
+            </button>
+          </div>
         </header>
+        {importing && (
+          <p className={styles.importFeedback} role="status">
+            正在导入配置…
+          </p>
+        )}
+        {importError && (
+          <p className={styles.importError} role="alert">
+            {importError}
+          </p>
+        )}
         <div className={styles.list} aria-label="机器人列表">
           {robots.map((robot) => (
             <ContextMenu.Root key={robot.id}>
@@ -336,11 +465,20 @@ export function RobotsPage({
                   </ContextMenu.Item>
                   <ContextMenu.Item
                     className={styles.menuItem}
-                    disabled={disabled}
+                    disabled={disabled || atRobotLimit}
+                    title={atRobotLimit ? robotLimitMessage : undefined}
                     onSelect={() => copyRobot(robot)}
                   >
                     <Copy aria-hidden="true" />
                     复制
+                  </ContextMenu.Item>
+                  <ContextMenu.Item
+                    className={styles.menuItem}
+                    disabled={disabled}
+                    onSelect={() => setExportedRobot(structuredClone(robot))}
+                  >
+                    <FileDown aria-hidden="true" />
+                    导出配置
                   </ContextMenu.Item>
                   <ContextMenu.Separator className={styles.menuSeparator} />
                   <ContextMenu.Item
@@ -400,7 +538,7 @@ export function RobotsPage({
                 角色设定
               </Tabs.Trigger>
               <Tabs.Trigger type="button" className={styles.tab} value="model">
-                AI 配置
+                AI 选择
               </Tabs.Trigger>
               <Tabs.Trigger type="button" className={styles.tab} value="memory">
                 记忆与能力
@@ -410,12 +548,32 @@ export function RobotsPage({
               <fieldset className={styles.fieldset} disabled={disabled}>
                 <Tabs.Content value="persona" className={styles.panel}>
                   <label className={styles.field}>
-                    名称
+                    <span className={styles.nameLabel}>
+                      名称
+                      {invalidField === "duplicate-name" && (
+                        <small
+                          id={nameErrorId}
+                          className={styles.nameError}
+                          role="alert"
+                        >
+                          {duplicateRobotNameMessage}
+                        </small>
+                      )}
+                    </span>
                     <input
                       ref={nameInput}
+                      aria-label="名称"
                       value={draft.name}
                       maxLength={24}
-                      aria-invalid={invalidField === "name"}
+                      aria-invalid={
+                        invalidField === "name" ||
+                        invalidField === "duplicate-name"
+                      }
+                      aria-describedby={
+                        invalidField === "duplicate-name"
+                          ? nameErrorId
+                          : undefined
+                      }
                       onChange={(event) =>
                         updateDraft("name", event.target.value)
                       }
@@ -435,11 +593,11 @@ export function RobotsPage({
                     />
                   </label>
                   <p className={styles.hint}>
-                    定义它的性格、讲解方式，以及遇到不确定问题时应如何回应。
+                    定义机器人的角色、职责，以及回答时需要遵守的要求。也可以写明回复模板，让它按固定格式回答。
                   </p>
                 </Tabs.Content>
                 <Tabs.Content value="model" className={styles.panel}>
-                  <RobotAiFields
+                  <AiSelectionFields
                     config={draft.aiDefaults}
                     settings={aiSettings}
                     disabled={disabled}

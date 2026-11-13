@@ -5,7 +5,11 @@ import {
   SquarePen,
   CornerUpLeft,
 } from "lucide-react";
-import type { Conversation, Robot } from "@solvemate/contracts";
+import {
+  conversationLimits,
+  type Conversation,
+  type Robot,
+} from "@solvemate/contracts";
 import type { LearningRelations } from "../reading/relations";
 import { PaneHeader } from "./PaneHeader";
 import styles from "./ConversationList.module.css";
@@ -111,7 +115,7 @@ export function ConversationList({
       <PaneHeader
         icon={MessagesSquare}
         title="对话"
-        detail={`${conversations.length} 个会话`}
+        detail={`${active.length + archived.length}/${conversationLimits.total}`}
         actions={
           <button type="button" disabled={!robots.length} onClick={onNew}>
             <SquarePen aria-hidden="true" />
@@ -133,7 +137,9 @@ export function ConversationList({
           >
             <ChevronDown aria-hidden="true" />
             <span>进行中</span>
-            <small>{active.length}</small>
+            <small>
+              {active.length}/{conversationLimits.active}
+            </small>
           </button>
           <div
             className={styles.list}
@@ -159,7 +165,9 @@ export function ConversationList({
           >
             <ChevronDown aria-hidden="true" />
             <span>已归档</span>
-            <small>{archived.length}</small>
+            <small>
+              {archived.length}/{conversationLimits.archived}
+            </small>
           </button>
           <div
             className={styles.list}

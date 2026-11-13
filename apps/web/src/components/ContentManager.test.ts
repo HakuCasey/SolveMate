@@ -6,20 +6,24 @@ import { ContentManager } from "./ContentManager";
 import { makeSnapshot } from "../content/storage";
 import { packageFixture } from "../content/fixtures.test-support";
 import { readPackage } from "../content/package";
+import type { UpdateResponse } from "../content/contracts";
 import type { OfficialContent } from "../content/useOfficialContent";
 
-function render(snapshot = makeSnapshot()) {
+function render(
+  snapshot = makeSnapshot(),
+  updates: Record<string, UpdateResponse> = {},
+) {
   const content: OfficialContent = {
     snapshot,
     readSnapshot: () => snapshot,
     reloadLocal: async () => snapshot,
     ready: true,
-    checkedAt: null,
-    readPdf: async () => ({ blob: new Blob(), warning: "" }),
     loadError: "",
     remote: [],
-    updates: {},
+    updates,
     checking: false,
+    checkedAt: 1,
+    readPdf: async () => ({ blob: new Blob(), warning: "" }),
     connectionError: "",
     transfer: null,
     refresh: async () => undefined,
@@ -29,7 +33,7 @@ function render(snapshot = makeSnapshot()) {
   return renderToStaticMarkup(
     createElement(ContentManager, {
       content,
-      library: new OfficialLibrary(snapshot),
+      library: new OfficialLibrary(snapshot, {}, [], updates),
       operation: { busy: false, error: "" },
       onInstall: async () => false,
       onRead: async () => undefined,
@@ -39,6 +43,40 @@ function render(snapshot = makeSnapshot()) {
 }
 
 describe("official material cards", () => {
+  it("announces newer content while retaining reading actions for the saved version", async () => {
+    const before = await packageFixture();
+    const next = await packageFixture("", { pdf: true });
+    const course = await readPackage(before.manifest, before.archive);
+    const snapshot = makeSnapshot(
+      [
+        {
+          ...before,
+          course,
+          courseId: course.id,
+          version: course.version,
+          installedAt: 1,
+        },
+      ],
+      [{ courseId: course.id, version: course.version }],
+    );
+    const html = render(snapshot, {
+      [course.id]: {
+        course_id: course.id,
+        current_version: course.version,
+        latest: next.manifest,
+        status: "update_available",
+        update_available: true,
+      },
+    });
+    expect(html).toContain("有 1 项资料可更新，仍可阅读本地版本。");
+    expect(html).toContain("有新版可更新");
+    expect(html).toContain(">阅读</button>");
+    expect(html).toContain(">更新</button>");
+    expect(
+      snapshot.activeCourses.find((item) => item.id === course.id)?.version,
+    ).toBe(before.manifest.version);
+  });
+
   it("shows material names and subject tags, with download actions before saving", () => {
     const html = render();
     expect(html).toContain('aria-label="高等数学示例教材"');

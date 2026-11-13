@@ -51,6 +51,7 @@ export class FormDraftStore {
     this.publish(this.state.items.filter((item) => item.id !== id));
     this.write(id, () => userCache.records.delete(`form-draft:${id}`));
   };
+  isActive = (id: string) => this.active.has(id);
   deactivate = (id: string) => {
     if (this.active.delete(id)) this.publish(this.state.items);
   };

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AppUpdateController } from "./update-controller";
+import { applicationStatus } from "../status/state";
 
 class Worker extends EventTarget {
   state: ServiceWorkerState = "installing";
@@ -51,6 +52,26 @@ afterEach(() => {
 });
 
 describe("application updates", () => {
+  it("publishes a background update as ready without another click or check", async () => {
+    const { controller, registration } = setup();
+    await controller.check();
+    expect(controller.snapshot().status).toBe("current");
+    const worker = new Worker();
+    registration.start(worker);
+    expect(applicationStatus(controller.snapshot()).label).toBe("正在下载…");
+    registration.waiting = worker;
+    registration.installing = null;
+    worker.change("installed");
+    expect(applicationStatus(controller.snapshot())).toMatchObject({
+      label: "新版就绪",
+      status: "新版就绪",
+      action: "更新应用",
+      busy: false,
+    });
+    expect(registration.update).toHaveBeenCalledOnce();
+    controller.reloadFailed("配置尚未保存。");
+    expect(applicationStatus(controller.snapshot()).label).toBe("新版就绪");
+  });
   it("checks manually, reports current only after a successful server check and reuses an in-flight request", async () => {
     const { controller, dependencies, registration } = setup();
     const request = held<Response>();

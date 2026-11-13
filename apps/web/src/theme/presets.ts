@@ -1,0 +1,122 @@
+import { defaultTheme } from "./default";
+import type { ThemeDefinition } from "./definition";
+
+/** 色调独立于明暗模式；共用默认配色，集中覆盖有色区域。 */
+export const themes = [
+  defaultTheme,
+  {
+    schemaVersion: 1,
+    id: "sky",
+    name: "晴空",
+    colors: {
+      light: {
+        background: "#f3f7fb",
+        accent: "#2475a8",
+        accentBackground: "#e4f2fc",
+        userMessageBackground: "#e5f2fc",
+        userMessageBorder: "#c9e3f5",
+        assistantMessageBackground: "#f0f5f9",
+        selection: "#479bd64d",
+      },
+      dark: {
+        background: "#151b23",
+        surface: "#1c242e",
+        accent: "#9bd5ff",
+        accentBackground: "#263e53",
+        onAccent: "#142c3f",
+        userMessageBackground: "#253d52",
+        userMessageBorder: "#3a5871",
+        assistantMessageBackground: "#283441",
+        selection: "#9bd5ff4d",
+      },
+    },
+  },
+  {
+    schemaVersion: 1,
+    id: "rain",
+    name: "谷雨",
+    colors: {
+      light: {
+        background: "#f3f8f5",
+        accent: "#327955",
+        accentBackground: "#e6f3eb",
+        userMessageBackground: "#e6f3e9",
+        userMessageBorder: "#cce4d2",
+        assistantMessageBackground: "#f0f5f2",
+        selection: "#4f9d704d",
+      },
+      dark: {
+        background: "#171e1b",
+        surface: "#1e2823",
+        accent: "#a1dbb8",
+        accentBackground: "#2b4436",
+        onAccent: "#193025",
+        userMessageBackground: "#2c4437",
+        userMessageBorder: "#42634f",
+        assistantMessageBackground: "#2b3730",
+        selection: "#a1dbb84d",
+      },
+    },
+  },
+  {
+    schemaVersion: 1,
+    id: "grayscale",
+    name: "灰度",
+    colors: {
+      light: {
+        background: "#f5f5f5",
+        text: "#292929",
+        mutedText: "#777777",
+        placeholder: "#a3a3a3",
+        border: "#e5e5e5",
+        accent: "#5b5b5b",
+        accentBackground: "#eeeeee",
+        danger: "#454545",
+        dangerBackground: "#454545",
+        success: "#555555",
+        userMessageBackground: "#eaeaea",
+        userMessageBorder: "#d7d7d7",
+        assistantMessageBackground: "#f2f2f2",
+        codeBackground: "#f5f5f5",
+        codeText: "#292929",
+        selection: "#7777774d",
+        notePaper: "#fcfcfc",
+        noteDot: "#8080802e",
+        noteMargin: "#aaaaaa73",
+        noteHole: "#c8c8c8",
+        noteInset: "#bbbbbb0c",
+        shadow: "#29292924",
+        shadowSoft: "#29292909",
+      },
+      dark: {
+        surface: "#222222",
+        background: "#191919",
+        text: "#eaeaea",
+        mutedText: "#aaaaaa",
+        placeholder: "#808080",
+        border: "#3a3a3a",
+        accent: "#c9c9c9",
+        accentBackground: "#383838",
+        onAccent: "#252525",
+        danger: "#dedede",
+        dangerBackground: "#555555",
+        success: "#bcbcbc",
+        userMessageBackground: "#3a3a3a",
+        userMessageBorder: "#505050",
+        assistantMessageBackground: "#2d2d2d",
+        codeBackground: "#191919",
+        codeText: "#eaeaea",
+        selection: "#c9c9c94d",
+        notePaper: "#272727",
+        noteDot: "#b5b5b52b",
+        noteMargin: "#8888884d",
+        noteHole: "#141414",
+      },
+    },
+  },
+] as const satisfies readonly ThemeDefinition[];
+
+/** 旧数据未指定色调，或主题编号暂不受支持时，继续使用水晶。 */
+export function findTheme(id?: string) {
+  return themes.find((theme) => theme.id === id) ?? defaultTheme;
+}

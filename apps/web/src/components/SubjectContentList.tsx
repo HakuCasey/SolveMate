@@ -303,12 +303,9 @@ export function SubjectContentList({
           initialFiles={pendingFiles}
           initialSubjectId={scope.courseId}
           directory={directory}
-          busy={library.busy}
+          library={library}
           onClose={() => setPendingFiles(null)}
           onCreateSubject={onCreateSubject}
-          onUpload={(values, subjectId) =>
-            library.importFiles(values, subjectId)
-          }
           onComplete={onUploaded}
         />
       )}

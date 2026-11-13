@@ -18,7 +18,6 @@ export function MaterialReader({
   location,
   onChange,
   onBack,
-  onAddReference,
   onPageScroll,
   continuous,
   onContinuousChange,
@@ -31,9 +30,6 @@ export function MaterialReader({
   library: PersonalMaterials;
   location: MaterialLocation | null;
   onBack: () => void;
-  onAddReference: (
-    reference: import("@solvemate/contracts").ReadingReference,
-  ) => void;
   onChange: (location: MaterialLocation) => void;
   onPageScroll: (location: LearningLocation, scroll: ReadingScroll) => void;
   continuous: boolean;
@@ -131,7 +127,6 @@ export function MaterialReader({
               <p role="alert">{selected.availability.error}</p>
             )}
             <PdfPage
-              onAddReference={onAddReference}
               documentKey={readingDocumentKey(location)}
               positionKey={locationKey(location)}
               pageNumber={location.pageNumber}

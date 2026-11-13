@@ -1,13 +1,16 @@
+import { addImportedRobot } from "./robot-transfer";
 import { describe, expect, it } from "vitest";
-import type { AppData } from "@solvemate/contracts";
+import { maxRobots, type AppData } from "@solvemate/contracts";
 import { createInitialData } from "../data/catalog";
 import { assertAppData } from "../data/validation";
 import { upgradeRobot } from "../data/migrate-ai-metadata";
 import legacyRobots from "../data/legacy-robots.json";
 import legacyTeacherPrompts from "../data/legacy-teacher-prompts.json";
-import { createConversation } from "./conversations";
+import { createConversation, replaceRobots } from "./conversations";
 import {
   createRobot,
+  robotNameError,
+  newRobotName,
   isRobotModified,
   restoreRobotDefaults,
   upgradeRobotCatalog,
@@ -187,4 +190,65 @@ describe("robot configuration drafts", () => {
     expect(defaults).toEqual({ ...createRobot(saved.id), name: saved.name });
     expect(saved.modelName).toBe("provider/model");
   });
+});
+
+describe("robot name uniqueness", () => {
+  it("allows the original name, but rejects another robot name including surrounding spaces", () => {
+    const data = createInitialData(),
+      robot = data.robots[0];
+    expect(robotNameError(data.robots, robot)).toBe("");
+    expect(
+      robotNameError(data.robots, {
+        ...robot,
+        name: ` ${data.robots[1].name} `,
+      }),
+    ).toBe("命名重复，请重新命名。");
+    expect(robotNameError(data.robots, { ...robot, name: " " })).toBe(
+      "请填写机器人名称。",
+    );
+  });
+  it("creates distinct names for repeated new robot actions", () => {
+    const data = createInitialData();
+    data.robots.push({
+      ...createRobot("new-1"),
+      name: newRobotName(data.robots),
+    });
+    expect(newRobotName(data.robots)).toBe("新机器人（2）");
+    data.robots.push({
+      ...createRobot("new-2"),
+      name: newRobotName(data.robots),
+    });
+    expect(newRobotName(data.robots)).toBe("新机器人（3）");
+  });
+  it("rejects duplicate names through the shared save operation", () => {
+    const data = createInitialData(),
+      robot = data.robots[0];
+    const robots = data.robots.map((item) =>
+      item.id === robot.id ? { ...item, name: data.robots[1].name } : item,
+    );
+    expect(() => replaceRobots(data, robots, data.defaultRobotId)).toThrow(
+      "命名重复，请重新命名。",
+    );
+    expect(data.robots[0].name).toBe(robot.name);
+  });
+});
+
+it("enforces the same nine-robot limit for creation, copying and import", () => {
+  const data = createInitialData();
+  data.robots = Array.from({ length: maxRobots }, (_, i) => ({
+    ...createRobot(`robot-${i}`),
+    name: `机器人${i}`,
+  }));
+  data.defaultRobotId = data.robots[0].id;
+  const extra = { ...createRobot("extra"), name: "额外机器人" };
+  expect(() =>
+    replaceRobots(data, [...data.robots, extra], data.defaultRobotId),
+  ).toThrow("最多支持 9 个机器人。");
+  expect(() => addImportedRobot(data, extra)).toThrow("最多支持 9 个机器人。");
+  const changed = data.robots.map((robot, i) =>
+    i ? robot : { ...robot, name: "新名称" },
+  );
+  expect(replaceRobots(data, changed, data.defaultRobotId).robots).toHaveLength(
+    maxRobots,
+  );
 });

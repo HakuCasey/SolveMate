@@ -4,13 +4,18 @@ import { useId, useRef, useState } from "react";
 import { Dialog } from "radix-ui";
 import type { Note, Notebook, NoteLibrary } from "@solvemate/contracts";
 import type { SubjectDirectory } from "../state/subjects";
-import { availableNoteTags, type NoteAction } from "../state/notes";
+import {
+  availableNoteTags,
+  type NoteAction,
+  type NoteDestination,
+} from "../state/notes";
 import { useSaveFeedback } from "./SaveFeedback";
+import { NotebookDestinationSelect } from "./NotebookDestinationSelect";
 import styles from "./NoteManagement.module.css";
 
 export type NoteManagementTarget =
   | { kind: "renameNotebook" | "deleteNotebook"; item: Notebook }
-  | { kind: "renameNote" | "deleteNote" | "tags"; item: Note };
+  | { kind: "renameNote" | "deleteNote" | "tags" | "moveNote"; item: Note };
 
 const headings = {
   renameNotebook: "重命名笔记本",
@@ -18,6 +23,7 @@ const headings = {
   renameNote: "重命名笔记",
   deleteNote: "删除笔记",
   tags: "笔记标签",
+  moveNote: "更换笔记本",
 };
 export function NoteManagementDialog({
   target,
@@ -38,6 +44,10 @@ export function NoteManagementDialog({
   );
   const [newNames, setNewNames] = useState<string[]>([]);
   const [tagName, setTagName] = useState("");
+  const [destination, setDestination] = useState<NoteDestination>({
+    kind: "existing",
+    notebookId: target.kind === "moveNote" ? target.item.notebookId : "",
+  });
   const [deleteNotes, setDeleteNotes] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -56,11 +66,14 @@ export function NoteManagementDialog({
   const release = useDraftBackup(
     `note:${target.kind}:${target.item.id}`,
     headings[target.kind] + "草稿",
-    { name, tagIds, newNames, tagName },
+    { name, tagIds, newNames, tagName, destination },
     !deleting &&
       (name !== target.item.title ||
         newNames.length > 0 ||
         !!tagName ||
+        (target.kind === "moveNote" &&
+          (destination.kind === "new" ||
+            destination.notebookId !== target.item.notebookId)) ||
         (target.kind === "tags" &&
           JSON.stringify(tagIds) !== JSON.stringify(target.item.tagIds))),
   );
@@ -117,6 +130,12 @@ export function NoteManagementDialog({
       action = { ...base, kind: target.kind, deleteNotes };
     else if (target.kind === "deleteNote")
       action = { ...base, kind: target.kind };
+    else if (target.kind === "moveNote")
+      action = {
+        ...base,
+        kind: "moveNote",
+        destination,
+      };
     else
       action = {
         ...base,
@@ -135,9 +154,11 @@ export function NoteManagementDialog({
             : "笔记已删除"
           : target.kind === "tags"
             ? "笔记标签已保存"
-            : target.kind === "renameNotebook"
-              ? "笔记本名称已保存"
-              : "笔记名称已保存",
+            : target.kind === "moveNote"
+              ? "笔记本已更换"
+              : target.kind === "renameNotebook"
+                ? "笔记本名称已保存"
+                : "笔记名称已保存",
       );
       onClose();
     } catch (failure) {
@@ -174,7 +195,9 @@ export function NoteManagementDialog({
                 ? "确认删除这篇笔记？"
                 : target.kind === "tags"
                   ? "选择已有标签，也可以添加新标签。"
-                  : "修改名称后，编号和已有内容保持不变。"}
+                  : target.kind === "moveNote"
+                    ? "选择已有笔记本，也可以新建笔记本。"
+                    : "修改名称后，编号和已有内容保持不变。"}
           </Dialog.Description>
           {target.kind === "deleteNotebook" && (
             <p className={styles.warning}>高危操作，请谨慎确认。</p>
@@ -197,6 +220,15 @@ export function NoteManagementDialog({
                   onChange={(event) => setName(event.target.value)}
                 />
               </label>
+            )}
+            {target.kind === "moveNote" && (
+              <NotebookDestinationSelect
+                label="目标笔记本"
+                library={library}
+                value={destination}
+                disabled={saving}
+                onChange={setDestination}
+              />
             )}
             {target.kind === "deleteNotebook" && (
               <fieldset className={styles.deleteChoice} disabled={saving}>
@@ -306,7 +338,13 @@ export function NoteManagementDialog({
               <button
                 type="submit"
                 className={deleting ? styles.danger : styles.primary}
-                disabled={saving}
+                disabled={
+                  saving ||
+                  (target.kind === "moveNote" &&
+                    (destination.kind === "new"
+                      ? !destination.title.trim()
+                      : destination.notebookId === target.item.notebookId))
+                }
               >
                 {saving
                   ? deleting

@@ -125,6 +125,7 @@ describe("local storage", () => {
     const saved = createInitialData();
     saved.settings.fontSize = 21;
     saved.settings.appearance = "dark";
+    saved.settings.themeId = "sky";
     saved.settings.readingPaneRatio = 0.63;
     saved.conversations[0].title = "手动命名的对话";
     saved.conversations[0].titleSource = "manual";

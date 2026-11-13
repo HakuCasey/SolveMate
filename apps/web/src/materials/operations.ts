@@ -7,7 +7,11 @@ export interface MaterialImportResult {
 }
 interface Dependencies {
   readSubjects: () => SubjectDirectory;
-  importFile: (file: File, courseId: string) => Promise<Material>;
+  importFile: (
+    file: File,
+    courseId: string,
+    onProgress?: (loaded: number, total: number) => void,
+  ) => Promise<Material>;
   assignCourse: (item: Material, courseId: string | null) => Promise<Material>;
 }
 
@@ -20,17 +24,22 @@ export function createMaterialOperations(dependencies: Dependencies) {
     async importFiles(
       files: File[],
       courseId: string | null,
-      progress: (file: File) => void,
-      saved: (item: Material) => void,
+      progress: (file: File, loaded?: number, total?: number) => void,
+      saved: (item: Material, file: File) => void,
+      failed?: (file: File, error: string) => void,
     ): Promise<MaterialImportResult> {
       const result: MaterialImportResult = { saved: [], failed: [] };
       for (const file of files) {
         progress(file);
         try {
           target(courseId);
-          const record = await dependencies.importFile(file, courseId ?? "");
+          const record = await dependencies.importFile(
+            file,
+            courseId ?? "",
+            (loaded, total) => progress(file, loaded, total),
+          );
           result.saved.push(record);
-          saved(record);
+          saved(record, file);
           // 文件已经保存后，目录仍可能变化；保留原件并明确告知，不能显示整批成功。
           try {
             target(courseId);
@@ -40,6 +49,12 @@ export function createMaterialOperations(dependencies: Dependencies) {
             );
           }
         } catch (failure) {
+          failed?.(
+            file,
+            failure instanceof Error
+              ? failure.message
+              : "资料未能上传，请重试。",
+          );
           result.failed.push({
             file,
             message:

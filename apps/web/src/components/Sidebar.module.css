@@ -285,6 +285,11 @@
 .settingsItem svg {
   color: var(--sm-soft);
 }
+.settingsItem .refreshSuccess {
+  width: 15px;
+  height: 15px;
+  color: var(--sm-accent);
+}
 .settingsItem:hover,
 .settingsItem[data-state="open"] {
   background: var(--sm-active);
@@ -320,35 +325,126 @@
   color: var(--sm-soft);
   font-size: 12px;
 }
+/* 滑块只跟随已保存的明暗模式，外观和色调继续由同一份设置驱动。 */
 .appearanceOptions {
-  display: flex;
-  gap: 7px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  position: relative;
+  padding: 4px;
+  border: 1px solid var(--sm-line);
+  border-radius: 24px;
+  background: var(--sm-ground);
+  isolation: isolate;
+}
+.appearanceOptions::before {
+  content: "";
+  position: absolute;
+  inset: 4px auto 4px 4px;
+  width: calc((100% - 8px) / 2);
+  border-radius: 20px;
+  background: var(--sm-paper);
+  box-shadow: 0 2px 8px var(--sm-shadow-color);
+  transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  z-index: -1;
+}
+.appearanceOptions[data-appearance="dark"]::before {
+  transform: translateX(100%);
 }
 .appearanceButton {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  min-width: 0;
-  flex: 1;
-  padding: 9px 7px;
-  border: 1px solid var(--sm-line);
-  border-radius: 9px;
-  background: var(--sm-ground);
+  padding: 9px 4px;
+  border: 0;
+  border-radius: 20px;
+  background: transparent;
   color: var(--sm-soft);
   font-size: 12px;
+  cursor: pointer;
+  transition: color 180ms ease;
 }
 .appearanceButton svg {
   width: 14px;
   height: 14px;
 }
-.appearanceButton:hover,
 .appearanceButton[aria-pressed="true"] {
-  border-color: var(--sm-accent);
   color: var(--sm-accent);
 }
-.appearanceButton[aria-pressed="true"] {
-  background: var(--sm-active);
+.appearanceButton:focus-visible,
+.toneLeaf:focus-visible {
+  outline: 2px solid var(--sm-accent);
+  outline-offset: 3px;
+}
+.toneOptions {
+  display: grid;
+  grid-template-columns: repeat(2, 68px);
+  justify-content: center;
+  gap: 5px;
+  padding: 3px 0 1px;
+}
+.toneLeaf {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 68px;
+  height: 64px;
+  padding: 5px;
+  border: 1px solid color-mix(in srgb, var(--tone-color) 20%, var(--sm-paper));
+  border-radius: 55% 55% 12% 55%;
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--tone-color) 14%, var(--sm-paper)),
+    var(--tone-background)
+  );
+  color: var(--tone-color);
+  font-size: 11px;
+  cursor: pointer;
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease;
+}
+.toneLeaf:nth-child(2) {
+  border-radius: 55% 55% 55% 12%;
+}
+.toneLeaf:nth-child(3) {
+  border-radius: 55% 12% 55% 55%;
+}
+.toneLeaf:nth-child(4) {
+  border-radius: 12% 55% 55% 55%;
+}
+.toneLeaf:hover {
+  transform: translateY(-2px);
+}
+.toneLeaf[aria-pressed="true"] {
+  box-shadow: 0 0 0 2px var(--tone-color);
+}
+.toneMark {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+}
+.toneMark svg {
+  width: 15px;
+  height: 15px;
+  stroke-width: 2.5;
+}
+.toneDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.65;
+}
+@media (prefers-reduced-motion: reduce) {
+  .appearanceOptions::before,
+  .appearanceButton,
+  .toneLeaf {
+    transition: none;
+  }
 }
 .modelSelect {
   box-sizing: border-box;

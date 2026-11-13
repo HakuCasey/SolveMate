@@ -1,34 +1,45 @@
+import { isConversationLimitError } from "../state/conversation-limits";
 import { Fragment, useEffect, useId, useRef, useState } from "react";
 import {
   ArrowUp,
   Bot,
   ChevronDown,
+  MessagesSquare,
   GraduationCap,
   Link,
   Sparkles,
   Square,
-  Settings2,
+  Brain,
   X,
 } from "lucide-react";
 import type {
   Conversation,
   Robot,
   ReadingReference,
+  RobotAiDefaults,
 } from "@solvemate/contracts";
+import { AiSelectionPopover } from "./AiSelectionPopover";
 import { resolveConversationAi } from "../ai/robot-config";
 import type { AiService } from "../ai/useAiService";
 import {
   messageReadingReferences,
+  makeMessageReference,
   referencePreview,
   type DraftReference,
 } from "../reading/reference";
+import {
+  ConversationActions,
+  type ConversationActionsProps,
+} from "./ConversationActions";
+import { useReadingSelection } from "../reading/useReadingSelection";
 import { ReplyActivity } from "./ReplyActivity";
 import { Markdown } from "./Markdown";
 import styles from "./ChatPanel.module.css";
 
 const stoppedReplyNote = "已停止生成，内容可能不完整。";
 
-interface ChatPanelProps {
+interface ChatPanelProps extends ConversationActionsProps {
+  focusMessage?: { id: string; request: number; conversationId: string };
   draft: string;
   onDraftChange: (draft: string) => void;
   robots: Robot[];
@@ -44,17 +55,21 @@ interface ChatPanelProps {
   onRemoveReference: (id: string) => void;
   onOpenReference: (reference: ReadingReference) => void;
   ai: AiService;
-  onConfigure: () => void;
-  aiSettingsOpen: boolean;
+  aiSelection: RobotAiDefaults;
+  onAiSelectionSave: (config: RobotAiDefaults) => Promise<void>;
 }
 
 export function ChatPanel({
+  focusMessage,
   draft,
   onDraftChange: setDraft,
   robots,
   robotId,
   conversation,
   contextLabel,
+  conversations,
+  onUpdate,
+  onDelete,
   recommendationsExpanded,
   onToggleRecommendations,
   onRobotChange,
@@ -64,8 +79,8 @@ export function ChatPanel({
   onRemoveReference,
   onOpenReference,
   ai,
-  onConfigure,
-  aiSettingsOpen,
+  aiSelection,
+  onAiSelectionSave,
 }: ChatPanelProps) {
   const [notice, setNotice] = useState("");
   const [sending, setSending] = useState(false);
@@ -80,6 +95,19 @@ export function ChatPanel({
         ? Sparkles
         : Bot;
   const messages = conversation?.messages ?? [];
+  const selectedText = useReadingSelection(
+    history,
+    conversation?.id ?? "",
+    !!conversation,
+    (selection) => {
+      if (!conversation) throw new Error("当前对话不可用，请重新打开。");
+      return makeMessageReference(
+        conversation,
+        selection.messageIds ?? [],
+        selection.text,
+      );
+    },
+  );
   const archived = conversation?.status === "archived";
   const lastTurn = conversation?.turns?.at(-1);
   const lastObservedTurn = useRef(lastTurn);
@@ -93,13 +121,31 @@ export function ChatPanel({
   const effectiveAi = resolveConversationAi(conversation, robot, ai.settings);
   const configured = effectiveAi.configured;
   const failure = lastTurn?.error || turn?.error;
-  const lastUserText =
-    turn?.text ||
-    [...messages].reverse().find((message) => message.role === "user")?.content;
+  const failedMessage = lastTurn
+    ? messages.find(
+        (message) =>
+          message.role === "user" &&
+          (message.id === lastTurn.userMessageId ||
+            message.turnId === lastTurn.id),
+      )
+    : undefined;
   const prompts = [
     "可以把这里的推导过程详细讲一下吗？",
     "如何理解这段话，能举一个例子吗？",
   ];
+  const managementButton = (
+    <button
+      className={styles.manage}
+      type="button"
+      aria-label="对话管理"
+      title={conversation ? "对话管理" : "提问后可管理对话"}
+      disabled={!conversation}
+    >
+      <MessagesSquare aria-hidden="true" />
+      对话管理
+    </button>
+  );
+
   const latestContent = messages.at(-1)?.content;
   useEffect(() => {
     const previous = lastObservedTurn.current;
@@ -132,25 +178,50 @@ export function ChatPanel({
     connectionError,
   ]);
 
+  useEffect(() => {
+    if (!focusMessage || focusMessage.conversationId !== conversation?.id)
+      return;
+    const node = history.current?.querySelector<HTMLElement>(
+      `[data-message-content="${CSS.escape(focusMessage.id)}"]`,
+    );
+    if (node) {
+      followReply.current = false;
+      node.scrollIntoView({ block: "center" });
+      node.focus({ preventScroll: true });
+    }
+  }, [focusMessage, conversation?.id]);
+
   async function submit(text: string) {
     const value = text.trim();
     if (!value || !robot || busy || archived) return;
-    if (effectiveAi.hasSelection && effectiveAi.error) {
-      setNotice(effectiveAi.error);
-      return;
-    }
     setSending(true);
     followReply.current = true;
     try {
       await onSend(value);
       setDraft("");
-      setNotice(
-        configured ? "" : "问题已保存在本地。请配置 AI 连接后继续提问。",
-      );
+      setNotice("");
     } catch (error) {
+      if (isConversationLimitError(error)) return;
       setNotice(
         error instanceof Error ? error.message : "问题未能保存，请重试。",
       );
+    } finally {
+      setSending(false);
+    }
+  }
+
+  async function retryMessage(id: string) {
+    if (busy || archived) return;
+    setSending(true);
+    followReply.current = true;
+    setNotice("");
+    try {
+      await onRetryMessage(id);
+    } catch (error) {
+      if (!isConversationLimitError(error))
+        setNotice(
+          error instanceof Error ? error.message : "重试未能保存，请重试。",
+        );
     } finally {
       setSending(false);
     }
@@ -246,23 +317,18 @@ export function ChatPanel({
             >
               重新查询
             </button>
-          ) : !busy && !archived && lastUserText ? (
-            <button
-              onClick={() => {
-                const messageId = lastTurn?.userMessageId;
-                if (messageId)
-                  void onRetryMessage(messageId).catch((error: unknown) =>
-                    setNotice(
-                      error instanceof Error
-                        ? error.message
-                        : "重试失败，请重试。",
-                    ),
-                  );
-              }}
-            >
+          ) : !busy &&
+            !archived &&
+            failedMessage &&
+            !conversation?.turns.some(
+              (item) =>
+                item.userMessageId === failedMessage.id &&
+                item.status === "completed",
+            ) ? (
+            <button onClick={() => void retryMessage(failedMessage.id)}>
               {lastTurn?.errorCode === "session_missing"
                 ? "重新发起会话"
-                : "重新提问"}
+                : "重试回复"}
             </button>
           ) : null}
         </div>
@@ -282,7 +348,11 @@ export function ChatPanel({
   );
 
   return (
-    <section className={styles.chat} aria-label="聊天栏">
+    <section
+      className={styles.chat}
+      aria-label="聊天栏"
+      data-study-area="conversation"
+    >
       <header className={styles.heading}>
         <span className={styles.avatar}>
           <Icon aria-hidden="true" />
@@ -307,19 +377,40 @@ export function ChatPanel({
             </option>
           ))}
         </select>
-        <div className={styles.connectionGroup}>
-          <button
-            className={styles.connection}
-            onClick={onConfigure}
-            title={`${robot?.name ?? "机器人"} · ${effectiveAi.label}`}
-            aria-label="打开 AI 配置"
-            aria-haspopup="dialog"
-            aria-expanded={aiSettingsOpen}
-            aria-controls={aiSettingsOpen ? "ai-settings-popover" : undefined}
+        {conversation ? (
+          <ConversationActions
+            key={conversation.id}
+            conversation={conversation}
+            conversations={conversations}
+            onUpdate={onUpdate}
+            onDelete={onDelete}
           >
-            <Settings2 aria-hidden="true" />
-            <span>{!effectiveAi.error ? effectiveAi.label : ""}</span>
-          </button>
+            {managementButton}
+          </ConversationActions>
+        ) : (
+          managementButton
+        )}
+        <div className={styles.connectionGroup}>
+          {robot && (
+            <AiSelectionPopover
+              key={conversation?.id ?? robot.id}
+              robot={robot}
+              saved={aiSelection}
+              scopeId={conversation?.id ?? robot.id}
+              ai={ai}
+              onSave={onAiSelectionSave}
+            >
+              <button
+                className={styles.connection}
+                disabled={busy || archived}
+                title={`${robot.name} · ${effectiveAi.label}`}
+                aria-label="打开 AI 选择"
+              >
+                <Brain aria-hidden="true" />
+                <span>{!effectiveAi.error ? effectiveAi.label : ""}</span>
+              </button>
+            </AiSelectionPopover>
+          )}
           {(!configured || effectiveAi.error) && (
             <small
               className={styles.configurationWarning}
@@ -334,6 +425,9 @@ export function ChatPanel({
         <div
           className={styles.history}
           ref={history}
+          onMouseUp={selectedText.onMouseUp}
+          onTouchEnd={selectedText.onTouchEnd}
+          onKeyUp={selectedText.onKeyUp}
           aria-label="聊天记录"
           onScroll={() => {
             const element = history.current;
@@ -426,12 +520,14 @@ export function ChatPanel({
                         className={styles.returnReference}
                         onClick={() => onOpenReference(reference)}
                       >
-                        返回原文
+                        {reference.message ? "返回原消息" : "返回原文"}
                       </button>
                       <pre>{reference.content || "关联内容未能读取。"}</pre>
                     </details>
                   ))}
-                  <Markdown>{message.content}</Markdown>
+                  <div data-message-content={message.id} tabIndex={-1}>
+                    <Markdown>{message.content}</Markdown>
+                  </div>
                   {message.id === currentReply?.id && feedback}
                   {message.role === "assistant" && olderTerminal && (
                     <p className={styles.replyNote}>{terminalText}</p>
@@ -446,6 +542,27 @@ export function ChatPanel({
                       {ai.turns[associatedTurn.id]?.teacher.name ?? "机器人"}
                     </div>
                     <p className={styles.replyNote}>{terminalText}</p>
+                    {!busy &&
+                      !archived &&
+                      !!robot &&
+                      (associatedTurn.submissionStatus === "uncertain" ? (
+                        <button
+                          onClick={() => {
+                            if (conversation)
+                              void ai.restore(conversation.id, [
+                                associatedTurn.id,
+                              ]);
+                          }}
+                        >
+                          重新查询
+                        </button>
+                      ) : (
+                        <button onClick={() => void retryMessage(message.id)}>
+                          {associatedTurn.errorCode === "session_missing"
+                            ? "重新发起会话"
+                            : "重试回复"}
+                        </button>
+                      ))}
                   </article>
                 )}
               </Fragment>
@@ -471,7 +588,7 @@ export function ChatPanel({
         </div>
         {archived ? (
           <p className={styles.archivedNotice}>
-            对话已归档。右键选择“移回进行中”后可继续提问。
+            对话已归档。在上方“对话管理”中移回进行中后，可继续提问。
           </p>
         ) : (
           <>
@@ -540,7 +657,7 @@ export function ChatPanel({
                       </div>
                       <details>
                         <summary>查看引用内容</summary>
-                        <pre>{reference.content || "关联内容未能读取。"}</pre>
+                        <pre>{reference.content}</pre>
                       </details>
                     </div>
                   ))}
@@ -548,7 +665,11 @@ export function ChatPanel({
               )}
               <textarea
                 aria-label="向阅读助手提问"
-                placeholder="选中内容，添加到侧边对话后提问。"
+                placeholder={
+                  contextLabel
+                    ? "围绕当前内容提问，也可以添加选段。"
+                    : "有什么疑问或想法？"
+                }
                 rows={2}
                 maxLength={10000}
                 disabled={!robot || busy}
@@ -611,6 +732,7 @@ export function ChatPanel({
           </>
         )}
       </div>
+      {selectedText.overlay}
     </section>
   );
 }

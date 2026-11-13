@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 import sqlite3
@@ -10,6 +11,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from .acp import ConnectionError
+from .file_exports import router as file_exports_router
 from .material_converter import MaterialError
 from .material_routes import router as material_router
 from .materials import Materials
@@ -25,8 +27,10 @@ from .models import (
     SessionRename,
     TurnRequest,
 )
+from .pdf_export import router as pdf_export_router
 from .service import AiService
 from .store import Store
+from .study_time import router as study_router
 from .user_data import UserData, UserDataError, migrate_uploads
 from .user_routes import router as user_router
 
@@ -57,6 +61,7 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(app):
+        app.state.pdf_export_lock = asyncio.Lock()
         store = Store(directory)
         app.state.ai = AiService(store, registry=registry)
         app.state.materials = None
@@ -83,6 +88,9 @@ def create_app(
 
     app.include_router(material_router)
     app.include_router(user_router)
+    app.include_router(study_router)
+    app.include_router(pdf_export_router)
+    app.include_router(file_exports_router)
 
     @app.exception_handler(UserDataError)
     async def user_error(request, error):
@@ -148,8 +156,19 @@ def create_app(
                 request.method == "POST"
                 and request.url.path == "/local-api/v1/materials"
             )
-            expected_type = "application/octet-stream" if upload else "application/json"
-            if request.headers.get("content-type", "").split(";")[0] != expected_type:
+            if (
+                request.method == "POST"
+                and request.url.path == "/local-api/v1/user/exports/save"
+            ):
+                expected_types = {"application/json", "application/pdf"}
+            else:
+                expected_types = {
+                    "application/octet-stream" if upload else "application/json"
+                }
+            if (
+                request.headers.get("content-type", "").split(";")[0]
+                not in expected_types
+            ):
                 return JSONResponse(
                     {"detail": "请求内容格式不符合接口要求。"}, status_code=415
                 )
@@ -225,9 +244,10 @@ def create_app(
 
     @app.post("/local-api/v1/turns", status_code=202)
     async def start_turn(body: TurnRequest, request: Request):
-        for reference in body.references or (
-            [body.reference] if body.reference else []
-        ):
+        references = body.references or ([body.reference] if body.reference else [])
+        if body.readingContext:
+            references = [body.readingContext, *references]
+        for reference in references:
             if reference.material:
                 request.app.state.materials.validate_reference(reference)
         return request.app.state.ai.create_turn(body)

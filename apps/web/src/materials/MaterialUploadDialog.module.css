@@ -277,3 +277,55 @@
     min-width: 100%;
   }
 }
+.progressSection progress {
+  display: block;
+  width: 100%;
+  height: 6px;
+  accent-color: var(--sm-accent);
+  margin: 10px 0;
+}
+.progressHeading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  gap: 12px;
+}
+.progressSection small {
+  display: block;
+  font-size: 11px;
+  color: var(--sm-soft);
+  line-height: 1.7;
+}
+.progressSection .files {
+  max-height: 280px;
+}
+.progressSection .files span {
+  font-size: 12px;
+}
+.progressSection .files button {
+  align-self: flex-start;
+  color: var(--sm-accent);
+}
+.retryActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+@media (max-width: 480px) {
+  .steps {
+    gap: 6px;
+    font-size: 11px;
+  }
+  .steps li {
+    gap: 4px;
+  }
+  .steps li > span {
+    width: 17px;
+    height: 17px;
+  }
+  .actions {
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+}

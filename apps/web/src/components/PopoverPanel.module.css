@@ -1,5 +1,5 @@
 .panel {
-  z-index: 90;
+  z-index: var(--sm-layer-popover, 90);
   box-sizing: border-box;
   max-width: calc(100vw - 24px);
   max-height: min(

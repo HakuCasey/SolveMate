@@ -9,6 +9,7 @@ import sqlite3
 import uuid
 import zipfile
 from copy import deepcopy
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -599,3 +600,193 @@ def test_invalid_note_source_does_not_replace_old_state(tmp_path, source):
         store.save(invalid, 1)
     assert store.state()["value"] == initial
     store.close()
+
+
+def robot_record():
+    robot = json.loads(
+        (Path(__file__).resolve().parents[2] / "web/src/data/seed-data.json").read_text(
+            encoding="utf-8"
+        )
+    )["robots"][0]
+    robot.pop("modelSource", None)
+    robot.pop("modelName", None)
+    return {**robot, "schemaVersion": 3, "revision": 1, "aiDefaults": None}
+
+
+def test_robot_rename_rejects_duplicate_and_keeps_original_data(tmp_path):
+    from copy import deepcopy
+
+    with TestClient(create_app(tmp_path / "ai"), headers=HEADERS) as client:
+        original = data()
+        original["robots"] = [robot_record()]
+        original["robots"].append(
+            {
+                **deepcopy(original["robots"][0]),
+                "id": "another-robot",
+                "name": "另一机器人",
+            }
+        )
+        saved = client.put(
+            "/local-api/v1/user/state", json={"value": original, "expectedRevision": 0}
+        ).json()
+        changed = deepcopy(original)
+        changed["robots"][1]["name"] = " " + original["robots"][0]["name"] + " "
+        response = client.put(
+            "/local-api/v1/user/state",
+            json={"value": changed, "expectedRevision": saved["revision"]},
+        )
+        assert response.status_code == 422
+        assert response.json()["code"] == "robot_name_duplicate"
+        assert client.get("/local-api/v1/user/state").json()["value"] == original
+
+
+def test_robot_count_limit_allows_editing_nine_but_rejects_an_addition(tmp_path):
+    robot = robot_record()
+    original = data()
+    original["robots"] = [
+        {**deepcopy(robot), "id": f"robot-{i}", "name": f"机器人{i}"}
+        for i in range(user_data.MAX_ROBOTS)
+    ]
+    with TestClient(create_app(tmp_path / "ai"), headers=HEADERS) as client:
+        first = client.put(
+            "/local-api/v1/user/state", json={"value": original, "expectedRevision": 0}
+        )
+        assert first.status_code == 200
+        changed = deepcopy(original)
+        changed["settings"]["fontSize"] = 15
+        saved = client.put(
+            "/local-api/v1/user/state",
+            json={"value": changed, "expectedRevision": first.json()["revision"]},
+        )
+        assert saved.status_code == 200
+        changed["robots"].append(
+            {**deepcopy(robot), "id": "extra", "name": "额外机器人"}
+        )
+        response = client.put(
+            "/local-api/v1/user/state",
+            json={"value": changed, "expectedRevision": saved.json()["revision"]},
+        )
+        assert response.status_code == 422
+        assert response.json()["code"] == "robot_limit_reached"
+        assert (
+            len(client.get("/local-api/v1/user/state").json()["value"]["robots"])
+            == user_data.MAX_ROBOTS
+        )
+
+
+def test_conversation_group_limits_preserve_records_and_allow_cleanup(tmp_path):
+    fixtures = json.loads(
+        (
+            Path(__file__).resolve().parents[3]
+            / "packages/contracts/fixtures/ai-metadata.json"
+        ).read_text(encoding="utf-8")
+    )
+    template = next(
+        item["value"] for item in fixtures if item["name"] == "ConversationMetadata"
+    )
+    value = data()
+    limits = user_data.CONVERSATION_LIMITS
+    value["conversations"] = [
+        {
+            **deepcopy(template),
+            "id": f"session-{i}",
+            "status": "active" if i < limits["active"] else "archived",
+            "binding": None,
+            "turns": [],
+            "messages": [],
+            "example": False,
+        }
+        for i in range(limits["total"])
+    ]
+    with TestClient(create_app(tmp_path / "ai"), headers=HEADERS) as client:
+        saved = client.put(
+            "/local-api/v1/user/state", json={"value": value, "expectedRevision": 0}
+        )
+        assert saved.status_code == 200, saved.text
+        for index, target in [(0, "archived"), (-1, "active")]:
+            changed = deepcopy(value)
+            changed["conversations"][index]["status"] = target
+            response = client.put(
+                "/local-api/v1/user/state",
+                json={"value": changed, "expectedRevision": saved.json()["revision"]},
+            )
+            assert response.status_code == 422, response.text
+            assert response.json()["code"] == "conversation_limit_reached"
+            assert response.json()["detail"] == limits["message"]
+            assert client.get("/local-api/v1/user/state").json()["value"] == value
+        value["conversations"][0]["status"] = "deleted"
+        removed = client.put(
+            "/local-api/v1/user/state",
+            json={"value": value, "expectedRevision": saved.json()["revision"]},
+        )
+        assert removed.status_code == 200
+        value["conversations"].append(
+            {**deepcopy(value["conversations"][0]), "id": "extra", "status": "active"}
+        )
+        assert (
+            client.put(
+                "/local-api/v1/user/state",
+                json={"value": value, "expectedRevision": removed.json()["revision"]},
+            ).status_code
+            == 200
+        )
+
+
+def test_unsubmitted_question_with_no_connection_is_saved_and_read_back(tmp_path):
+    fixtures = json.loads(
+        (
+            Path(__file__).resolve().parents[3]
+            / "packages/contracts/fixtures/ai-metadata.json"
+        ).read_text(encoding="utf-8")
+    )
+    metadata = deepcopy(
+        next(
+            item["value"] for item in fixtures if item["name"] == "ConversationMetadata"
+        )
+    )
+    turn = {
+        "id": "local-attempt",
+        "revision": 1,
+        "connectionId": None,
+        "status": "failed",
+        "submissionStatus": "rejected",
+        "startedAt": 1,
+        "completedAt": 1,
+        "userMessageId": "question",
+        "error": "请先在设置中配置 AI。",
+        "snapshot": None,
+        "dispatch": None,
+        "reportedModelId": None,
+    }
+    value = data()
+    value["conversations"] = [
+        {
+            **metadata,
+            "binding": None,
+            "example": False,
+            "turns": [turn],
+            "messages": [
+                {
+                    "id": "question",
+                    "turnId": turn["id"],
+                    "role": "user",
+                    "content": "已经输入的问题",
+                    "createdAt": 1,
+                }
+            ],
+        }
+    ]
+    with TestClient(create_app(tmp_path / "ai"), headers=HEADERS) as client:
+        saved = client.put(
+            "/local-api/v1/user/state", json={"value": value, "expectedRevision": 0}
+        )
+        assert saved.status_code == 200, saved.text
+        assert client.get("/local-api/v1/user/state").json()["value"] == value
+        invalid = deepcopy(value)
+        invalid["conversations"][0]["turns"][0]["status"] = "running"
+        rejected = client.put(
+            "/local-api/v1/user/state",
+            json={"value": invalid, "expectedRevision": saved.json()["revision"]},
+        )
+        assert rejected.status_code == 422
+        assert client.get("/local-api/v1/user/state").json()["value"] == value

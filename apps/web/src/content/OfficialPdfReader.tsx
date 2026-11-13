@@ -22,7 +22,6 @@ export function OfficialPdfReader({
   load,
   onChange,
   onBack,
-  onAddReference,
   position,
   onPageScroll,
   continuous,
@@ -41,9 +40,6 @@ export function OfficialPdfReader({
   ) => Promise<{ blob: Blob; warning: string }>;
   onChange: (selection: ReadingSelection) => void;
   onBack: () => void;
-  onAddReference: (
-    reference: import("@solvemate/contracts").ReadingReference,
-  ) => void;
   position: ReadingPositionState;
   onPageScroll: (location: LearningLocation, scroll: ReadingScroll) => void;
   continuous: boolean;
@@ -102,7 +98,6 @@ export function OfficialPdfReader({
         </p>
       )}
       <PdfPage
-        onAddReference={onAddReference}
         documentKey={readingDocumentKey(selection)}
         positionKey={readingKey(selection)}
         pageNumber={pageNumber}

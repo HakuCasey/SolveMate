@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { useAppUpdate } from "../pwa/useAppUpdate";
 import { useSaveFeedback } from "./SaveFeedback";
-import { RefreshCw } from "lucide-react";
-import styles from "./PwaControls.module.css";
+import { RefreshCw, CircleArrowUp, CircleAlert, Check } from "lucide-react";
+import { StatusPopover } from "../status/StatusPopover";
+import { applicationStatus } from "../status/state";
+import styles from "../status/StatusBar.module.css";
 import { logError } from "../logger";
 
 interface InstallPrompt extends Event {
@@ -10,31 +12,45 @@ interface InstallPrompt extends Event {
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 }
 
-export function PwaControls({ prepareReload }: { prepareReload: () => void }) {
+export function PwaControls({
+  prepareReload,
+  saveFailure,
+  saveConflict,
+  onRetrySave,
+  onReviewSave,
+}: {
+  prepareReload: () => void;
+  saveFailure: string;
+  saveConflict: boolean;
+  onRetrySave: () => Promise<boolean>;
+  onReviewSave: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [retryingSave, setRetryingSave] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<InstallPrompt | null>(
     null,
   );
   const showNotice = useSaveFeedback();
-  const { state, offlineReady, supported, check, reload } = useAppUpdate(
+  const { state, supported, check, reload, clearReloadError } = useAppUpdate(
     prepareReload,
-    () => showNotice("新版已就绪，可在右下角点击“更新应用”"),
+    () => showNotice("应用新版本已就绪，可在右下角点击“更新应用”。"),
   );
-  const busy = ["checking", "downloading", "reloading"].includes(state.status);
-  const label =
-    state.status === "checking"
-      ? "正在检查更新…"
-      : state.status === "downloading"
-        ? "正在下载更新…"
-        : state.status === "current"
-          ? "已是最新版本"
-          : state.status === "reloading"
-            ? "正在更新应用…"
-            : state.status === "ready"
-              ? "更新应用"
-              : state.status === "error"
-                ? "重试"
-                : "检查更新";
-
+  const view = applicationStatus(state);
+  const ready = state.status === "ready";
+  const tone = ready
+    ? "ready"
+    : state.status === "error"
+      ? "danger"
+      : view.busy
+        ? "active"
+        : "neutral";
+  const Icon = ready
+    ? CircleArrowUp
+    : state.status === "error"
+      ? CircleAlert
+      : state.status === "current"
+        ? Check
+        : RefreshCw;
   useEffect(() => {
     const capturePrompt = (event: Event) => {
       event.preventDefault();
@@ -48,57 +64,93 @@ export function PwaControls({ prepareReload }: { prepareReload: () => void }) {
       window.removeEventListener("appinstalled", installed);
     };
   }, []);
-
   async function install() {
     if (!installPrompt) return;
     await installPrompt.prompt();
     await installPrompt.userChoice;
     setInstallPrompt(null);
   }
-
   return (
-    <>
-      <span role="status">
-        {!import.meta.env.PROD
-          ? "开发预览"
-          : offlineReady
-            ? "离线资源已就绪"
-            : !supported
-              ? "当前浏览器不支持离线应用"
-              : state.status === "error"
-                ? "离线资源尚未就绪"
-                : "正在准备离线资源…"}
-      </span>
-      {supported && (
-        <span className={styles.update} aria-label="应用更新">
-          {state.status === "ready" && <span role="status">新版已就绪</span>}
-          {state.error && <span role="alert">{state.error}</span>}
+    <StatusPopover
+      open={open}
+      onOpenChange={setOpen}
+      category="应用更新"
+      value={view.label}
+      status={
+        supported
+          ? view.status
+          : import.meta.env.PROD
+            ? "当前浏览器不支持应用更新"
+            : "开发预览不提供应用更新"
+      }
+      icon={Icon}
+      tone={tone}
+      busy={view.busy}
+    >
+      {(state.error || (ready && saveFailure)) && (
+        <div className={`${styles.alert} ${styles.error}`} role="alert">
+          {saveFailure || state.error}
+        </div>
+      )}
+      {ready && saveFailure && (
+        <div className={styles.actions}>
+          {!saveConflict && (
+            <button
+              className={styles.primary}
+              disabled={retryingSave}
+              onClick={async () => {
+                clearReloadError();
+                setRetryingSave(true);
+                try {
+                  if (await onRetrySave()) {
+                    clearReloadError();
+                    showNotice("记录已保存，可以继续更新应用。");
+                  }
+                } catch {
+                  showNotice("保存未完成，请查看保存详情。");
+                } finally {
+                  setRetryingSave(false);
+                }
+              }}
+            >
+              {retryingSave ? "正在保存…" : "重试保存"}
+            </button>
+          )}
           <button
-            type="button"
-            disabled={busy}
-            aria-label={label}
-            aria-busy={busy}
-            onClick={state.status === "ready" ? reload : check}
+            onClick={() => {
+              clearReloadError();
+              setOpen(false);
+              onReviewSave();
+            }}
           >
-            <RefreshCw
-              aria-hidden="true"
-              className={busy ? styles.spinning : undefined}
-            />
-            <span role="status">{label}</span>
+            {saveConflict ? "处理修改冲突" : "查看保存详情"}
           </button>
-        </span>
+        </div>
       )}
-      {installPrompt && (
-        <button
-          onClick={() => {
-            void install().catch((error: unknown) =>
-              logError("Failed to show the installation prompt.", error),
-            );
-          }}
-        >
-          安装应用
-        </button>
+      {((supported && !view.busy) || installPrompt) && (
+        <div className={styles.actions}>
+          {supported && !view.busy && (
+            <button
+              className={styles.primary}
+              disabled={view.busy || retryingSave || (!!saveFailure && ready)}
+              onClick={ready ? reload : check}
+            >
+              {view.action}
+            </button>
+          )}
+          {installPrompt && (
+            <button
+              onClick={() => {
+                void install().catch((error: unknown) =>
+                  logError("Failed to show the installation prompt.", error),
+                );
+              }}
+            >
+              安装应用
+            </button>
+          )}
+        </div>
       )}
-    </>
+    </StatusPopover>
   );
 }

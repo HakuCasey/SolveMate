@@ -167,3 +167,18 @@ PDF 无需安装办公软件。PPTX 需安装 [LibreOffice](https://www.libreoff
 默认上传目录从 `user/materials/` 复制到 `user/uploads/`，复制后逐文件核对 SHA-256，再启用新目录并写入迁移回执。旧目录保留，程序只读写新目录。复制或回执写入中断可重试；两目录存在差异且无回执时拒绝覆盖。显式指定的资料目录保持原位。
 
 本机服务不可达时，网页可查看已有缓存；修改未能保存时保留未确认副本并提示重试，重新打开后可选择恢复。缓存不充当正式记录。需要备份整个用户目录时，先停止应用，再复制 `user/`；恢复前保留当前目录。跨设备同步、自动定期备份及备份导入界面未提供。结构和失败处理详见 [012 本机用户数据保存](../../docs/features/012-local-user-storage/design.md)。
+
+
+## 笔记本 PDF 导出
+
+笔记本右键的“导出 PDF”通过本机 Chrome、Chromium 或 Microsoft Edge 无界面打印，不调用 AI，不上传笔记。服务优先从 PATH 查找程序，再检查 macOS 应用目录或 Windows 的 Program Files、LocalAppData。非默认安装可设置 `SOLVEMATE_PDF_BROWSER` 为浏览器可执行文件的完整路径。此要求仅用于生成 PDF，不限制使用 SolveMate 网页的浏览器。
+
+打印使用独立临时配置目录，正文与公式字体由网页内嵌，不读取用户浏览器记录，不加载外部网络资源。导出最多等待 45 秒，失败或取消后清理本次进程和临时文件。首版导出文字、代码、公式和表格；远程图片保留替代文字，不主动请求图床。网页默认下载 PDF，Chrome／Edge 等支持文件保存选择器的浏览器也可以选择路径；其他浏览器按自己的下载设置保存。
+
+## 文件导出
+
+`GET /local-api/v1/user/exports/directory` 返回系统下载目录；`POST /local-api/v1/user/exports/save?filename=...` 接收 JSON 或 PDF 并写入该目录，返回实际文件名与位置。同名文件自动添加数字后缀，不覆盖已有文件；接口不接受任意目标路径，遵循现有来源及客户端标识检查。笔记本 PDF 的生成接口保持不变。
+
+### 学习时长
+
+`GET /local-api/v1/user/study` 读取每日统计，`POST` 提交时间段和数据目录编号。统计保存在 `user/app.sqlite3` 的 `study_days` 表中，与整份页面记录分别更新；合并重叠时间段，重复提交不增加时长。规则与验证见 [017 学习时长统计](../../docs/features/017-study-time/spec.md)。

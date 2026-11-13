@@ -1,3 +1,4 @@
+import { submissionIsUncertain } from "./errors";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { AppData } from "@solvemate/contracts";
 import {
@@ -156,8 +157,9 @@ export function useAiService(update: Update) {
                     ? {
                         ...turn,
                         status: "interrupted" as const,
+                        submissionStatus: "rejected" as const,
                         completedAt: Date.now(),
-                        error: "本机服务没有保存这次请求，请确认后重新提问。",
+                        error: "本机服务未保存此请求，可以重试回复。",
                       }
                     : turn,
                 ),
@@ -261,19 +263,18 @@ export function useAiService(update: Update) {
         failure.code === "configuration_conflict"
       )
         await refresh();
+      if (
+        failure instanceof LocalAiError &&
+        failure.code === "message_already_answered"
+      )
+        await restore(input.conversationId);
       // 请求可能已被服务接收；保留请求编号，先读取结果，不能直接重发模型任务。
       try {
         const turn = await localAi.turn(input.id);
         accept(turn);
         if (turn.status === "running") watch(turn.id);
-      } catch {
-        const uncertain =
-          failure instanceof LocalAiError &&
-          [
-            "local_service_unavailable",
-            "contract_invalid",
-            "turn_mismatch",
-          ].includes(failure.code);
+      } catch (lookupFailure) {
+        const uncertain = submissionIsUncertain(failure, lookupFailure);
         accept(
           decodeAiTurn({
             id: input.id,
@@ -282,6 +283,9 @@ export function useAiService(update: Update) {
             text: input.text,
             teacher: input.teacher,
             reference: input.reference,
+            ...(input.readingContext
+              ? { readingContext: input.readingContext }
+              : {}),
             references: input.references,
             userMessageId: input.userMessageId,
             assistantMessageId: input.id + "-assistant",

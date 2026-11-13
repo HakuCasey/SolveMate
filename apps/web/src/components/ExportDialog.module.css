@@ -1,0 +1,244 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: var(--sm-overlay);
+}
+.dialog {
+  position: fixed;
+  z-index: 101;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(460px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  padding: 24px;
+  border: 1px solid var(--sm-line);
+  border-radius: 18px;
+  background: var(--sm-paper);
+  color: var(--sm-ink);
+  box-shadow: var(--sm-shadow-dialog);
+}
+.heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.mark {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  background: var(--sm-active);
+  color: var(--sm-accent);
+}
+.mark svg {
+  width: 21px;
+  height: 21px;
+}
+.heading > div {
+  min-width: 0;
+  flex: 1;
+}
+.heading h2 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+}
+.heading p {
+  margin: 3px 0 0;
+  color: var(--sm-soft);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.close {
+  display: grid;
+  place-items: center;
+  padding: 6px;
+  color: var(--sm-soft);
+  border-radius: 6px;
+}
+.close svg {
+  width: 16px;
+  height: 16px;
+}
+.close:hover {
+  background: var(--sm-ground);
+}
+.fields {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  margin-top: 26px;
+}
+.fields > label {
+  margin-top: 9px;
+  font-size: 12px;
+  font-weight: 500;
+}
+.filename,
+.location {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 10px;
+  border: 1px solid var(--sm-line);
+  border-radius: 9px;
+  padding: 10px 12px;
+  background: var(--sm-ground);
+}
+.filename:focus-within {
+  border-color: var(--sm-accent);
+  outline: 2px solid var(--sm-active);
+}
+.filename input {
+  flex: 1;
+  width: 0;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--sm-ink);
+  font: inherit;
+  font-size: 13px;
+}
+.filename > span {
+  color: var(--sm-soft);
+  font-size: 12px;
+  padding-left: 10px;
+  border-left: 1px solid var(--sm-line);
+}
+.location {
+  background: var(--sm-paper);
+}
+.location > svg {
+  width: 16px;
+  height: 16px;
+  color: var(--sm-soft);
+  flex-shrink: 0;
+}
+.location > span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+.location button {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--sm-accent);
+}
+.location button svg {
+  width: 14px;
+  height: 14px;
+}
+.reset {
+  justify-self: end;
+  font-size: 11px;
+  color: var(--sm-accent);
+  padding: 2px 0;
+}
+.hint {
+  font-size: 11px;
+  color: var(--sm-soft);
+  line-height: 1.6;
+  margin: 2px 0 0;
+}
+.feedback {
+  margin-top: 14px;
+}
+.error {
+  color: var(--sm-danger);
+  font-size: 12px;
+  line-height: 1.6;
+  margin: 0;
+}
+.success {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 12px;
+  border-radius: 9px;
+  background: var(--sm-active);
+  color: var(--sm-accent);
+}
+.success > svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+.success > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.success strong {
+  font-size: 13px;
+  font-weight: 500;
+}
+.success span {
+  color: var(--sm-ink);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.success small {
+  color: var(--sm-soft);
+  font-size: 11px;
+}
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--sm-line);
+}
+.actions button {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  min-width: 84px;
+  min-height: 36px;
+  padding: 8px 15px;
+  border: 1px solid var(--sm-line);
+  border-radius: 8px;
+  font-size: 13px;
+}
+.actions .primary {
+  color: var(--sm-on);
+  background: var(--sm-accent);
+  border-color: var(--sm-accent);
+}
+.actions button svg {
+  width: 15px;
+  height: 15px;
+}
+.dialog button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.actions .primary:disabled {
+  opacity: 0.7;
+}
+.spinning {
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .spinning {
+    animation: none;
+  }
+}

@@ -42,7 +42,7 @@
   flex-shrink: 0;
 }
 .menu {
-  z-index: 80;
+  z-index: var(--sm-layer-select, 110);
   min-width: var(--radix-select-trigger-width);
   max-width: calc(100vw - 24px);
   max-height: min(320px, var(--radix-select-content-available-height));

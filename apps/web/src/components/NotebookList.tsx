@@ -1,7 +1,9 @@
-import { useEffect, useId, useState } from "react";
+import { lazy, Suspense, useEffect, useId, useState } from "react";
 import {
   ChevronRight,
+  Download,
   FileText,
+  FolderInput,
   NotebookPen,
   Pencil,
   Tag,
@@ -24,6 +26,12 @@ import styles from "./NotebookList.module.css";
 import management from "./NoteManagement.module.css";
 import { PaneHeader } from "./PaneHeader";
 
+const NotebookExportDialog = lazy(() =>
+  import("./NotebookExportDialog").then((module) => ({
+    default: module.NotebookExportDialog,
+  })),
+);
+
 export function NotebookList({
   library,
   directory,
@@ -45,12 +53,14 @@ export function NotebookList({
   const [expanded, setExpanded] = useState<Record<string, boolean>>(() =>
     activeNotebookId ? { [activeNotebookId]: true } : {},
   );
+  const [exportId, setExportId] = useState<string | null>(null);
+  const exportBook = library.notebooks.find((book) => book.id === exportId);
   const [target, setTarget] = useState<NoteManagementTarget | null>(null);
   const tags = new Map(
     noteTags(library, directory).map((tag) => [tag.id, tag.title]),
   );
   useEffect(() => {
-    // 当前笔记转移至未分类后，展开其实际所属笔记本；手动折叠不触发重开。
+    // 当前笔记转移后展开实际所属笔记本；手动折叠不触发重开。
     if (activeNotebookId)
       setExpanded((previous) => ({ ...previous, [activeNotebookId]: true }));
   }, [activeNotebookId]);
@@ -104,6 +114,13 @@ export function NotebookList({
                     className={management.menu}
                     onCloseAutoFocus={(event) => event.preventDefault()}
                   >
+                    <ContextMenu.Item
+                      className={management.menuItem}
+                      onSelect={() => setExportId(notebook.id)}
+                    >
+                      <Download aria-hidden="true" />
+                      导出 PDF
+                    </ContextMenu.Item>
                     <ContextMenu.Item
                       className={management.menuItem}
                       disabled={notebook.id === unclassifiedNotebookId}
@@ -197,6 +214,15 @@ export function NotebookList({
                           <ContextMenu.Item
                             className={management.menuItem}
                             onSelect={() =>
+                              setTarget({ kind: "moveNote", item: note })
+                            }
+                          >
+                            <FolderInput aria-hidden="true" />
+                            更换笔记本
+                          </ContextMenu.Item>
+                          <ContextMenu.Item
+                            className={management.menuItem}
+                            onSelect={() =>
                               setTarget({ kind: "tags", item: note })
                             }
                           >
@@ -225,13 +251,28 @@ export function NotebookList({
           );
         })}
       </div>
+      {exportBook && (
+        <Suspense fallback={<p role="status">正在准备导出…</p>}>
+          <NotebookExportDialog
+            notebook={exportBook}
+            notes={library.notes.filter(
+              (note) => note.notebookId === exportBook.id,
+            )}
+            tags={Object.fromEntries(tags)}
+            onClose={() => setExportId(null)}
+          />
+        </Suspense>
+      )}
       {target && (
         <NoteManagementDialog
           target={target}
           library={library}
           directory={directory}
           onClose={() => setTarget(null)}
-          onAction={onAction}
+          onAction={async (action) => {
+            await onAction(action);
+            if (action.kind === "moveNote") onSelect(action.id);
+          }}
         />
       )}
     </section>

@@ -23,7 +23,6 @@ import styles from "./MaterialReader.module.css";
 GlobalWorkerOptions.workerSrc = workerUrl;
 
 interface Props {
-  onAddReference: (reference: ReadingReference) => void;
   documentKey: string;
   positionKey: string;
   pageNumber: number;
@@ -46,7 +45,6 @@ export function PdfPage(props: Props) {
     zoom,
     continuous,
     onSelection,
-    onAddReference,
   } = props;
   const [error, setError] = useState("");
   const [warning, setWarning] = useState("");
@@ -365,7 +363,7 @@ export function PdfPage(props: Props) {
     surface,
     positionKey,
     ready,
-    (selection) => onAddReference(onSelection(selection)),
+    onSelection,
   );
   return (
     <>

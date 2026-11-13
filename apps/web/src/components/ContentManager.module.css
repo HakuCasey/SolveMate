@@ -203,3 +203,28 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+.checkResult {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 12px 24px 0;
+  color: var(--sm-soft);
+  font-size: 12px;
+}
+.checkResult[data-updates="true"],
+.card .updateNotice {
+  color: var(--sm-accent);
+}
+.card .updateNotice {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding-top: 8px;
+}
+.checkResult svg,
+.updateNotice svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}

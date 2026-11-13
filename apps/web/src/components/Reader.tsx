@@ -51,9 +51,6 @@ interface ReaderProps {
   fontSize: number;
   onChange: (selection: ReadingSelection) => void;
   onBack: () => void;
-  onAddReference: (
-    reference: import("@solvemate/contracts").ReadingReference,
-  ) => void;
   position: ReadingPositionState;
   onPositionChange: Dispatch<SetStateAction<ReadingPositionState>>;
 }
@@ -64,15 +61,11 @@ function QuestionBody({
   selection,
   position,
   onPositionChange,
-  onAddReference,
 }: {
   content: CurrentContent;
   fontSize: number;
   selection: ReadingSelection;
   position: ReadingPositionState;
-  onAddReference: (
-    reference: import("@solvemate/contracts").ReadingReference,
-  ) => void;
   onPositionChange: Dispatch<SetStateAction<ReadingPositionState>>;
 }) {
   const { answerVisible } = position;
@@ -81,7 +74,7 @@ function QuestionBody({
   const key = readingKey(selection);
   useReadingScroll(source, key, position.scroll, onPositionChange);
   const selected = useReadingSelection(source, key, true, (value) =>
-    onAddReference(makeReadingReference(selection, content, value.text, true)),
+    makeReadingReference(selection, content, value.text, true),
   );
 
   return (
@@ -185,7 +178,6 @@ function QuestionReader({
   position,
   onPositionChange,
   relatedContent,
-  onAddReference,
 }: ReaderProps) {
   const course = getCourse(
     selection.courseId,
@@ -239,7 +231,6 @@ function QuestionReader({
       {/* 按内容重建正文，显示状态和滚动位置由应用层的同一份阅读记录恢复。 */}
       <QuestionBody
         key={`${course.id}:${course.version}:${content.kind}:${content.id}`}
-        onAddReference={onAddReference}
         content={content}
         fontSize={fontSize}
         selection={selection}

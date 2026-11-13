@@ -4,7 +4,7 @@ from uuid import UUID
 
 import pytest
 
-from solvemate_local import installation
+from solvemate_local import installation, system_paths
 
 
 def test_mac_default_is_the_application_bundle(monkeypatch):
@@ -85,7 +85,7 @@ def test_known_folder_api_uses_correct_id_and_frees_memory_on_success_or_failure
         CoTaskMemFree = Function(lambda pointer: freed.append(pointer.value))
 
     monkeypatch.setattr(
-        installation.ctypes,
+        system_paths.ctypes,
         "WinDLL",
         lambda name, **kwargs: Shell() if name == "shell32" else Ole(),
         raising=False,

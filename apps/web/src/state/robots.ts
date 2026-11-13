@@ -1,4 +1,4 @@
-import type { AppData, Robot } from "@solvemate/contracts";
+import { maxRobots, type AppData, type Robot } from "@solvemate/contracts";
 import { createInitialData, defaultTeacherPrompt } from "../data/catalog";
 import { upgradeRobot } from "../data/migrate-ai-metadata";
 import legacyRobots from "../data/legacy-robots.json";
@@ -20,6 +20,32 @@ export function createRobot(id: string = crypto.randomUUID()): Robot {
     courseMemory: true,
     skills: ["questions", "textbooks", "notes"],
   };
+}
+
+export const robotLimitMessage = `最多支持 ${maxRobots} 个机器人。`;
+
+export const duplicateRobotNameMessage = "命名重复，请重新命名。";
+
+/** 名称按去除首尾空白后的完整文字比较，修改时排除机器人自身。 */
+export function robotNameError(
+  robots: Robot[],
+  robot: Pick<Robot, "id" | "name">,
+) {
+  const name = robot.name.trim();
+  if (!name) return "请填写机器人名称。";
+  return robots.some(
+    (item) => item.id !== robot.id && item.name.trim() === name,
+  )
+    ? duplicateRobotNameMessage
+    : "";
+}
+
+export function newRobotName(robots: Robot[]) {
+  let name = "新机器人",
+    number = 2;
+  while (robotNameError(robots, { id: "", name }))
+    name = `新机器人（${number++}）`;
+  return name;
 }
 
 export function restoreRobotDefaults(robot: Robot): Robot {

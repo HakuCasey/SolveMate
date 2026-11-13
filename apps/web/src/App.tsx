@@ -1,6 +1,20 @@
 import { activeSessionBinding, serviceSwitchKind } from "./ai/session-bindings";
+import { StudyProvider } from "./study/StudyProvider";
+import {
+  studyActivities,
+  generatingReplyId,
+  aiStudyEvent,
+} from "./study/policy";
 import { recordQuestion } from "./state/questions";
-import { materialApi } from "./materials/api";
+import { ConversationLimitDialog } from "./components/ConversationLimitDialog";
+import {
+  isConversationLimitError,
+  requireConversationLimits,
+} from "./state/conversation-limits";
+import { SelectionActionsProvider } from "./reading/SelectionActions";
+import { SelectionNoteDialog } from "./components/SelectionNoteDialog";
+import { StatusBar } from "./status/StatusBar";
+import { ConversationStatus } from "./status/ConversationStatus";
 import { dataRefresh } from "./refresh/coordinator";
 import {
   lazy,
@@ -30,7 +44,13 @@ import type {
   LearningLocation,
   Note,
 } from "@solvemate/contracts";
-import { applyNoteAction, noteTags, createNote, editNote } from "./state/notes";
+import {
+  applyNoteAction,
+  noteTags,
+  notePreview,
+  createNote,
+  editNote,
+} from "./state/notes";
 import {
   LearningRelations,
   LearningMaterial,
@@ -63,6 +83,7 @@ import {
   conversationForReading,
   conversationForMaterial,
   updateConversation,
+  type ConversationChange,
   deleteConversation,
   applyRobotAi,
 } from "./state/conversations";
@@ -86,6 +107,7 @@ import {
   ConversationSwitchDialog,
   type ConversationSwitch,
 } from "./components/ConversationSwitchDialog";
+import { addImportedRobot } from "./state/robot-transfer";
 import { RobotsPage } from "./components/RobotsPage";
 import { PwaControls } from "./components/PwaControls";
 import { useMaterials } from "./materials/useMaterials";
@@ -94,6 +116,7 @@ const MaterialReader = lazy(() =>
     default: module.MaterialReader,
   })),
 );
+import { materialApi } from "./materials/api";
 import { locationKey } from "./materials/api";
 import {
   appendReference,
@@ -115,6 +138,7 @@ import {
 } from "./reading/state";
 import type { SetStateAction } from "react";
 import { applyTheme } from "./theme/theme";
+import { findTheme } from "./theme/presets";
 import { teachingActivities, type TeachingActivityId } from "./data/teaching";
 import styles from "./App.module.css";
 import { clientRuntime } from "./version";
@@ -191,7 +215,8 @@ function Workspace({ content }: { content: OfficialContent }) {
     saveState,
     conflict,
     retrySave,
-    saveChanges,
+    restoreRecovery,
+    saveChanges: persistChanges,
     readData,
     readSaveState,
     refreshError,
@@ -200,6 +225,22 @@ function Workspace({ content }: { content: OfficialContent }) {
     recoveries,
     resolveConflict,
   } = useLocalData(sourceAvailableCourses);
+  const [conversationLimitOpen, setConversationLimitOpen] = useState(false);
+  const saveChanges = useCallback(
+    async (change: (previous: AppData) => AppData) => {
+      try {
+        return await persistChanges((previous) => {
+          const next = change(previous);
+          requireConversationLimits(previous.conversations, next.conversations);
+          return next;
+        });
+      } catch (error) {
+        if (isConversationLimitError(error)) setConversationLimitOpen(true);
+        throw error;
+      }
+    },
+    [persistChanges],
+  );
   const checkpointRestored = useRef(false);
   const officialSaveState = useRef(readSaveState);
   officialSaveState.current = readSaveState;
@@ -347,6 +388,13 @@ function Workspace({ content }: { content: OfficialContent }) {
       officialLibrary,
     ],
   );
+  const [selectionNote, setSelectionNote] = useState<{
+    id: string;
+    reference: ReadingReference;
+  } | null>(null);
+  const [messageFocus, setMessageFocus] = useState<
+    { id: string; request: number; conversationId: string } | undefined
+  >();
   const [noteEditor, setNoteEditor] = useState<NoteEditorTarget | null>(null);
   const [subjectAction, setSubjectAction] = useState<SubjectAction | null>(
     null,
@@ -366,9 +414,6 @@ function Workspace({ content }: { content: OfficialContent }) {
     string | null
   >(reloadCheckpoint.value?.conversationId ?? null);
   const [activeRobotId, setActiveRobotId] = useState<string | null>(null);
-  const [aiSettingsSource, setAiSettingsSource] = useState<
-    "chat" | "sidebar" | null
-  >(null);
   const [robotDrafts, setRobotDrafts] = useState<Record<string, Robot>>({});
   useDraftBackup(
     "robot-configurations",
@@ -388,13 +433,15 @@ function Workspace({ content }: { content: OfficialContent }) {
   useEffect(() => {
     // 页面和对话切换、打开配置时读取共享记录，不逐个通知使用配置的组件。
     void refreshAiSettings();
-  }, [view, activeConversationId, aiSettingsSource, refreshAiSettings]);
+  }, [view, activeConversationId, refreshAiSettings]);
   const restoreAiConversation = ai.restore;
+  const rawSelection = data?.selection;
+  const resolvedSelection = rawSelection;
   const quoteKey =
     view === "materials" && data?.materialSelection
       ? locationKey(data.materialSelection)
       : view === "reading" && data?.selection
-        ? readingKey(data.selection)
+        ? readingKey(resolvedSelection!)
         : "";
   const documentKey =
     view === "materials" && data?.materialSelection
@@ -404,21 +451,7 @@ function Workspace({ content }: { content: OfficialContent }) {
         : "";
   const readingPosition =
     readingState.positions[quoteKey] ?? emptyReadingPosition();
-  // 同一资料的多个页码共用待发送引用；题目按自身位置保存。
-  const referenceDraftKey =
-    view === "materials" ||
-    (view === "reading" && data?.selection.kind === "textbooks")
-      ? documentKey
-      : quoteKey;
-  const draftReferences = readingState.references[referenceDraftKey] ?? [];
-  function addReference(reference: ReadingReference) {
-    const references = appendReference(
-      draftReferences,
-      reference,
-      crypto.randomUUID(),
-    );
-    updateReferences(referenceDraftKey, references);
-  }
+  // 学习资料的多个页码共用待发送引用；题目仍按各自的位置保存。
   const setReadingPosition = useCallback(
     (change: SetStateAction<ReadingPositionState>) =>
       updatePosition(quoteKey, change),
@@ -482,6 +515,36 @@ function Workspace({ content }: { content: OfficialContent }) {
               ? latestConversation(data.conversations)
               : undefined))
     : undefined;
+  const legacyReferenceKey = currentConversation?.material
+    ? readingDocumentKey(currentConversation.material)
+    : currentConversation?.selection
+      ? currentConversation.selection.kind === "textbooks"
+        ? readingDocumentKey(currentConversation.selection)
+        : readingKey(currentConversation.selection)
+      : view === "materials" ||
+          (view === "reading" && data?.selection.kind === "textbooks")
+        ? documentKey
+        : quoteKey;
+  const conversationReferenceKey = currentConversation
+    ? `conversation:${currentConversation.id}`
+    : legacyReferenceKey;
+  // 旧版未发送选段继续使用原位置，发送或移除后改用对话编号；两栏始终读取同一份引用。
+  const referenceDraftKey =
+    !readingState.references[conversationReferenceKey]?.length &&
+    readingState.references[legacyReferenceKey]?.length
+      ? legacyReferenceKey
+      : conversationReferenceKey;
+  const draftReferences = readingState.references[referenceDraftKey] ?? [];
+  function addReference(reference: ReadingReference) {
+    if (currentConversation?.status === "archived")
+      throw new Error("请先将对话移回进行中，再添加引用。");
+    const references = appendReference(
+      draftReferences,
+      reference,
+      crypto.randomUUID(),
+    );
+    updateReferences(referenceDraftKey, references);
+  }
   const restoreConversationId = currentConversation?.id ?? null;
   const pendingAiIds =
     currentConversation?.turns
@@ -495,13 +558,16 @@ function Workspace({ content }: { content: OfficialContent }) {
         pendingAiIds ? pendingAiIds.split(",") : [],
       );
   }, [restoreConversationId, pendingAiIds, restoreAiConversation]);
+  const [recordDetailsOpen, setRecordDetailsOpen] = useState(false);
+  const [unsavedRecordsOpen, setUnsavedRecordsOpen] = useState(false);
   const [noteId, setNoteId] = useState<string | null>(null);
   const [recommendationsExpanded, setRecommendationsExpanded] = useState(true);
 
   const appearance = data?.settings.appearance;
+  const themeId = data?.settings.themeId;
   useEffect(() => {
-    if (appearance) applyTheme(appearance);
-  }, [appearance]);
+    if (appearance) applyTheme(appearance, findTheme(themeId));
+  }, [appearance, themeId]);
 
   function updateData(change: (previous: AppData) => AppData) {
     setData((previous) => (previous ? change(previous) : previous));
@@ -527,7 +593,7 @@ function Workspace({ content }: { content: OfficialContent }) {
       </main>
     );
 
-  const selection = data.selection;
+  const selection = resolvedSelection!;
   const resizable =
     view === "reading" ||
     view === "conversations" ||
@@ -602,6 +668,9 @@ function Workspace({ content }: { content: OfficialContent }) {
     linkedReading && "materialId" in linkedReading.source
       ? linkedReading.source
       : null;
+  const selectedMaterial = materials.items.find(
+    (item) => item.id === materialLocation?.materialId,
+  );
   const draftConversationId =
     currentConversation?.id ??
     (view === "conversations" ? activeConversationId : null);
@@ -612,13 +681,52 @@ function Workspace({ content }: { content: OfficialContent }) {
       : materialLocation
         ? readingDocumentKey(materialLocation)
         : "ordinary-chat";
+  async function manageConversation(
+    id: string,
+    change: ConversationChange,
+    revision?: number,
+  ) {
+    const conversation = data!.conversations.find((item) => item.id === id);
+    const binding = conversation ? activeSessionBinding(conversation) : null;
+    await saveChanges((previous) =>
+      updateConversation(previous, id, change, revision),
+    );
+    if (change.title !== undefined) {
+      if (!binding?.externalSessionId) {
+        showSaved("名称已保存");
+        return;
+      }
+      try {
+        const result = await localAi.renameSession(id, change.title, binding);
+        showSaved(
+          result.status === "synced"
+            ? "名称已保存，第三方会话已同步改名"
+            : "名称已保存，当前服务不支持同步改名",
+        );
+      } catch (error) {
+        throw new Error(
+          `本地名称已保存。第三方同步失败：${error instanceof Error ? error.message : "请求失败。"}可再次保存重试。`,
+          { cause: error },
+        );
+      }
+    }
+  }
+  async function removeConversation(id: string) {
+    for (const turn of Object.values(ai.turns))
+      if (turn.conversationId === id && turn.status === "running")
+        await ai.cancel(turn.id);
+    await saveChanges((previous) => deleteConversation(previous, id));
+    if (activeConversationId === id) setActiveConversationId(null);
+  }
   function prepareReload() {
     const currentSaveState = readSaveState();
     if (currentSaveState !== "saved" || submitting.current)
       throw new Error(
         currentSaveState === "saving" || submitting.current
           ? "正在保存当前内容，请稍后再更新应用。"
-          : "本页更改尚未保存，请先重试保存。",
+          : conflict
+            ? "记录存在修改冲突，请点击“处理修改冲突”。"
+            : saveError || "学习记录未能保存，请点击下方“重试保存”。",
       );
     if (
       data!.robots.some((robot) =>
@@ -655,8 +763,29 @@ function Workspace({ content }: { content: OfficialContent }) {
   }
 
   function openReference(reference: ReadingReference) {
-    const source = reference.material ?? reference.selection;
-    if (!source || !isSupportedReadingLocation(source)) {
+    if (reference.message) {
+      const original = data!.conversations.find(
+        (item) =>
+          item.id === reference.message!.conversationId &&
+          item.status !== "deleted",
+      );
+      const message = original?.messages.find((item) =>
+        reference.message!.messageIds.includes(item.id),
+      );
+      if (!original || !message) {
+        setCommandError("原对话或消息已删除，已保存的引用内容仍保留。");
+        return;
+      }
+      openConversation(original);
+      setMessageFocus({
+        id: message.id,
+        request: Date.now(),
+        conversationId: original.id,
+      });
+      return;
+    }
+    const location = reference.material ?? reference.selection;
+    if (!location || !isSupportedReadingLocation(location)) {
       setCommandError(UNSUPPORTED_READING_REFERENCE);
       return;
     }
@@ -844,7 +973,7 @@ function Workspace({ content }: { content: OfficialContent }) {
   async function startFreshConversation(robot: Robot) {
     const saved = await saveChanges((previous) => {
       if (!previous.robots.some((item) => item.id === robot.id))
-        throw new Error("所选教师已删除，请重新选择。");
+        throw new Error("所选机器人已删除，请重新选择。");
       const conversation = createConversation(
         previous,
         chatSelection,
@@ -861,7 +990,6 @@ function Workspace({ content }: { content: OfficialContent }) {
     });
     setActiveConversationId(saved.conversations[0].id);
     setActiveRobotId(robot.id);
-    setAiSettingsSource(null);
   }
 
   function changeRobot(id: string) {
@@ -1037,6 +1165,9 @@ function Workspace({ content }: { content: OfficialContent }) {
               error instanceof Error ? error.message : "读取 AI 执行结果失败。",
             ),
           );
+    } catch (error) {
+      if (isConversationLimitError(error)) setConversationLimitOpen(true);
+      throw error;
     } finally {
       submitting.current = false;
     }
@@ -1081,7 +1212,7 @@ function Workspace({ content }: { content: OfficialContent }) {
           (item) => item.id === currentConversation?.id,
         );
         if (original && original.revision !== currentConversation?.revision)
-          throw new Error("当前对话已更新，请重新打开 AI 配置。");
+          throw new Error("当前对话已更新，请重新打开 AI 选择。");
         const next = applyRobotAi(
           previous,
           currentRobot.id,
@@ -1107,11 +1238,9 @@ function Workspace({ content }: { content: OfficialContent }) {
         }
         return next;
       });
-      setAiSettingsSource(null);
       showSaved();
     };
     if (currentConversation && before.connectionId !== after.connectionId) {
-      setAiSettingsSource(null);
       const kind = serviceSwitchKind(currentConversation, after.connectionId);
       if (kind) setPendingSwitch({ kind, confirm: commit });
       else await commit();
@@ -1126,503 +1255,594 @@ function Workspace({ content }: { content: OfficialContent }) {
       setActiveRobotId(null);
   }
 
+  const generationId = generatingReplyId(
+    data.conversations,
+    ai.turns,
+    ai.connectionErrors,
+  );
+  const studyAllowed =
+    studyActivities({
+      view,
+      readingKind: selection.kind,
+      readingAvailable: !!availableCourses.find(
+        (course) =>
+          course.id === selection.courseId &&
+          course.version === (selection.version ?? "example-1") &&
+          (selection.kind === "questions"
+            ? course.questions
+            : course.textbooks
+          ).some(
+            (item) =>
+              item.id === selection.itemId &&
+              (selection.kind === "questions" || ("pdf" in item && !!item.pdf)),
+          ),
+      ),
+      materialAvailable:
+        !!selectedMaterial &&
+        selectedMaterial.version.status === "ready" &&
+        selectedMaterial.availability?.readerAvailable !== false,
+      conversationAvailable: !!currentConversation?.messages.length,
+      questionDraft:
+        !!chatDrafts[chatDraftKey]?.trim() || draftReferences.length > 0,
+      noteAvailable: !!note,
+      noteEditing: !!noteEditor || !!selectionNote,
+      generating: !!generationId,
+    }).length > 0;
+
   return (
-    <main className={styles.app}>
-      <SubjectDialog
-        subjects={subjects}
-        action={subjectAction}
-        onClose={() => setSubjectAction(null)}
-        onCreate={createSubject}
-        onRename={changeSubjectName}
-        onDelete={deleteSubject}
-      />
-      <ConversationSwitchDialog
-        pending={pendingSwitch}
-        onClose={() => setPendingSwitch(null)}
-      />
-      <div className={styles.shell}>
-        <Sidebar
-          subjects={subjects}
-          onSubjectAction={setSubjectAction}
-          ai={ai}
-          robot={currentRobot}
-          robotAiConfig={chatDefaults}
-          onRobotAiSave={saveRobotAi}
-          aiSettingsSource={aiSettingsSource}
-          onAiSettingsSourceChange={setAiSettingsSource}
-          view={view}
-          activeScope={sidebarScope}
-          settings={data.settings}
-          teachingActivity={teachingActivity}
-          onSelectTeachingActivity={setTeachingActivity}
-          onNavigate={(next) => {
-            if (next === "conversations") {
-              const conversation =
-                currentConversation ??
-                data.conversations.find(
-                  (item) =>
-                    item.id === activeConversationId &&
-                    item.status !== "deleted",
-                ) ??
-                latestConversation(data.conversations);
-              if (conversation) {
-                openConversation(conversation);
-                return;
-              }
-            }
-            setView(next);
-          }}
-          onSelectContent={selectCourse}
-          onSettingsChange={(settings) =>
-            updateData((previous) => ({ ...previous, settings }))
-          }
+    <SelectionActionsProvider
+      onChat={addReference}
+      onNote={(reference) =>
+        setSelectionNote({
+          id: `note-${crypto.randomUUID()}`,
+          reference: structuredClone(reference),
+        })
+      }
+    >
+      <main className={styles.app}>
+        <ConversationLimitDialog
+          open={conversationLimitOpen}
+          onClose={() => setConversationLimitOpen(false)}
         />
-        <section className={styles.workspace} aria-label="学习工作区">
-          <ResizableColumns
-            key={resizable ? "split" : "static"}
-            className={styles.columns}
-            hidden={
-              view === "robots" || view === "content" || view === "teaching"
-            }
-            enabled={resizable}
-            separatorLabel={
-              view === "notes" ? "调整笔记列表与正文宽度" : undefined
-            }
-            ratio={data.settings.readingPaneRatio ?? 0.5}
-            onRatioChange={(readingPaneRatio) =>
-              updateData((previous) => ({
-                ...previous,
-                settings: { ...previous.settings, readingPaneRatio },
-              }))
-            }
+        <SubjectDialog
+          subjects={subjects}
+          action={subjectAction}
+          onClose={() => setSubjectAction(null)}
+          onCreate={createSubject}
+          onRename={changeSubjectName}
+          onDelete={deleteSubject}
+        />
+        <ConversationSwitchDialog
+          pending={pendingSwitch}
+          onClose={() => setPendingSwitch(null)}
+        />
+        <div className={styles.shell}>
+          <StudyProvider
+            allowed={studyAllowed}
+            sceneKey={`${view}:${documentKey}:${currentConversation?.id ?? ""}:${note?.id ?? ""}:${noteEditor?.id ?? ""}:${selectionNote?.id ?? ""}`}
+            aiEvent={aiStudyEvent(ai.turns, Date.now())}
           >
-            {view === "reading" && (
-              <Reader
-                onAddReference={addReference}
-                key={`reader:${selection.courseId}:${selection.version}:${selection.kind}:${selection.itemId}:${selection.kind === "textbooks" ? "pdf" : selection.chapterIndex}`}
-                availableCourses={availableCourses}
-                loadPdf={content.readPdf}
-                zoom={readingState.documents[documentKey]?.zoom ?? 1}
-                onZoomChange={setReadingZoom}
-                continuous={
-                  readingState.documents[documentKey]?.continuous ?? true
+            <Sidebar
+              subjects={subjects}
+              onRefreshData={() => dataRefresh.refresh(undefined, false, true)}
+              onSubjectAction={setSubjectAction}
+              ai={ai}
+              view={view}
+              activeScope={sidebarScope}
+              settings={data.settings}
+              teachingActivity={teachingActivity}
+              onSelectTeachingActivity={setTeachingActivity}
+              onNavigate={(next) => {
+                if (next === "conversations") {
+                  const conversation =
+                    currentConversation ??
+                    data.conversations.find(
+                      (item) =>
+                        item.id === activeConversationId &&
+                        item.status !== "deleted",
+                    ) ??
+                    latestConversation(data.conversations);
+                  if (conversation) {
+                    openConversation(conversation);
+                    return;
+                  }
                 }
-                onContinuousChange={setReadingContinuous}
-                onPageScroll={savePdfScroll}
-                removed={!officialLibrary.scopeForSelection(selection)}
-                historical={officialLibrary.isHistorical(selection)}
-                selection={selection}
-                fontSize={data.settings.fontSize}
-                onChange={selectContent}
-                onBack={returnToList}
-                position={readingPosition}
-                onPositionChange={setReadingPosition}
-                relatedContent={relatedContent(selection)}
-              />
-            )}
-            {view === "materials" && (
-              <Suspense fallback={<p role="status">正在打开资料阅读器…</p>}>
-                <MaterialReader
-                  onAddReference={addReference}
-                  library={materials}
-                  location={data.materialSelection ?? null}
-                  onChange={selectMaterial}
-                  onBack={returnToList}
-                  position={readingPosition}
-                  onPageScroll={savePdfScroll}
+                setView(next);
+              }}
+              onSelectContent={selectCourse}
+              onSettingsChange={(settings) =>
+                updateData((previous) => ({ ...previous, settings }))
+              }
+            />
+          </StudyProvider>
+          <section className={styles.workspace} aria-label="学习工作区">
+            <ResizableColumns
+              key={resizable ? "split" : "static"}
+              className={styles.columns}
+              hidden={
+                view === "robots" || view === "content" || view === "teaching"
+              }
+              enabled={resizable}
+              separatorLabel={
+                view === "notes" ? "调整笔记列表与正文宽度" : undefined
+              }
+              ratio={data.settings.readingPaneRatio ?? 0.5}
+              onRatioChange={(readingPaneRatio) =>
+                updateData((previous) => ({
+                  ...previous,
+                  settings: { ...previous.settings, readingPaneRatio },
+                }))
+              }
+            >
+              {view === "reading" && (
+                <Reader
+                  key={`reader:${selection.courseId}:${selection.version}:${selection.kind}:${selection.itemId}:${selection.kind === "textbooks" ? "pdf" : selection.chapterIndex}`}
+                  availableCourses={availableCourses}
+                  loadPdf={content.readPdf}
+                  zoom={readingState.documents[documentKey]?.zoom ?? 1}
+                  onZoomChange={setReadingZoom}
                   continuous={
                     readingState.documents[documentKey]?.continuous ?? true
                   }
                   onContinuousChange={setReadingContinuous}
-                  zoom={readingState.documents[documentKey]?.zoom ?? 1}
-                  onZoomChange={setReadingZoom}
-                  relatedContent={
-                    data.materialSelection
-                      ? relatedContent(data.materialSelection)
-                      : undefined
-                  }
+                  onPageScroll={savePdfScroll}
+                  removed={!officialLibrary.scopeForSelection(selection)}
+                  historical={officialLibrary.isHistorical(selection)}
+                  selection={selection}
+                  fontSize={data.settings.fontSize}
+                  onChange={selectContent}
+                  onBack={returnToList}
+                  position={readingPosition}
+                  onPositionChange={setReadingPosition}
+                  relatedContent={relatedContent(selection)}
                 />
-              </Suspense>
-            )}
-            {view === "library" && (
-              <SubjectContentList
-                scope={libraryScope}
-                directory={subjectDirectory}
-                onCreateSubject={createSubject}
-                onUploaded={(courseId) =>
-                  setLibraryScope({ courseId, kind: "textbooks" })
-                }
-                official={officialLibrary}
-                onRemoveOfficial={deleteOfficial}
-                library={materials}
-                selection={selection}
-                materialSelection={data.materialSelection ?? null}
-                onOpen={(location) =>
-                  void readOfficial(officialEntryId(location), location)
-                }
-                onOpenMaterial={(location) =>
-                  selectMaterial(restoreReadingLocation(readingState, location))
-                }
-              />
-            )}
-            {view === "library" && (
-              <section
-                className={styles.libraryWelcome}
-                aria-label="学习讨论提示"
-              >
-                <NotebookPen aria-hidden="true" />
-                <h2>
-                  {libraryScope.kind === "textbooks"
-                    ? "打开学习资料，开始讨论"
-                    : "选择题目，开始讨论"}
-                </h2>
-                <p>
-                  {libraryScope.kind === "textbooks"
-                    ? "在左侧列表中打开资料，即可围绕阅读内容提问。"
-                    : "在左侧列表中打开题目，即可查看内容、参考答案并提问。"}
-                </p>
-              </section>
-            )}
-            {view === "conversations" && (
-              <ConversationList
-                relations={relations}
-                conversations={data.conversations.filter(
-                  (item) => item.status !== "deleted",
-                )}
-                robots={data.robots}
-                activeId={currentConversation?.id ?? null}
-                onOpen={openConversation}
-                onReturn={(conversation) =>
-                  openConversation(conversation, true)
-                }
-                onNew={() =>
-                  void newConversation().catch((error) =>
-                    setCommandError(String(error)),
-                  )
-                }
-                onUpdate={async (id, change, revision) => {
-                  const target = data.conversations.find(
-                    (item) => item.id === id,
-                  );
-                  const binding = target ? activeSessionBinding(target) : null;
-                  await saveChanges((previous) =>
-                    updateConversation(previous, id, change, revision),
-                  );
-                  if (change.title !== undefined) {
-                    if (!binding?.externalSessionId) {
-                      showSaved("名称已保存");
-                      return;
+              )}
+              {view === "materials" && (
+                <Suspense fallback={<p role="status">正在打开资料阅读器…</p>}>
+                  <MaterialReader
+                    library={materials}
+                    location={data.materialSelection ?? null}
+                    onChange={selectMaterial}
+                    onBack={returnToList}
+                    position={readingPosition}
+                    onPageScroll={savePdfScroll}
+                    continuous={
+                      readingState.documents[documentKey]?.continuous ?? true
                     }
-                    try {
-                      const result = await localAi.renameSession(
-                        id,
-                        change.title,
-                        binding,
-                      );
-                      showSaved(
-                        result.status === "synced"
-                          ? "名称已保存，第三方会话已同步改名"
-                          : "名称已保存，当前服务不支持同步改名",
-                      );
-                    } catch (error) {
-                      throw new Error(
-                        `本地名称已保存。第三方同步失败：${error instanceof Error ? error.message : "请求失败。"}可再次保存重试。`,
-                        { cause: error },
-                      );
+                    onContinuousChange={setReadingContinuous}
+                    zoom={readingState.documents[documentKey]?.zoom ?? 1}
+                    onZoomChange={setReadingZoom}
+                    relatedContent={
+                      data.materialSelection
+                        ? relatedContent(data.materialSelection)
+                        : undefined
                     }
+                  />
+                </Suspense>
+              )}
+              {view === "library" && (
+                <SubjectContentList
+                  scope={libraryScope}
+                  directory={subjectDirectory}
+                  onCreateSubject={createSubject}
+                  onUploaded={(courseId) =>
+                    setLibraryScope({ courseId, kind: "textbooks" })
                   }
-                }}
-                onDelete={async (id) => {
-                  for (const turn of Object.values(ai.turns))
-                    if (turn.conversationId === id && turn.status === "running")
-                      await ai.cancel(turn.id);
-                  await saveChanges((previous) =>
-                    deleteConversation(previous, id),
-                  );
-                  if (activeConversationId === id)
-                    setActiveConversationId(null);
-                }}
-              />
-            )}
-            {view === "notes" && (
-              <NotebookList
-                library={noteLibrary}
-                directory={subjectDirectory}
-                activeNoteId={note?.id ?? null}
-                onSelect={setNoteId}
-                onAction={async (action) => {
-                  await saveChanges((previous) =>
-                    applyNoteAction(
-                      previous,
-                      createSubjectDirectory(sourceCourses, previous.subjects),
-                      action,
-                    ),
-                  );
-                }}
-              />
-            )}
-            {view === "notes" && (
-              <section
-                className={styles.note}
-                aria-label="笔记阅读区"
-                key={note?.id ?? "empty"}
-              >
-                <PaneHeader
-                  icon={NotebookPen}
-                  title={noteNotebook?.title ?? "笔记"}
-                  detail={
-                    noteMaterial && (
-                      <button
-                        type="button"
-                        className={styles.noteSource}
-                        aria-label="查看原文"
-                        title={`来源：${noteMaterial.title} · ${noteMaterial.position}${noteMaterial.removed ? "（资料已从列表删除）" : ""}`}
-                        disabled={!noteMaterial.available}
-                        onClick={() => {
-                          if (noteSource && "materialId" in noteSource)
-                            selectMaterial({ ...noteSource });
-                          else if (noteSource) selectContent({ ...noteSource });
-                        }}
-                      >
-                        <Link aria-hidden="true" />
-                        <span>
-                          {noteMaterial.title} · {noteMaterial.position}
-                          {noteMaterial.removed && "（资料已从列表删除）"}
-                        </span>
-                      </button>
-                    )
+                  official={officialLibrary}
+                  onRemoveOfficial={deleteOfficial}
+                  library={materials}
+                  selection={selection}
+                  materialSelection={data.materialSelection ?? null}
+                  onOpen={(location) =>
+                    void readOfficial(officialEntryId(location), location)
                   }
-                  actions={
-                    note && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setNoteEditor({
-                            id: note.id,
-                            note: structuredClone(note),
-                            source: sourceForNote(note),
-                          })
-                        }
-                      >
-                        <SquarePen aria-hidden="true" />
-                        编辑笔记
-                      </button>
+                  onOpenMaterial={(location) =>
+                    selectMaterial(
+                      restoreReadingLocation(readingState, location),
                     )
                   }
                 />
-                <div className={styles.noteViewport}>
-                  {note ? (
-                    <article
-                      className={styles.notePaper}
-                      aria-label="笔记正文"
-                      style={{ fontSize: data.settings.fontSize }}
-                    >
-                      <header className={styles.noteHeading}>
-                        <h1>{note.title}</h1>
-                      </header>
-                      {noteDisplayTagIds.length > 0 && (
-                        <div className={styles.noteTags}>
-                          {noteDisplayTagIds.map((id) => (
-                            <span key={id}>
-                              {noteTags(noteLibrary, subjectDirectory).find(
-                                (tag) => tag.id === id,
-                              )?.title ?? "标签不可用"}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                      <div className={styles.noteBody}>
-                        <Markdown>{note.content}</Markdown>
-                      </div>
-                    </article>
-                  ) : (
-                    <div className={styles.noteEmpty}>
-                      <NotebookPen aria-hidden="true" />
-                      <h2>暂无笔记</h2>
-                      <p>可以在左侧展开笔记本查看内容。</p>
-                    </div>
+              )}
+              {view === "library" && (
+                <section
+                  className={styles.libraryWelcome}
+                  aria-label="学习讨论提示"
+                >
+                  <NotebookPen aria-hidden="true" />
+                  <h2>
+                    {libraryScope.kind === "textbooks"
+                      ? "打开学习资料，开始讨论"
+                      : "选择题目，开始讨论"}
+                  </h2>
+                  <p>
+                    {libraryScope.kind === "textbooks"
+                      ? "在左侧列表中打开资料，即可围绕阅读内容提问。"
+                      : "在左侧列表中打开题目，即可查看内容、参考答案并提问。"}
+                  </p>
+                </section>
+              )}
+              {view === "conversations" && (
+                <ConversationList
+                  relations={relations}
+                  conversations={data.conversations.filter(
+                    (item) => item.status !== "deleted",
                   )}
-                </div>
-              </section>
-            )}
-            {(view === "reading" ||
-              view === "conversations" ||
-              view === "materials") && (
-              <ChatPanel
-                key={`chat:${chatDraftKey}`}
-                draft={chatDrafts[chatDraftKey] ?? ""}
-                onDraftChange={(draft) => {
-                  setChatDrafts((previous) => ({
-                    ...previous,
-                    [chatDraftKey]: draft,
-                  }));
-                  updateData((previous) => ({
-                    ...previous,
-                    drafts: { ...previous.drafts, [chatDraftKey]: draft },
-                  }));
+                  robots={data.robots}
+                  activeId={currentConversation?.id ?? null}
+                  onOpen={openConversation}
+                  onReturn={(conversation) =>
+                    openConversation(conversation, true)
+                  }
+                  onNew={() =>
+                    void newConversation().catch((error) => {
+                      if (!isConversationLimitError(error))
+                        setCommandError(String(error));
+                    })
+                  }
+                  onUpdate={manageConversation}
+                  onDelete={removeConversation}
+                />
+              )}
+              {view === "notes" && (
+                <NotebookList
+                  library={noteLibrary}
+                  directory={subjectDirectory}
+                  activeNoteId={note?.id ?? null}
+                  onSelect={setNoteId}
+                  onAction={async (action) => {
+                    await saveChanges((previous) =>
+                      applyNoteAction(
+                        previous,
+                        createSubjectDirectory(
+                          sourceCourses,
+                          previous.subjects,
+                        ),
+                        action,
+                      ),
+                    );
+                  }}
+                />
+              )}
+              {view === "notes" && (
+                <section
+                  className={styles.note}
+                  aria-label="笔记阅读区"
+                  data-study-area="note"
+                  key={note?.id ?? "empty"}
+                >
+                  <PaneHeader
+                    icon={NotebookPen}
+                    title={noteNotebook?.title ?? "笔记"}
+                    detail={
+                      note?.excerpt?.message ? (
+                        <button
+                          className={styles.noteSource}
+                          title={note.excerpt.title}
+                          onClick={() => openReference(note.excerpt!)}
+                        >
+                          <Link aria-hidden="true" />
+                          来源对话
+                        </button>
+                      ) : (
+                        noteMaterial && (
+                          <button
+                            type="button"
+                            className={styles.noteSource}
+                            aria-label="查看原文"
+                            title={`来源：${noteMaterial.title} · ${noteMaterial.position}${noteMaterial.removed ? "（资料已从列表删除）" : ""}`}
+                            disabled={!noteMaterial.available}
+                            onClick={() => {
+                              if (noteSource && "materialId" in noteSource)
+                                selectMaterial({ ...noteSource });
+                              else if (noteSource)
+                                selectContent({ ...noteSource });
+                            }}
+                          >
+                            <Link aria-hidden="true" />
+                            <span>
+                              {noteMaterial.title} · {noteMaterial.position}
+                              {noteMaterial.removed && "（资料已从列表删除）"}
+                            </span>
+                          </button>
+                        )
+                      )
+                    }
+                    actions={
+                      note && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setNoteEditor({
+                              id: note.id,
+                              note: structuredClone(note),
+                              source: sourceForNote(note),
+                            })
+                          }
+                        >
+                          <SquarePen aria-hidden="true" />
+                          编辑笔记
+                        </button>
+                      )
+                    }
+                  />
+                  <div className={styles.noteViewport}>
+                    {note ? (
+                      <article
+                        className={styles.notePaper}
+                        aria-label="笔记正文"
+                        style={{ fontSize: data.settings.fontSize }}
+                      >
+                        <header className={styles.noteHeading}>
+                          <h1>{note.title}</h1>
+                        </header>
+                        {noteDisplayTagIds.length > 0 && (
+                          <div className={styles.noteTags}>
+                            {noteDisplayTagIds.map((id) => (
+                              <span key={id}>
+                                {noteTags(noteLibrary, subjectDirectory).find(
+                                  (tag) => tag.id === id,
+                                )?.title ?? "标签不可用"}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        <div className={styles.noteBody}>
+                          <Markdown>{note.content}</Markdown>
+                        </div>
+                      </article>
+                    ) : (
+                      <div className={styles.noteEmpty}>
+                        <NotebookPen aria-hidden="true" />
+                        <h2>暂无笔记</h2>
+                        <p>可以在左侧展开笔记本查看内容。</p>
+                      </div>
+                    )}
+                  </div>
+                </section>
+              )}
+              {(view === "reading" ||
+                view === "conversations" ||
+                view === "materials") && (
+                <ChatPanel
+                  key={`chat:${chatDraftKey}`}
+                  draft={chatDrafts[chatDraftKey] ?? ""}
+                  onDraftChange={(draft) => {
+                    setChatDrafts((previous) => ({
+                      ...previous,
+                      [chatDraftKey]: draft,
+                    }));
+                    updateData((previous) => ({
+                      ...previous,
+                      drafts: { ...previous.drafts, [chatDraftKey]: draft },
+                    }));
+                  }}
+                  robots={data.robots}
+                  robotId={currentRobot?.id ?? null}
+                  conversation={currentConversation}
+                  focusMessage={messageFocus}
+                  conversations={data.conversations}
+                  onUpdate={manageConversation}
+                  onDelete={removeConversation}
+                  recommendationsExpanded={recommendationsExpanded}
+                  onToggleRecommendations={() =>
+                    setRecommendationsExpanded((expanded) => !expanded)
+                  }
+                  contextLabel={contextLabel}
+                  onRobotChange={changeRobot}
+                  onSend={saveQuestion}
+                  onRetryMessage={retryQuestion}
+                  onOpenReference={openReference}
+                  references={draftReferences}
+                  onRemoveReference={(id) =>
+                    updateReferences(referenceDraftKey, (previous) =>
+                      previous.filter((item) => item.id !== id),
+                    )
+                  }
+                  ai={ai}
+                  aiSelection={chatDefaults}
+                  onAiSelectionSave={saveRobotAi}
+                />
+              )}
+            </ResizableColumns>
+            {view === "content" && (
+              <ContentManager
+                content={content}
+                library={officialLibrary}
+                operation={officialOperation}
+                onRemove={deleteOfficial}
+                onInstall={async (id, update) => {
+                  const saved = await officialService.acquire(id, update);
+                  if (saved) showSaved("资料已保存");
+                  return saved;
                 }}
-                robots={data.robots}
-                robotId={currentRobot?.id ?? null}
-                conversation={currentConversation}
-                contextLabel={contextLabel}
-                recommendationsExpanded={recommendationsExpanded}
-                onToggleRecommendations={() =>
-                  setRecommendationsExpanded((expanded) => !expanded)
-                }
-                onRobotChange={changeRobot}
-                onSend={saveQuestion}
-                onRetryMessage={retryQuestion}
-                onOpenReference={openReference}
-                references={draftReferences}
-                onRemoveReference={(id) =>
-                  updateReferences(referenceDraftKey, (previous) =>
-                    previous.filter((item) => item.id !== id),
-                  )
-                }
-                ai={ai}
-                aiSettingsOpen={aiSettingsSource === "chat"}
-                onConfigure={() =>
-                  setAiSettingsSource((source) =>
-                    source === "chat" ? null : "chat",
-                  )
-                }
+                onRead={(id) => readOfficial(id, selection, true)}
               />
             )}
-          </ResizableColumns>
-          {view === "content" && (
-            <ContentManager
-              content={content}
-              library={officialLibrary}
-              operation={officialOperation}
-              onRemove={deleteOfficial}
-              onInstall={async (id, update) => {
-                const saved = await officialService.acquire(id, update);
-                if (saved) showSaved("资料已保存");
-                return saved;
-              }}
-              onRead={(id) => readOfficial(id, selection, true)}
-            />
-          )}
-          {view === "teaching" && (
-            <section
-              className={styles.teachingRoom}
-              aria-label={selectedTeachingActivity.title}
-            >
-              <h1>{selectedTeachingActivity.title}</h1>
-            </section>
-          )}
-          <div className={styles.robots} hidden={view !== "robots"}>
-            <RobotsPage
-              robots={data.robots}
-              defaultRobotId={data.defaultRobotId}
-              onChange={changeRobots}
-              onUse={newConversation}
-              aiSettings={ai.settings}
-              drafts={robotDrafts}
-              onDraftsChange={setRobotDrafts}
-            />
-          </div>
-        </section>
-      </div>
-      {noteEditor && (
-        <NoteEditorDialog
-          key={noteEditor.id}
-          target={noteEditor}
-          library={noteLibrary}
-          sourceLabel={
-            editorMaterial
-              ? `${editorMaterial.title} · ${editorMaterial.position}`
-              : ""
-          }
-          onClose={() => setNoteEditor(null)}
-          onSave={async (value, revision) => {
-            const target = noteEditor;
-            await saveChanges((previous) => {
-              if (target.note)
-                return editNote(previous, target.id, value, revision);
-              const official = new OfficialLibrary(readSnapshot(), previous);
-              const material = target.source
-                ? new LearningMaterial(
-                    target.source,
-                    readSnapshot().allCourses,
-                    materials.items,
-                    official,
-                  )
-                : null;
-              return createNote(
-                previous,
-                value,
-                target.source,
-                material?.subjectId ?? null,
-                target.id,
-              );
-            });
-            setNoteId(target.id);
-            setView("notes");
-            showSaved("笔记已保存");
-          }}
-        />
-      )}
-      <footer className={styles.footer}>
-        {commandError && <span role="alert">{commandError}</span>}
-        <span
-          role={
-            saveState === "error" || !storageStatus.online ? "alert" : "status"
-          }
-        >
-          {conflict
-            ? "最新记录已变化，未保存内容仍保留，请核对修改冲突"
-            : saveState === "saving"
-              ? "正在保存到本地…"
-              : saveState === "error"
-                ? saveError || "本次更改尚未保存，请重试"
-                : !storageStatus.online
-                  ? "本机服务未连接，正在查看缓存"
-                  : "已保存在 user 目录"}
-        </span>
-        {storageStatus.warning && (
-          <span role="alert">{storageStatus.warning}</span>
-        )}
-        {refreshError && <span role="alert">{refreshError}</span>}
-        {saveState === "error" && !conflict && (
-          <button onClick={retrySave}>重试保存</button>
-        )}
-        {reloadCheckpoint.error && (
-          <span role="alert">{reloadCheckpoint.error}</span>
-        )}
-        {view === "conversations" &&
-          activeConversationId &&
-          data.conversations.some(
-            (item) =>
-              item.id === activeConversationId && item.status === "deleted",
-          ) && (
-            <span role="alert">
-              原对话已删除，输入草稿仍保留；继续提问将创建新对话。
-            </span>
-          )}
-        <RefreshControls
-          data={data}
-          conflicts={conflicts}
-          recoveries={recoveries}
-          onResolve={(index, choice) => {
-            const item = conflicts[index];
-            resolveConflict(index, choice);
-            if (choice === "remote" && item?.path[0] === "drafts") {
-              setChatDrafts((previous) => {
-                const next = { ...previous };
-                const key = item.path[1];
-                if (key) {
-                  if (typeof item.remote === "string") next[key] = item.remote;
-                  else delete next[key];
-                }
-                return next;
+            {view === "teaching" && (
+              <section
+                className={styles.teachingRoom}
+                aria-label={selectedTeachingActivity.title}
+              >
+                <h1>{selectedTeachingActivity.title}</h1>
+              </section>
+            )}
+            <div className={styles.robots} hidden={view !== "robots"}>
+              <RobotsPage
+                robots={data.robots}
+                defaultRobotId={data.defaultRobotId}
+                onChange={changeRobots}
+                onImport={async (robot) => {
+                  const id = crypto.randomUUID();
+                  const saved = await saveChanges(
+                    (previous) => addImportedRobot(previous, robot, id).data,
+                  );
+                  return saved.robots.find((item) => item.id === id)!;
+                }}
+                onUse={newConversation}
+                aiSettings={ai.settings}
+                drafts={robotDrafts}
+                onDraftsChange={setRobotDrafts}
+              />
+            </div>
+          </section>
+        </div>
+        {selectionNote && (
+          <SelectionNoteDialog
+            key={selectionNote.id}
+            id={selectionNote.id}
+            reference={selectionNote.reference}
+            library={noteLibrary}
+            onClose={() => setSelectionNote(null)}
+            onSave={async (destination) => {
+              const { reference, id } = selectionNote;
+              const source = reference.material ?? reference.selection;
+              await saveChanges((previous) => {
+                const original = reference.message
+                  ? previous.conversations.find(
+                      (item) => item.id === reference.message!.conversationId,
+                    )
+                  : undefined;
+                const linkedSource =
+                  source ?? original?.material ?? original?.selection ?? null;
+                const material = linkedSource
+                  ? new LearningMaterial(
+                      linkedSource,
+                      readSnapshot().allCourses,
+                      materials.items,
+                      new OfficialLibrary(readSnapshot(), previous),
+                    )
+                  : null;
+                return createNote(
+                  previous,
+                  {
+                    title:
+                      notePreview(reference.content).slice(0, 80) || "选段笔记",
+                    content: reference.content,
+                    notebookId:
+                      destination.kind === "existing"
+                        ? destination.notebookId
+                        : "notebook-unclassified",
+                    destination,
+                  },
+                  source,
+                  material?.subjectId ?? null,
+                  id,
+                  reference,
+                );
               });
+              setNoteId(id);
+              showSaved("已添加到笔记");
+            }}
+          />
+        )}
+        {noteEditor && (
+          <NoteEditorDialog
+            key={noteEditor.id}
+            target={noteEditor}
+            library={noteLibrary}
+            sourceLabel={
+              editorMaterial
+                ? `${editorMaterial.title} · ${editorMaterial.position}`
+                : ""
             }
-          }}
-          chatDrafts={chatDrafts}
-        />
-        <PwaControls prepareReload={prepareReload} />
-      </footer>
-    </main>
+            onClose={() => setNoteEditor(null)}
+            onSave={async (value, revision) => {
+              const target = noteEditor;
+              await saveChanges((previous) => {
+                if (target.note)
+                  return editNote(previous, target.id, value, revision);
+                const official = new OfficialLibrary(readSnapshot(), previous);
+                const material = target.source
+                  ? new LearningMaterial(
+                      target.source,
+                      readSnapshot().allCourses,
+                      materials.items,
+                      official,
+                    )
+                  : null;
+                return createNote(
+                  previous,
+                  value,
+                  target.source,
+                  material?.subjectId ?? null,
+                  target.id,
+                );
+              });
+              setNoteId(target.id);
+              setView("notes");
+              showSaved("笔记已保存");
+            }}
+          />
+        )}
+        <StatusBar>
+          <RefreshControls
+            saveState={saveState}
+            conflict={conflict}
+            online={storageStatus.online}
+            errors={[
+              commandError,
+              saveError,
+              refreshError,
+              storageStatus.warning,
+              reloadCheckpoint.error ?? "",
+            ]}
+            unsavedOpen={unsavedRecordsOpen}
+            onUnsavedOpenChange={setUnsavedRecordsOpen}
+            detailsOpen={recordDetailsOpen}
+            onDetailsOpenChange={setRecordDetailsOpen}
+            onRestoreRecovery={restoreRecovery}
+            onRetry={retrySave}
+            data={data}
+            conflicts={conflicts}
+            recoveries={recoveries}
+            onResolve={(index, choice) => {
+              const item = conflicts[index];
+              resolveConflict(index, choice);
+              if (choice === "remote" && item?.path[0] === "drafts") {
+                setChatDrafts((previous) => {
+                  const next = { ...previous };
+                  const key = item.path[1];
+                  if (key) {
+                    if (typeof item.remote === "string")
+                      next[key] = item.remote;
+                    else delete next[key];
+                  }
+                  return next;
+                });
+              }
+            }}
+            chatDrafts={chatDrafts}
+          />
+          <PwaControls
+            prepareReload={prepareReload}
+            saveFailure={
+              saveState === "error" || conflict
+                ? conflict
+                  ? "记录存在修改冲突，请先选择要保留的内容。"
+                  : saveError || "学习记录未能保存。"
+                : ""
+            }
+            saveConflict={conflict}
+            onRetrySave={async () => {
+              await retrySave();
+              return readSaveState() === "saved";
+            }}
+            onReviewSave={() => {
+              if (conflict) setUnsavedRecordsOpen(true);
+              else setRecordDetailsOpen(true);
+            }}
+          />
+          <ConversationStatus
+            conversations={data.conversations}
+            turns={ai.turns}
+            connectionErrors={ai.connectionErrors}
+            activeId={currentConversation?.id ?? activeConversationId}
+            onOpen={(conversation) =>
+              openConversation(conversation, conversation.status === "active")
+            }
+          />
+        </StatusBar>
+      </main>
+    </SelectionActionsProvider>
   );
 }

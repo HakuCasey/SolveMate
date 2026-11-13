@@ -1,5 +1,5 @@
 import { isSupportedReadingLocation } from "../reading/reference";
-import { requireCurrentRecord } from "../refresh/errors";
+import { DataRequestError, requireCurrentRecord } from "../refresh/errors";
 import type {
   AppData,
   Conversation,
@@ -9,10 +9,15 @@ import type {
   MaterialLocation,
   RobotAiDefaults,
 } from "@solvemate/contracts";
+import {
+  requireConversationCapacity,
+  uniqueConversationTitle,
+} from "./conversation-limits";
 import { clientRuntime } from "../version";
 import { retainSessionBindings } from "../ai/session-bindings";
 import { initialConversationAi, resolveDefaults } from "../ai/robot-config";
-import { isRobotModified } from "./robots";
+import { maxRobots } from "@solvemate/contracts";
+import { isRobotModified, robotNameError, robotLimitMessage } from "./robots";
 
 export function sameContent(
   a: ReadingSelection | null,
@@ -71,13 +76,14 @@ export function createConversation(
   sourceId: string | null = null,
   material: MaterialLocation | null = null,
 ): Conversation {
+  requireConversationCapacity(data.conversations, "active");
   const robot = data.robots.find((item) => item.id === robotId),
     now = Date.now();
   return {
     schemaVersion: 3,
     revision: 1,
     id: crypto.randomUUID(),
-    title: "新对话",
+    title: uniqueConversationTitle(data.conversations, "新对话"),
     titleSource: "default",
     label: null,
     status: "active",
@@ -119,6 +125,8 @@ export function updateConversation(
     expectedRevision,
     "对话",
   );
+  if (change.status === "active" || change.status === "archived")
+    requireConversationCapacity(data.conversations, change.status, id);
   const title = change.title?.trim(),
     label = change.label?.trim();
   if (title !== undefined && (!title || title.length > 100))
@@ -166,7 +174,7 @@ export function deleteConversation(data: AppData, id: string): AppData {
   };
 }
 
-/** 教师默认与同一服务的会话模型在一次数据提交中更新，历史执行不变。 */
+/** 更新机器人默认选择；只有显式指定的当前对话同步选择，历史对话保持原值。 */
 export function applyRobotAi(
   data: AppData,
   robotId: string,
@@ -216,9 +224,15 @@ export function replaceRobots(
   defaultId: string | null,
   settings?: AiSettings | null,
 ): AppData {
+  if (robots.length > maxRobots && robots.length > data.robots.length)
+    throw new DataRequestError(robotLimitMessage, "robot_limit_reached", 422);
   let next = data;
   for (const robot of robots) {
     const saved = next.robots.find((item) => item.id === robot.id);
+    if (!saved || isRobotModified(saved, robot)) {
+      const error = robotNameError(robots, robot);
+      if (error) throw new DataRequestError(error, "robot_name_duplicate", 422);
+    }
     if (
       saved &&
       JSON.stringify(saved.aiDefaults) !== JSON.stringify(robot.aiDefaults)
@@ -243,7 +257,7 @@ export function replaceRobots(
         isRobotModified(saved, robot) &&
         saved.revision !== robot.revision
       )
-        requireCurrentRecord(saved, robot.revision, "教师配置");
+        requireCurrentRecord(saved, robot.revision, "机器人配置");
       return saved && isRobotModified(saved, robot)
         ? { ...robot, revision: saved.revision + 1 }
         : robot;

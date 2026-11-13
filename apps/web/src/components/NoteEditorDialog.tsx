@@ -6,7 +6,7 @@ import { useEditRevision } from "../refresh/useEditRevision";
 import { unclassifiedNotebookId, type NoteContent } from "../state/notes";
 import styles from "./NoteManagement.module.css";
 import editor from "./NoteEditorDialog.module.css";
-import { SettingsSelect } from "./SettingsSelect";
+import { NotebookDestinationSelect } from "./NotebookDestinationSelect";
 
 export interface NoteEditorTarget {
   id: string;
@@ -37,7 +37,9 @@ export function NoteEditorDialog({
   const dirty =
     value.title !== (initial?.title ?? "") ||
     value.content !== (initial?.content ?? "") ||
-    value.notebookId !== (initial?.notebookId ?? unclassifiedNotebookId);
+    (!initial &&
+      (value.destination?.kind === "new" ||
+        value.notebookId !== unclassifiedNotebookId));
   const release = useDraftBackup(
     `note-editor:${target.id}`,
     "笔记正文草稿",
@@ -81,7 +83,9 @@ export function NoteEditorDialog({
       <Dialog.Portal>
         <Dialog.Overlay className={styles.overlay} />
         <Dialog.Content
+          data-study-area="note"
           className={`${styles.dialog} ${editor.editor}`}
+          aria-describedby={initial ? undefined : "note-editor-source"}
           onInteractOutside={(event) => {
             if (dirty || saving) event.preventDefault();
           }}
@@ -90,7 +94,11 @@ export function NoteEditorDialog({
           }}
         >
           <Dialog.Title>{initial ? "编辑笔记" : "记录笔记"}</Dialog.Title>
-          <Dialog.Description>{sourceLabel || "独立笔记"}</Dialog.Description>
+          {!initial && (
+            <Dialog.Description id="note-editor-source">
+              {sourceLabel || "独立笔记"}
+            </Dialog.Description>
+          )}
           <label>
             标题
             <input
@@ -102,28 +110,27 @@ export function NoteEditorDialog({
               }
             />
           </label>
-          <SettingsSelect
-            label="笔记本"
-            value={value.notebookId}
-            options={[
-              ...(!library.notebooks.some(
-                (item) => item.id === value.notebookId,
-              )
-                ? [
-                    {
-                      value: value.notebookId,
-                      name: "原笔记本已删除，请重新选择",
-                      disabled: true,
-                    },
-                  ]
-                : []),
-              ...library.notebooks.map((item) => ({
-                value: item.id,
-                name: item.title,
-              })),
-            ]}
-            onValueChange={(notebookId) => setValue({ ...value, notebookId })}
-          />
+          {!initial && (
+            <NotebookDestinationSelect
+              library={library}
+              value={
+                value.destination ?? {
+                  kind: "existing",
+                  notebookId: value.notebookId,
+                }
+              }
+              disabled={saving}
+              onChange={(destination) =>
+                setValue({
+                  ...value,
+                  destination,
+                  ...(destination.kind === "existing"
+                    ? { notebookId: destination.notebookId }
+                    : {}),
+                })
+              }
+            />
+          )}
           <label>
             正文
             <textarea

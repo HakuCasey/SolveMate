@@ -26,7 +26,7 @@ SolveMate 面向学生的自主学习与教师的智能备课，按长期发展�
 | AI 接入          | 独立本机服务，Python + FastAPI     | 已通过 ACP 连接 DeepSeek Harness，处理模型选项、回复、停止、权限与会话恢复；其他 API 和 harness 分别适配。   |
 | 官方内容服务     | Python + FastAPI                   | 便于现有维护者开发内容服务和数据工具。实现可随需要调整，客户端依赖明确的数据格式和接口。                     |
 
-界面配套方案沿用 Radix Primitives 与 CSS Modules，内容展示使用 Markdown 与 KaTeX；PWA 缓存使用 vite-plugin-pwa / Workbox。版本由 npm 锁文件确定，测试使用 Vitest，检查使用 TypeScript、ESLint 和 Prettier。
+界面配套方案沿用 Radix Primitives 与 CSS Modules，学习资料使用 PDF.js，题目与笔记使用 Markdown 与 KaTeX；PWA 缓存使用 vite-plugin-pwa / Workbox。版本由 npm 锁文件确定，测试使用 Vitest，检查使用 TypeScript、ESLint 和 Prettier。
 
 桌面外壳、移动端与小程序框架尚未选定。本机 AI 记录已使用 SQLite；后续桌面端若迁移网页数据，需要设计导入流程。不同平台可以复用数据定义和适合复用的业务代码，界面、文件访问和连接能力按平台适配。
 

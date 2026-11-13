@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import { defaultTheme } from "./default";
 import { colorVariables, type ThemeDefinition } from "./definition";
 import { applyTheme, resolveTheme } from "./theme";
+import { findTheme, themes } from "./presets";
 
 const customTheme: ThemeDefinition = {
   schemaVersion: 1,
@@ -25,6 +26,29 @@ const customTheme: ThemeDefinition = {
 };
 
 describe("theme configuration", () => {
+  it("resolves every built-in tone in both modes and defaults old or unknown settings to crystal", () => {
+    expect(findTheme()).toBe(defaultTheme);
+    expect(findTheme("unknown")).toBe(defaultTheme);
+    expect(themes.map((theme) => theme.name)).toEqual([
+      "水晶",
+      "晴空",
+      "谷雨",
+      "灰度",
+    ]);
+    for (const theme of themes)
+      for (const mode of ["light", "dark"] as const) {
+        const resolved = resolveTheme(findTheme(theme.id), mode);
+        expect(resolved.issues).toEqual([]);
+        expect(resolved.id).toBe(theme.id);
+        expect(resolved.colors.accent).toBe(theme.colors[mode].accent);
+        if (theme.id === "grayscale")
+          for (const value of Object.values(resolved.colors)) {
+            // 灰度不对图片或 PDF 应用滤镜，只保证主题本身没有彩色残留。
+            expect(value.slice(1, 3)).toBe(value.slice(3, 5));
+            expect(value.slice(3, 5)).toBe(value.slice(5, 7));
+          }
+      }
+  });
   it("provides complete default palettes and distinguishes light from dark", () => {
     for (const appearance of ["light", "dark"] as const) {
       const resolved = resolveTheme(defaultTheme, appearance);
@@ -146,9 +170,14 @@ describe("theme configuration", () => {
   it("keeps component colors centralized and defines every application color variable", () => {
     const root = dirname(dirname(fileURLToPath(import.meta.url)));
     const base = readFileSync(join(root, "theme/base.css"), "utf8");
+    const globalStyles = readFileSync(join(root, "styles.css"), "utf8");
     const declared = new Set<string>([
       ...Object.values(colorVariables),
       ...Array.from(base.matchAll(/(--sm-[\w-]+)\s*:/g), (match) => match[1]),
+      ...Array.from(
+        globalStyles.matchAll(/(--sm-[\w-]+)\s*:/g),
+        (match) => match[1],
+      ),
     ]);
     const files = readdirSync(root, { recursive: true })
       .map(String)

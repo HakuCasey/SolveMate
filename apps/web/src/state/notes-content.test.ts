@@ -4,6 +4,7 @@ import { assertAppData } from "../data/validation";
 import {
   createNote,
   editNote,
+  moveNote,
   deleteNote,
   deleteNotebook,
   unclassifiedNotebookId,
@@ -40,7 +41,7 @@ describe("note content and source", () => {
       JSON.parse(JSON.stringify(data)).noteLibrary.notes[0].source,
     ).toEqual(source);
   });
-  it("edits content and notebook without changing source, identity or tags", () => {
+  it("edits content without changing notebook, source, identity or tags", () => {
     const initial = createNote(
       createInitialData(),
       values,
@@ -55,7 +56,6 @@ describe("note content and source", () => {
         ...values,
         title: "指针与地址",
         content: "- 新的理解",
-        notebookId: "notebook-c-language",
       },
       1,
     );
@@ -64,7 +64,7 @@ describe("note content and source", () => {
       title: "指针与地址",
       content: "- 新的理解",
       summary: "新的理解",
-      notebookId: "notebook-c-language",
+      notebookId: unclassifiedNotebookId,
       revision: 2,
       source,
       tagIds: ["subject:c-language"],
@@ -72,6 +72,104 @@ describe("note content and source", () => {
     assertAppData(changed);
     expect(() => editNote(changed, "note-new", values, 1)).toThrow("已更新");
     expect(initial.noteLibrary!.notes[0].revision).toBe(1);
+  });
+  it("moves to an existing or new notebook without changing content or source", () => {
+    const initial = createNote(
+      createInitialData(),
+      values,
+      source,
+      "c-language",
+      "note-new",
+    );
+    const existing = moveNote(
+      initial,
+      "note-new",
+      {
+        kind: "existing",
+        notebookId: "notebook-c-language",
+      },
+      1,
+    );
+    const created = moveNote(
+      existing,
+      "note-new",
+      {
+        kind: "new",
+        title: "  复习笔记  ",
+      },
+      2,
+      () => "notebook-review",
+    );
+    expect(created.noteLibrary!.notebooks.at(-1)).toEqual({
+      id: "notebook-review",
+      title: "复习笔记",
+      revision: 1,
+    });
+    expect(created.noteLibrary!.notes[0]).toEqual({
+      ...initial.noteLibrary!.notes[0],
+      notebookId: "notebook-review",
+      revision: 3,
+    });
+    assertAppData(created);
+    // 编辑旧表单只保存正文，不能用其中残留的笔记本字段覆盖转移结果。
+    const edited = editNote(created, "note-new", values, 3);
+    expect(edited.noteLibrary!.notes[0].notebookId).toBe("notebook-review");
+    expect(initial.noteLibrary!.notebooks).toHaveLength(3);
+  });
+  it("rejects missing destinations, duplicate names and stale moves before creating a notebook", () => {
+    const initial = createNote(
+      createInitialData(),
+      values,
+      source,
+      null,
+      "note-new",
+    );
+    const before = structuredClone(initial);
+    expect(() =>
+      moveNote(
+        initial,
+        "note-new",
+        {
+          kind: "existing",
+          notebookId: "missing",
+        },
+        1,
+      ),
+    ).toThrow("笔记本已删除");
+    expect(() =>
+      moveNote(
+        initial,
+        "note-new",
+        {
+          kind: "new",
+          title: "高等数学笔记",
+        },
+        1,
+      ),
+    ).toThrow("同名");
+    expect(() =>
+      moveNote(
+        initial,
+        "note-new",
+        {
+          kind: "new",
+          title: "复习",
+        },
+        0,
+      ),
+    ).toThrow("已更新");
+    expect(() =>
+      moveNote(
+        deleteNote(initial, "note-new", 1),
+        "note-new",
+        {
+          kind: "new",
+          title: "复习",
+        },
+        1,
+      ),
+    ).toThrow("已删除");
+    expect(initial).toEqual(before);
   });
   it("keeps failed or deleted edits from recreating a note or its notebook", () => {
     const initial = createNote(
@@ -118,12 +216,7 @@ describe("note content and source", () => {
   it("edits a legacy note without rewriting its legacy source fields", () => {
     const initial = createInitialData(),
       note = initial.noteLibrary!.notes[0];
-    const changed = editNote(
-      initial,
-      note.id,
-      { ...values, notebookId: note.notebookId },
-      note.revision,
-    );
+    const changed = editNote(initial, note.id, values, note.revision);
     expect(changed.noteLibrary!.notes[0]).toMatchObject({
       courseId: note.courseId,
       questionId: note.questionId,

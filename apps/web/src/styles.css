@@ -1,6 +1,9 @@
 @import "./theme/base.css";
 
 :root {
+  /* 下拉选项高于气泡和对话框，保存提示继续位于最上层。 */
+  --sm-layer-popover: 90;
+  --sm-layer-select: 110;
   font-family:
     "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
   font-size: 14px;

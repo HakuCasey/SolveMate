@@ -1,5 +1,5 @@
 import { isStaleData } from "./errors";
-export type DataScope = "records" | "materials" | "content" | "ai";
+export type DataScope = "records" | "materials" | "content" | "ai" | "study";
 interface Resource {
   read: () => Promise<unknown>;
   pending?: Promise<void>;

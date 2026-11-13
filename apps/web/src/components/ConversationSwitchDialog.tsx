@@ -1,3 +1,4 @@
+import { isConversationLimitError } from "../state/conversation-limits";
 import { useState } from "react";
 import { AlertDialog } from "radix-ui";
 import styles from "./ConversationSwitchDialog.module.css";
@@ -59,6 +60,10 @@ function SwitchContent({
                   await pending.confirm();
                   onClose();
                 } catch (failure) {
+                  if (isConversationLimitError(failure)) {
+                    onClose();
+                    return;
+                  }
                   setError(
                     failure instanceof Error
                       ? failure.message

@@ -99,6 +99,8 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // 用户确认启用后由新版接管页面，再由当前窗口决定是否刷新。
+        clientsClaim: true,
         // 教材、题库及公式字体随应用缓存，离线启动不依赖外部字体服务。
         globPatterns: [
           "**/*.{js,mjs,css,html,svg,png,jpg,pdf,woff,woff2,ttf,bcmap,pfb,bin,wasm}",

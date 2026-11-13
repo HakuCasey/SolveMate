@@ -5,6 +5,7 @@ import type {
   NoteLibrary,
   NoteTag,
   LearningLocation,
+  ReadingReference,
 } from "@solvemate/contracts";
 import { assertMetadata } from "@solvemate/contracts";
 import type { SubjectDirectory } from "./subjects";
@@ -16,6 +17,9 @@ const systemNotebook: Notebook = {
   title: "未分类",
   revision: 1,
 };
+
+export type NoteDestination =
+  { kind: "existing"; notebookId: string } | { kind: "new"; title: string };
 
 export type NoteAction =
   | {
@@ -31,6 +35,12 @@ export type NoteAction =
       revision: number;
     }
   | { kind: "deleteNote"; id: string; revision: number }
+  | {
+      kind: "moveNote";
+      id: string;
+      destination: NoteDestination;
+      revision: number;
+    }
   | {
       kind: "tags";
       id: string;
@@ -58,6 +68,8 @@ export function applyNoteAction(
       );
     case "deleteNote":
       return deleteNote(data, action.id, action.revision);
+    case "moveNote":
+      return moveNote(data, action.id, action.destination, action.revision);
     case "tags":
       return saveNoteTags(
         data,
@@ -213,6 +225,62 @@ export function deleteNote(
   };
 }
 
+/** 新建笔记本与转移笔记一次保存，失败时不留下空笔记本或改变原归属。 */
+export function moveNote(
+  data: AppData,
+  id: string,
+  destination: NoteDestination,
+  expected: number,
+  newId = () => `notebook-${crypto.randomUUID()}`,
+): AppData {
+  const library = libraryOf(data);
+  const note = library.notes.find((item) => item.id === id);
+  revision(note, expected);
+  const { notebooks, notebookId } = resolveNoteDestination(
+    library,
+    destination,
+    newId,
+  );
+  if (note.notebookId === notebookId) return data;
+  return {
+    ...data,
+    noteLibrary: {
+      ...library,
+      notebooks,
+      notes: library.notes.map((item) =>
+        item.id === id
+          ? { ...item, notebookId, revision: item.revision + 1 }
+          : item,
+      ),
+    },
+  };
+}
+
+/** 创建与移动共用目标校验；只有整次保存成功后，调用方才提交返回的笔记本列表。 */
+function resolveNoteDestination(
+  library: NoteLibrary,
+  destination: NoteDestination,
+  newId = () => `notebook-${crypto.randomUUID()}`,
+) {
+  let notebooks = library.notebooks;
+  let notebookId: string;
+  if (destination.kind === "existing") {
+    requireNotebook(library, destination.notebookId);
+    notebookId = destination.notebookId;
+  } else {
+    const name = title(destination.title, "笔记本");
+    if (
+      notebooks.some((book) => book.title.toLowerCase() === name.toLowerCase())
+    )
+      throw new Error("已有同名笔记本，请从列表中选择。");
+    notebookId = newId();
+    if (notebooks.some((book) => book.id === notebookId))
+      throw new Error("笔记本编号重复，请重试。");
+    notebooks = [...notebooks, { id: notebookId, title: name, revision: 1 }];
+  }
+  return { notebooks, notebookId };
+}
+
 /** 学科标签不复制名称；重命名学科后，选择框、条目和正文使用同一显示结果。 */
 export function noteTags(
   library: NoteLibrary,
@@ -302,6 +370,7 @@ export function notePreview(content: string): string {
 }
 
 export interface NoteContent {
+  destination?: NoteDestination;
   title: string;
   content: string;
   notebookId: string;
@@ -310,11 +379,15 @@ function requireNotebook(library: NoteLibrary, id: string) {
   if (!library.notebooks.some((item) => item.id === id))
     throw new Error("所选笔记本已删除，请重新选择。");
 }
-function validateContent(value: NoteContent) {
+function validateContent(value: Pick<NoteContent, "title" | "content">) {
   const name = title(value.title, "笔记");
   if (!value.content.trim() || value.content.length > 100000)
     throw new Error("请输入笔记正文，最多支持 100000 个字符。");
-  return { ...value, title: name, summary: notePreview(value.content) };
+  return {
+    title: name,
+    content: value.content,
+    summary: notePreview(value.content),
+  };
 }
 
 export function createNote(
@@ -323,9 +396,15 @@ export function createNote(
   source: LearningLocation | null,
   subjectId: string | null,
   id = `note-${crypto.randomUUID()}`,
+  excerpt?: ReadingReference,
 ): AppData {
   const library = libraryOf(data);
-  requireNotebook(library, value.notebookId);
+  const { notebooks, notebookId } = resolveNoteDestination(
+    library,
+    value.destination ?? { kind: "existing", notebookId: value.notebookId },
+    () => `notebook-${id.replace(/^note-/, "")}`,
+  );
+  if (excerpt) assertMetadata("ReadingReference", excerpt);
   if (library.notes.some((item) => item.id === id))
     throw new Error("这篇笔记已存在，请刷新后查看。");
   if (source)
@@ -335,6 +414,8 @@ export function createNote(
     );
   const note: Note = {
     ...validateContent(value),
+    notebookId,
+    ...(excerpt ? { excerpt: structuredClone(excerpt) } : {}),
     id,
     // 旧字段继续保留；新笔记的资料来源只从 source 读取。
     courseId: "",
@@ -345,14 +426,14 @@ export function createNote(
   };
   return {
     ...data,
-    noteLibrary: { ...library, notes: [note, ...library.notes] },
+    noteLibrary: { ...library, notebooks, notes: [note, ...library.notes] },
   };
 }
 
 export function editNote(
   data: AppData,
   id: string,
-  value: NoteContent,
+  value: Pick<NoteContent, "title" | "content">,
   expected: number,
 ): AppData {
   const library = libraryOf(data);
@@ -360,7 +441,6 @@ export function editNote(
     library.notes.find((item) => item.id === id),
     expected,
   );
-  requireNotebook(library, value.notebookId);
   const validated = validateContent(value);
   return {
     ...data,
@@ -430,10 +510,12 @@ export function assertNoteLibrary(
     )
   )
     throw new Error("Invalid notebook, note or tag metadata.");
-  for (const note of library.notes)
+  for (const note of library.notes) {
+    if (note.excerpt) assertMetadata("ReadingReference", note.excerpt);
     if (note.source != null)
       assertMetadata(
         "materialId" in note.source ? "MaterialLocation" : "ReadingSelection",
         note.source,
       );
+  }
 }

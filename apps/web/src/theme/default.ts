@@ -4,7 +4,7 @@ import type { Appearance, ThemeColors, ThemeDefinition } from "./definition";
 export const defaultTheme = {
   schemaVersion: 1,
   id: "default",
-  name: "默认主题",
+  name: "水晶",
   colors: {
     light: {
       surface: "#ffffff",

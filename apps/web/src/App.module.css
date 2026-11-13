@@ -157,24 +157,6 @@
 .noteBody {
   min-width: 0;
 }
-.footer {
-  min-height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  flex-wrap: wrap;
-  gap: 12px;
-  font-size: 11px;
-  color: var(--sm-soft);
-}
-.footer button {
-  padding: 0;
-  color: var(--sm-accent);
-  text-decoration: underline;
-}
-.footer [role="alert"] {
-  color: var(--sm-danger);
-}
 .loading {
   min-height: 100dvh;
   padding: 48px;
@@ -225,9 +207,6 @@
   }
   .robots {
     min-height: 800px;
-  }
-  .footer {
-    padding: 6px 0;
   }
 }
 @media (max-width: 480px) {

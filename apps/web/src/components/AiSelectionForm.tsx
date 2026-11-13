@@ -1,37 +1,51 @@
 import { useDraftBackup } from "../refresh/drafts";
+import { useEditValue } from "../refresh/useEditRevision";
 import { useState } from "react";
 import type { Robot, RobotAiDefaults } from "@solvemate/contracts";
 import type { AiSettings } from "../ai/local-api";
 import { robotAiError } from "../ai/robot-config";
-import { RobotAiFields } from "./RobotAiFields";
+import { AiSelectionFields } from "./AiSelectionFields";
 import styles from "./AiSettings.module.css";
 
-export function RobotAiConfiguration({
+export function AiSelectionForm({
   robot,
+  scopeId,
   saved,
   settings,
   onSave,
 }: {
   robot: Robot;
+  scopeId: string;
   saved: RobotAiDefaults;
   settings: AiSettings | null;
   onSave: (config: RobotAiDefaults) => Promise<void>;
 }) {
-  const [config, setConfig] = useState(() => structuredClone(saved));
+  const [draft, setDraft] = useState<{
+    value: RobotAiDefaults;
+    baseline: RobotAiDefaults;
+  } | null>(null);
+  const config = draft ? draft.value : saved;
+  const check = useEditValue(draft ? draft.baseline : saved, saved, scopeId);
+  function setConfig(value: RobotAiDefaults) {
+    setDraft({
+      value,
+      baseline: draft ? draft.baseline : structuredClone(saved),
+    });
+  }
   const [status, setStatus] = useState("");
   const [saving, setSaving] = useState(false);
   const changed = JSON.stringify(saved) !== JSON.stringify(config);
   const release = useDraftBackup(
-    `robot-ai:${robot.id}`,
-    `${robot.name}的 AI 配置草稿`,
+    `ai-selection:${scopeId}`,
+    `${robot.name}的 AI 选择草稿`,
     config,
     changed,
   );
   const error = robotAiError(config, settings);
   return (
-    <section className={styles.settings} aria-labelledby="ai-settings-heading">
+    <section className={styles.settings} aria-label="AI 选择">
       <p className={styles.hint}>{robot.name}</p>
-      <RobotAiFields
+      <AiSelectionFields
         config={config}
         settings={settings}
         disabled={saving}
@@ -46,8 +60,9 @@ export function RobotAiConfiguration({
           disabled={!changed || saving}
           onClick={() => {
             release();
-            setConfig(structuredClone(saved));
-            setStatus("已取消本次 AI 配置修改。");
+            setDraft(null);
+            check.accept(saved);
+            setStatus("已取消本次 AI 选择修改。");
           }}
         >
           取消修改
@@ -58,6 +73,7 @@ export function RobotAiConfiguration({
           onClick={async () => {
             setSaving(true);
             try {
+              check();
               await onSave(config);
               release();
             } catch (failure) {
@@ -71,7 +87,7 @@ export function RobotAiConfiguration({
             }
           }}
         >
-          {saving ? "保存中…" : "保存配置"}
+          {saving ? "保存中…" : "保存选择"}
         </button>
       </div>
     </section>

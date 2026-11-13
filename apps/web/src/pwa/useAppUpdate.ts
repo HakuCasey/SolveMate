@@ -102,9 +102,9 @@ export function useAppUpdate(prepareReload: () => void, onReady: () => void) {
     const controlled = () => {
       const previous = previousController;
       previousController = navigator.serviceWorker.controller;
-      if (!active || !previous) return;
+      if (!active || previous === previousController) return;
       if (updates.snapshot().status === "reloading") finishReload();
-      else updates.markReady();
+      else if (previous) updates.markReady();
     };
     reloadAction.current = () => {
       if (updates.snapshot().status !== "ready") return;
@@ -117,7 +117,12 @@ export function useAppUpdate(prepareReload: () => void, onReady: () => void) {
           return;
         }
         const changed = () => {
-          if (waiting.state === "activated") finishReload();
+          // activated 不代表当前页面已经由新版控制；以实际接管为准。
+          if (
+            waiting.state === "activated" &&
+            navigator.serviceWorker.controller === waiting
+          )
+            finishReload();
           else if (waiting.state === "redundant") {
             clearReloadCheckpoint();
             updates.reloadFailed("新版启用失败，请再次点击“更新应用”。");
@@ -165,16 +170,15 @@ export function useAppUpdate(prepareReload: () => void, onReady: () => void) {
       if (controller.current === updates) controller.current = null;
     };
   }, [supported]);
-  useEffect(() => {
-    if (state.status !== "current") return;
-    const timer = setTimeout(() => controller.current?.resetCurrent(), 3000);
-    return () => clearTimeout(timer);
-  }, [state.status]);
   return {
     state,
     offlineReady,
     supported,
     check: () => checkAction.current(),
     reload: () => reloadAction.current(),
+    clearReloadError: () => {
+      if (controller.current?.snapshot().status === "ready")
+        controller.current.markReady();
+    },
   };
 }

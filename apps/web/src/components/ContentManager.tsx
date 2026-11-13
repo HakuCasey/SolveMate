@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { BookOpen, ListChecks, RefreshCw, X } from "lucide-react";
+import { BookOpen, Check, ListChecks, RefreshCw, X } from "lucide-react";
 import type { OfficialContent } from "../content/useOfficialContent";
 import type { OfficialLibrary } from "../content/library";
 import { OfficialContentActions } from "./OfficialContentActions";
@@ -21,7 +21,20 @@ export function ContentManager({
   onRead,
   onRemove,
 }: Props) {
-  const { checking, connectionError, transfer, refresh } = content;
+  const { checking, connectionError, transfer, refresh, checkedAt } = content;
+  const availableUpdates = library.entries.filter(
+    (item) => item.downloaded && item.packageState.updateAvailable,
+  ).length;
+  const unknownVersions = library.entries.some(
+    (item) => item.downloaded && item.packageState.unknown,
+  );
+  const unverifiedVersions = library.entries.some(
+    (item) =>
+      item.downloaded &&
+      !item.packageState.current &&
+      !item.packageState.updateAvailable &&
+      !item.packageState.unknown,
+  );
   useEffect(() => {
     void refresh();
   }, [refresh]);
@@ -44,6 +57,28 @@ export function ContentManager({
           {checking ? "正在检查内容更新…" : "检查内容更新"}
         </button>
       </header>
+      {!checking && !connectionError && checkedAt && (
+        <p
+          className={styles.checkResult}
+          role="status"
+          data-updates={availableUpdates > 0}
+        >
+          {availableUpdates > 0 ? (
+            <RefreshCw aria-hidden="true" />
+          ) : (
+            <Check aria-hidden="true" />
+          )}
+          {availableUpdates > 0
+            ? `有 ${availableUpdates} 项资料可更新，仍可阅读本地版本。`
+            : unknownVersions
+              ? "检查完成，部分本地版本暂无法核对，仍可阅读。"
+              : unverifiedVersions
+                ? "本地版本已变化，请重新检查内容更新。"
+                : library.entries.some((item) => item.downloaded)
+                  ? "检查完成，已下载的官方内容均为最新版本。"
+                  : "检查完成，可下载下列官方资料。"}
+        </p>
+      )}
       {connectionError && (
         <p className={styles.notice} role="alert">
           {connectionError}
@@ -58,8 +93,11 @@ export function ContentManager({
         {library.entries.map((item) => {
           const { source: entry, packageState: state } = item;
           const saved = item.downloaded ? state.saved : undefined;
+          const updatedAt = item.downloaded ? item.updatedAt : undefined;
           const currentTransfer =
-            transfer?.courseId === entry.id ? transfer : null;
+            transfer?.courseId === entry.id && transfer.materialId === item.id
+              ? transfer
+              : null;
           const pending =
             currentTransfer &&
             ["downloading", "verifying", "saving"].includes(
@@ -125,20 +163,17 @@ export function ContentManager({
                   <span>{item.kind === "questions" ? "题目" : "学习资料"}</span>
                 </div>
                 <p className={styles.date}>
-                  {saved && Number.isFinite(saved.installedAt) ? (
+                  {saved &&
+                  updatedAt !== undefined &&
+                  Number.isFinite(updatedAt) ? (
                     <>
                       更新日期{" "}
-                      <time
-                        dateTime={new Date(saved.installedAt).toISOString()}
-                      >
-                        {new Date(saved.installedAt).toLocaleDateString(
-                          "zh-CN",
-                          {
-                            year: "numeric",
-                            month: "2-digit",
-                            day: "2-digit",
-                          },
-                        )}
+                      <time dateTime={new Date(updatedAt!).toISOString()}>
+                        {new Date(updatedAt!).toLocaleDateString("zh-CN", {
+                          year: "numeric",
+                          month: "2-digit",
+                          day: "2-digit",
+                        })}
                       </time>
                     </>
                   ) : saved ? (
@@ -147,6 +182,12 @@ export function ContentManager({
                     "尚未下载"
                   )}
                 </p>
+                {item.downloaded && state.updateAvailable && (
+                  <p className={styles.updateNotice}>
+                    <RefreshCw aria-hidden="true" />
+                    有新版可更新
+                  </p>
+                )}
                 {state.unknown && (
                   <p className={styles.noticeInline}>
                     本地版本暂无法核对，仍可阅读。

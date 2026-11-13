@@ -1,3 +1,4 @@
+import { uploadRequest } from "./upload-request";
 import Dexie, { type Table } from "dexie";
 import {
   assertMetadata,
@@ -29,7 +30,7 @@ async function request(path = "", options: RequestInit = {}) {
       ...options,
       headers: { "X-SolveMate-Client": "web", ...options.headers },
       cache: "no-store",
-      signal: AbortSignal.timeout(120000),
+      signal: options.signal ?? AbortSignal.timeout(120000),
     });
   } catch {
     throw new DataRequestError(
@@ -37,6 +38,9 @@ async function request(path = "", options: RequestInit = {}) {
       "unavailable",
     );
   }
+  return checkedResponse(response);
+}
+async function checkedResponse(response: Response) {
   if (!response.ok) {
     const error = (await response.json().catch(() => ({}))) as {
       detail?: unknown;
@@ -49,12 +53,7 @@ async function request(path = "", options: RequestInit = {}) {
       error.code ?? `http_${response.status}`,
       response.status,
     );
-    if (
-      (options.method && options.method !== "GET") ||
-      path.endsWith("/reader") ||
-      path.includes("/pages/")
-    )
-      dataRefresh.recover(failure, ["records", "materials"]);
+    dataRefresh.recover(failure, ["records", "materials"]);
     throw failure;
   }
   return response;
@@ -130,7 +129,11 @@ export const materialApi = {
     }
     return { items, warning };
   },
-  async import(file: File, courseId: string) {
+  async import(
+    file: File,
+    courseId: string,
+    onProgress?: (loaded: number, total: number) => void,
+  ) {
     if (file.size > 100 * 1024 * 1024)
       throw new Error("文件超过 100 MiB，请拆分或压缩后重新导入。");
     const query = new URLSearchParams({
@@ -139,11 +142,15 @@ export const materialApi = {
     });
     return material(
       await (
-        await request(`?${query}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/octet-stream" },
-          body: file,
-        })
+        await (onProgress
+          ? uploadRequest(`${prefix}?${query}`, file, onProgress).then(
+              checkedResponse,
+            )
+          : request(`?${query}`, {
+              method: "POST",
+              headers: { "Content-Type": "application/octet-stream" },
+              body: file,
+            }))
       ).json(),
     );
   },
@@ -217,6 +224,7 @@ export const materialApi = {
       const value = (await (
         await request(
           `/${location.materialId}/${location.contentVersion}/pages/${location.pageNumber}`,
+          { signal: AbortSignal.timeout(15000) },
         )
       ).json()) as Record<string, unknown>;
       if (

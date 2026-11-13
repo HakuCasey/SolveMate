@@ -1,40 +1,111 @@
-.titleButton {
-  display: inline-flex;
-  align-items: center;
+/* 两排始终共用七列；小屏侧栏较窄时随列宽收缩，不撑宽菜单。 */
+.badges {
+  width: calc(100% + 12px);
+  margin-inline: -6px;
+  display: grid;
   gap: 4px;
-  padding: 3px 0;
-  border-radius: 5px;
-  color: var(--sm-soft);
-  font-size: 11px;
-  font-weight: 400;
-  white-space: nowrap;
 }
-.titleButton:hover,
-.titleButton[data-state="open"] {
-  color: var(--sm-accent);
+.achievementGroup {
+  min-width: 0;
 }
-.titleButton > .chevron {
-  width: 10px;
-  height: 10px;
+.badgeRow {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 2px;
 }
-.medals {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.medal {
+.badge {
   display: grid;
   place-items: center;
-  width: 22px;
-  height: 22px;
-  padding: 0;
-  border-radius: 50%;
+  width: 100%;
+  min-width: 0;
+  height: 25px;
+  padding: 1px;
+  border-radius: 5px;
+  color: var(--sm-placeholder);
+  background: transparent;
+}
+.badge[data-earned="true"] {
   color: var(--sm-accent);
   background: var(--sm-active);
 }
-.medals .medal svg {
-  width: 13px;
-  height: 13px;
+.badge:hover {
+  background: var(--sm-ground);
+  color: var(--sm-soft);
+}
+.badge[data-earned="true"]:hover {
+  color: var(--sm-accent);
+  background: var(--sm-active);
+}
+.badge:focus-visible {
+  outline: 2px solid var(--sm-accent);
+  outline-offset: 2px;
+}
+.badge[data-selected="true"] {
+  outline: 1px solid var(--sm-ink);
+  outline-offset: 2px;
+}
+.badges .badgeIcon {
+  width: 100%;
+  height: auto;
+  max-width: 22px;
+}
+.collection {
+  display: grid;
+  gap: 14px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--sm-line);
+}
+.collection .badgeRow {
+  gap: 7px;
+  margin-top: 7px;
+}
+.collection .badge {
+  height: 34px;
+  padding: 3px;
+}
+.collection .badge[data-selected="true"],
+.collection .badge:focus-visible {
+  /* 气泡正文可滚动，边缘按钮的选中框与焦点框需留在按钮内部。 */
+  outline-offset: -2px;
+}
+.collection .badgeIcon {
+  width: 26px;
+  max-width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+}
+.groupLabel {
+  color: var(--sm-soft);
+  font-size: 11px;
+}
+.achievementDetail {
+  margin-top: 14px;
+  padding: 12px;
+  border-radius: 8px;
+  background: var(--sm-ground);
+}
+.detailHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.detailHeading strong {
+  font-size: 13px;
+  font-weight: 500;
+}
+.detailHeading span {
+  color: var(--sm-soft);
+  font-size: 11px;
+}
+.detailHeading span[data-earned="true"] {
+  color: var(--sm-accent);
+}
+.achievementDetail p {
+  margin: 6px 0 0;
+  color: var(--sm-soft);
+  font-size: 12px;
 }
 .footprint {
   display: flex;
@@ -64,7 +135,7 @@
   width: 100%;
   aspect-ratio: 1;
   border-radius: 2px;
-  background: var(--sm-ground);
+  background: var(--sm-line);
 }
 .day[data-level="1"] {
   background: color-mix(in srgb, var(--sm-accent) 22%, var(--sm-ground));
@@ -117,7 +188,7 @@
   color: var(--sm-soft);
   font-size: 11px;
 }
-.exampleNote {
+.error {
   margin: 7px 0 0;
   color: var(--sm-soft);
   font-size: 11px;
@@ -134,17 +205,6 @@
   font-size: 11px;
 }
 @media (max-width: 480px) {
-  .medals {
-    gap: 4px;
-  }
-  .medal {
-    width: 18px;
-    height: 18px;
-  }
-  .medals .medal svg {
-    width: 12px;
-    height: 12px;
-  }
   .footprint {
     padding-inline: 4px;
   }

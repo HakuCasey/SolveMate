@@ -13,6 +13,7 @@ import tempfile
 import threading
 import uuid
 import zipfile
+from collections import Counter
 from pathlib import Path
 
 from jsonschema import Draft202012Validator
@@ -24,6 +25,18 @@ APP_SCHEMA = json.loads(
     Path(__file__)
     .with_name("schemas")
     .joinpath("app-data.schema.json")
+    .read_text(encoding="utf-8")
+)
+MAX_ROBOTS = json.loads(
+    Path(__file__)
+    .with_name("schemas")
+    .joinpath("robot-limits.json")
+    .read_text(encoding="utf-8")
+)["maxCount"]
+CONVERSATION_LIMITS = json.loads(
+    Path(__file__)
+    .with_name("schemas")
+    .joinpath("conversation-limits.json")
     .read_text(encoding="utf-8")
 )
 VALIDATOR = Draft202012Validator(
@@ -58,7 +71,7 @@ def validate_data(value):
     if value["defaultRobotId"] is not None and value["defaultRobotId"] not in {
         r["id"] for r in value["robots"]
     }:
-        raise UserDataError("默认教师不存在。")
+        raise UserDataError("默认机器人不存在。")
     for conversation in value["conversations"]:
         fields = SCHEMA["$defs"]["ConversationMetadata"]["properties"]
         if (
@@ -184,6 +197,7 @@ class UserData:
           CREATE TABLE IF NOT EXISTS migrations (source TEXT NOT NULL, digest TEXT NOT NULL, PRIMARY KEY(source,digest));
           CREATE TABLE IF NOT EXISTS versions (course TEXT NOT NULL, version TEXT NOT NULL, manifest TEXT NOT NULL, installed REAL NOT NULL, PRIMARY KEY(course,version));
           CREATE TABLE IF NOT EXISTS heads (course TEXT PRIMARY KEY, version TEXT NOT NULL);
+          CREATE TABLE IF NOT EXISTS study_days (day TEXT PRIMARY KEY, intervals TEXT NOT NULL, milliseconds INTEGER NOT NULL);
         """)
         with self.db:
             self.db.execute("PRAGMA user_version=1")
@@ -233,6 +247,39 @@ class UserData:
                     "revision_conflict",
                     409,
                 )
+            before = Counter(
+                item["status"]
+                for item in (current["value"] or {}).get("conversations", [])
+            )
+            after = Counter(item["status"] for item in value["conversations"])
+            before["total"] = before["active"] + before["archived"]
+            after["total"] = after["active"] + after["archived"]
+            for kind in ("active", "archived", "total"):
+                if (
+                    after[kind] > CONVERSATION_LIMITS[kind]
+                    and after[kind] > before[kind]
+                ):
+                    raise UserDataError(
+                        CONVERSATION_LIMITS["message"],
+                        "conversation_limit_reached",
+                        422,
+                    )
+            previous_robots = (current["value"] or {}).get("robots", [])
+            if len(value["robots"]) > MAX_ROBOTS and len(value["robots"]) > len(
+                previous_robots
+            ):
+                raise UserDataError(
+                    f"最多支持 {MAX_ROBOTS} 个机器人。", "robot_limit_reached", 422
+                )
+            previous = {robot["id"]: robot["name"].strip() for robot in previous_robots}
+            names = Counter(robot["name"].strip() for robot in value["robots"])
+            for robot in value["robots"]:
+                name = robot["name"].strip()
+                # 保留旧记录中的重名；新增或改名不能引入新的重名。
+                if previous.get(robot["id"]) != name and names[name] > 1:
+                    raise UserDataError(
+                        "命名重复，请重新命名。", "robot_name_duplicate", 422
+                    )
             self.db.execute(
                 "INSERT OR REPLACE INTO state VALUES (1,?,?)",
                 (serialized, expected + 1),

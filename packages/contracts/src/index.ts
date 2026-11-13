@@ -218,3 +218,14 @@ export interface CurrentContent {
 }
 
 export { conversationMetadata } from "./conversation";
+
+/** 学习统计独立于整份页面记录保存，重复时间段由本机服务合并。 */
+export interface StudyInterval {
+  startMs: number;
+  endMs: number;
+}
+export interface StudySummary {
+  storeId: string;
+  today: string;
+  days: { date: string; milliseconds: number }[];
+}

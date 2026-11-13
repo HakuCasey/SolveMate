@@ -1,3 +1,4 @@
+import type { UploadEvent } from "./upload-progress";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Material } from "@solvemate/contracts";
 import { materialApi } from "./api";
@@ -65,7 +66,11 @@ export function useMaterials(readSubjects: () => SubjectDirectory) {
     }, 2000);
     return () => clearInterval(timer);
   }, [processing, refresh]);
-  async function importFiles(files: File[], courseId: string | null) {
+  async function importFiles(
+    files: File[],
+    courseId: string | null,
+    onProgress?: (event: UploadEvent) => void,
+  ) {
     if (importing.current) throw new Error("正在上传另一批资料，请稍后重试。");
     importing.current = true;
     setError("");
@@ -74,11 +79,30 @@ export function useMaterials(readSubjects: () => SubjectDirectory) {
       const result = await operations.importFiles(
         files,
         courseId,
-        (file) => {
-          query.invalidate();
-          setBusy(`正在保存 ${file.name}…`);
+        (file, loaded = 0, total = file.size) => {
+          // 传输字节变化不修改资料记录，只在文件开始上传时使旧查询失效。
+          if (loaded === 0) query.invalidate();
+          setBusy(`正在上传 ${file.name}…`);
+          onProgress?.({ file, loaded, total, phase: "uploading" });
         },
-        applyRecord,
+        (record, file) => {
+          applyRecord(record);
+          onProgress?.({
+            file,
+            loaded: file.size,
+            total: file.size,
+            phase: "uploaded",
+            record,
+          });
+        },
+        (file, error) =>
+          onProgress?.({
+            file,
+            loaded: 0,
+            total: file.size,
+            phase: "failed",
+            error,
+          }),
       );
       await refresh();
       if (result.failed.length)

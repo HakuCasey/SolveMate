@@ -1,3 +1,4 @@
+import { isConversationLimitError } from "../state/conversation-limits";
 import { PopoverPanel } from "./PopoverPanel";
 import { useState, type ReactElement } from "react";
 import { AlertDialog, ContextMenu, DropdownMenu, Popover } from "radix-ui";
@@ -111,6 +112,7 @@ export function ConversationActions({
         conversation.revision,
       );
     } catch (error) {
+      if (isConversationLimitError(error)) return;
       setActionError(
         error instanceof Error ? error.message : "对话状态未能保存，请重试。",
       );

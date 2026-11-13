@@ -14,7 +14,7 @@ export function useRefreshResource(
     [scope],
   );
 }
-/** 所有业务数据共用窗口事件和定时器，与 PWA 程序版本更新分开。 */
+/** 所有业务数据共用窗口事件，与 PWA 程序版本更新分开。 */
 export function useDataRefresh() {
   const state = useSyncExternalStore(
     dataRefresh.subscribe,
@@ -22,18 +22,23 @@ export function useDataRefresh() {
     dataRefresh.snapshot,
   );
   useEffect(() => {
+    let lastRefresh = 0;
     const refresh = () => {
-      if (document.visibilityState === "visible") void dataRefresh.refresh();
+      if (
+        document.visibilityState !== "visible" ||
+        Date.now() - lastRefresh < 1000
+      )
+        return;
+      lastRefresh = Date.now();
+      void dataRefresh.refresh();
     };
     window.addEventListener("focus", refresh);
     window.addEventListener("online", refresh);
     document.addEventListener("visibilitychange", refresh);
-    const timer = window.setInterval(refresh, 15000);
     return () => {
       window.removeEventListener("focus", refresh);
       window.removeEventListener("online", refresh);
       document.removeEventListener("visibilitychange", refresh);
-      window.clearInterval(timer);
     };
   }, []);
   return { ...state, refresh: dataRefresh.refresh };
