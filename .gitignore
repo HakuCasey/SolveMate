@@ -14,6 +14,7 @@ __pycache__/
 .ruff_cache/
 apps/server/.content/
 apps/server/build/
+apps/local/build/
 
 # 私有 AI 协作文件保存在仓库外的工作区。
 /.codex/
