@@ -1,4 +1,3 @@
-import { BackupDialog } from "./BackupDialog";
 import { PopoverPanel } from "./PopoverPanel";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { ContextMenu, Popover } from "radix-ui";
@@ -53,6 +52,7 @@ type View =
 interface SidebarProps {
   subjects: Subject[];
   onRefreshData: () => Promise<boolean>;
+  onOpenBackup: () => void;
   onSubjectAction: (action: SubjectAction) => void;
   view: View;
   teachingActivity: TeachingActivityId;
@@ -100,6 +100,7 @@ const accountActions = [
 export function Sidebar({
   subjects,
   onRefreshData,
+  onOpenBackup,
   view,
   teachingActivity,
   onSelectTeachingActivity,
@@ -112,7 +113,6 @@ export function Sidebar({
   disabled = false,
   ai,
 }: SidebarProps) {
-  const [backupOpen, setBackupOpen] = useState(false);
   const [subjectsOpen, setSubjectsOpen] = useState(false);
   const [teachingOpen, setTeachingOpen] = useState(false);
   const [expandedSubjects, setExpandedSubjects] = useState<
@@ -143,14 +143,28 @@ export function Sidebar({
   }, [activeSubject, subjectsOpen, expandedSubjects]);
   const [accountOpen, setAccountOpen] = useState(false);
   const [accountMessage, setAccountMessage] = useState("");
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsMenu, setSettingsMenu] = useState<
+    "closed" | "menu" | "display" | "ai"
+  >("closed");
+  const settingsOpen = settingsMenu !== "closed";
+  const settingsPanel =
+    settingsMenu === "display" || settingsMenu === "ai" ? settingsMenu : null;
   const [refreshingData, setRefreshingData] = useState(false);
   const [dataRefreshed, setDataRefreshed] = useState(false);
   const [dataFeedback, setDataFeedback] = useState("");
-  const [settingsPanel, setSettingsPanel] = useState<"display" | "ai" | null>(
-    null,
-  );
   const modelSettingsOpen = settingsPanel === "ai";
+
+  function setSettingsOpen(open: boolean) {
+    setSettingsMenu(open ? "menu" : "closed");
+  }
+
+  // 菜单与子气泡共用一个状态；迟到的关闭事件不能关闭另一个气泡或重开菜单。
+  function setSettingsPanel(panel: "display" | "ai", open: boolean) {
+    setSettingsMenu((current) => {
+      if (current === "closed") return current;
+      return open ? panel : current === panel ? "menu" : current;
+    });
+  }
 
   function toggleSubjects() {
     // 收起总入口时同时收起课程，避免再次展开时恢复旧的子树状态。
@@ -164,18 +178,11 @@ export function Sidebar({
   function navigate(nextView: View) {
     setAccountOpen(false);
     setSettingsOpen(false);
-    setSettingsPanel(null);
     onNavigate(nextView);
   }
 
   return (
     <nav className={styles.sidebar} aria-label="功能菜单">
-      {backupOpen && (
-        <BackupDialog
-          onClose={() => setBackupOpen(false)}
-          onRefresh={onRefreshData}
-        />
-      )}
       <div className={styles.profile}>
         <div className={styles.profileRow}>
           <Popover.Root
@@ -498,9 +505,6 @@ export function Sidebar({
                 setDataRefreshed(false);
                 setDataFeedback("");
               }
-              if (!open) {
-                setSettingsPanel(null);
-              }
             }}
           >
             <Popover.Trigger
@@ -546,7 +550,7 @@ export function Sidebar({
                 className={styles.settingsItem}
                 onClick={() => {
                   setSettingsOpen(false);
-                  setBackupOpen(true);
+                  onOpenBackup();
                 }}
               >
                 <ArchiveRestore aria-hidden="true" />
@@ -594,7 +598,7 @@ export function Sidebar({
               <Popover.Root
                 open={settingsPanel === "display"}
                 onOpenChange={(open) => {
-                  setSettingsPanel(open ? "display" : null);
+                  setSettingsPanel("display", open);
                 }}
               >
                 <Popover.Trigger className={styles.settingsItem}>
@@ -612,6 +616,7 @@ export function Sidebar({
                   sideOffset={12}
                   collisionPadding={12}
                   aria-labelledby="display-settings-heading"
+                  onCloseAutoFocus={(event) => event.preventDefault()}
                 >
                   <div className={styles.settingLabel}>
                     <label htmlFor="reading-font-size">阅读字号</label>
@@ -714,7 +719,7 @@ export function Sidebar({
               <Popover.Root
                 open={modelSettingsOpen}
                 onOpenChange={(open) => {
-                  setSettingsPanel(open ? "ai" : null);
+                  setSettingsPanel("ai", open);
                   if (open) void ai.refresh();
                 }}
               >
@@ -728,6 +733,7 @@ export function Sidebar({
                     title="AI 配置"
                     icon={Cpu}
                     titleId="ai-settings-heading"
+                    onCloseAutoFocus={(event) => event.preventDefault()}
                     width={340}
                     side="right"
                     align="end"

@@ -125,35 +125,6 @@
   line-height: 1.45;
   letter-spacing: -0.02em;
 }
-.noteSource {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  width: 100%;
-  min-width: 0;
-  margin: 0;
-  padding: 0;
-  color: var(--sm-soft);
-  font-size: 11px;
-  text-align: left;
-}
-.noteSource > span {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.noteSource svg {
-  width: 12px;
-  height: 12px;
-  flex-shrink: 0;
-}
-.noteSource:hover:not(:disabled) {
-  color: var(--sm-accent);
-}
-.noteSource:disabled {
-  opacity: 0.6;
-}
 .noteBody {
   min-width: 0;
 }

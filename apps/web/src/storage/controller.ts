@@ -1,3 +1,4 @@
+import { migrateNoteMetadata } from "@solvemate/contracts";
 import type { AppData } from "@solvemate/contracts";
 import type { AppStorage, UnsavedRecord } from "./index";
 import { logError } from "../logger";
@@ -14,7 +15,8 @@ import {
 type Change = AppData | null | ((previous: AppData | null) => AppData | null);
 interface Snapshot {
   data: AppData | null;
-  loadFailed: boolean;
+  loadState: "loading" | "ready" | "error";
+  loadFailure: unknown | null;
   saveState: "saving" | "saved" | "error";
   conflict: boolean;
   refreshError: string;
@@ -27,7 +29,8 @@ interface Snapshot {
 export class LocalDataController {
   private state: Snapshot = {
     data: null,
-    loadFailed: false,
+    loadState: "loading",
+    loadFailure: null,
     saveState: "saved",
     conflict: false,
     refreshError: "",
@@ -45,7 +48,16 @@ export class LocalDataController {
   private refreshWanted = false;
   private recoveryId = crypto.randomUUID();
   private restoringRecoveryId: string | null = null;
-  constructor(private readonly storage: AppStorage) {}
+  private temporaryBase: AppData | null = null;
+  constructor(
+    private readonly storage: AppStorage,
+    fallback?: AppData,
+  ) {
+    if (fallback) {
+      this.state.data = fallback;
+      this.temporaryBase = structuredClone(fallback);
+    }
+  }
   snapshot = () => this.state;
   readData = () => this.state.data;
   subscribe = (callback: () => void) => {
@@ -60,19 +72,26 @@ export class LocalDataController {
   }
   initialize = (data: AppData) => {
     this.base = structuredClone(data);
-    this.publish({ data });
+    this.publish({
+      data,
+      loadState: "ready",
+      loadFailure: null,
+      refreshError: "",
+    });
   };
   restoreRecoveries = async () => {
     if (this.storage.recoveries)
       this.publish({ recoveries: await this.storage.recoveries() });
   };
-  failLoad = () => this.publish({ loadFailed: true });
+  failLoad = (error: unknown) =>
+    this.publish({ loadState: "error", loadFailure: error });
   private async retain(value: AppData, id = this.recoveryId) {
-    if (!this.base) return;
+    const base = this.base ?? this.temporaryBase;
+    if (!base) return;
     const record: UnsavedRecord = {
       id,
       createdAt: Date.now(),
-      base: structuredClone(this.base),
+      base: structuredClone(base),
       value: structuredClone(value),
     };
     // 本窗口持续收到的回复更新同一份保留记录，不为每个文本片段增加一份备份。
@@ -98,6 +117,10 @@ export class LocalDataController {
     else dataRefresh.recover(error, ["records"]);
   }
   private persist(data: AppData, transactional = false) {
+    if (!this.base)
+      return Promise.reject(
+        new Error("原记录尚未读取成功，输入已保留。请在“记录保存”中重新读取。"),
+      );
     const generation = ++this.generation;
     // 未发布的配置提交独立保留，后续回复或阅读进度不能覆盖这份候选内容。
     const backupId = transactional ? crypto.randomUUID() : this.recoveryId;
@@ -161,6 +184,12 @@ export class LocalDataController {
     if (next === this.state.data) return;
     this.publish({ data: next });
     if (!next) return;
+    if (!this.base) {
+      void this.retain(next).catch((error: unknown) =>
+        logError("Failed to retain changes before records loaded.", error),
+      );
+      return;
+    }
     if (this.state.conflict || this.state.conflicts.length) {
       void this.retain(next).catch((error: unknown) =>
         logError("Failed to retain pending changes.", error),
@@ -179,6 +208,12 @@ export class LocalDataController {
       await this.lastWrite.catch(() => undefined);
       if (!this.state.data) throw new Error("学习记录尚未读取完成。");
       const next = change(this.state.data);
+      if (!this.base) {
+        await this.retain(next);
+        throw new Error(
+          "原记录尚未读取成功，输入已保留。请在“记录保存”中重新读取。",
+        );
+      }
       await this.persist(next, true);
       this.publish({ data: next });
       return next;
@@ -210,7 +245,11 @@ export class LocalDataController {
     this.locked = true;
     try {
       const current = this.state.data;
-      const result = mergeData(record.base, record.value, current);
+      const result = mergeData(
+        migrateNoteMetadata(record.base),
+        migrateNoteMetadata(record.value),
+        current,
+      );
       const restored = {
         ...result.data,
         selection: current.selection,

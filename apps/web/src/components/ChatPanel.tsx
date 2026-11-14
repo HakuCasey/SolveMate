@@ -441,9 +441,7 @@ export function ChatPanel({
         >
           {!messages.length && !archived && (
             <div className={styles.welcome}>
-              <h3>
-                {!robot ? "先选择一位学习伙伴" : "同学你好，有什么疑问吗？"}
-              </h3>
+              <h3>{!robot ? "请先选择机器人" : "你好，有什么疑问吗？"}</h3>
               <p>
                 {!robot
                   ? "在左侧“机器人”中新建一个机器人，就可以记录想讨论的问题。"

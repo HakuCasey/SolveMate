@@ -1,0 +1,364 @@
+[
+  {
+    "name": "legacy-question",
+    "note": {
+      "id": "note-old",
+      "notebookId": "notebook-unclassified",
+      "title": "课堂笔记",
+      "content": "保留我的正文。",
+      "tagIds": [
+        "subject:c-language"
+      ],
+      "revision": 4,
+      "courseId": "c-language",
+      "questionId": "C008",
+      "summary": "旧预览"
+    },
+    "origins": [
+      {
+        "kind": "question",
+        "materialId": "c-language:questions",
+        "version": "example-1",
+        "questionId": "C008"
+      }
+    ]
+  },
+  {
+    "name": "pdf-excerpt",
+    "note": {
+      "id": "note-old",
+      "notebookId": "notebook-unclassified",
+      "title": "课堂笔记",
+      "content": "保留我的正文。",
+      "tagIds": [
+        "subject:c-language"
+      ],
+      "revision": 4,
+      "courseId": "",
+      "questionId": "",
+      "summary": "旧预览",
+      "source": {
+        "materialId": "11111111-1111-4111-8111-111111111111",
+        "contentVersion": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "pageNumber": 20
+      },
+      "excerpt": {
+        "title": "原课本名",
+        "content": "教材摘录。",
+        "selection": null,
+        "quoteKind": "selection",
+        "material": {
+          "materialId": "11111111-1111-4111-8111-111111111111",
+          "contentVersion": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "pageNumber": 20
+        }
+      }
+    },
+    "origins": [
+      {
+        "kind": "document",
+        "materialId": "11111111-1111-4111-8111-111111111111",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "pageNumber": 20
+      }
+    ]
+  },
+  {
+    "name": "ppt-page",
+    "note": {
+      "id": "note-old",
+      "notebookId": "notebook-unclassified",
+      "title": "课堂笔记",
+      "content": "保留我的正文。",
+      "tagIds": [
+        "subject:c-language"
+      ],
+      "revision": 4,
+      "courseId": "",
+      "questionId": "",
+      "summary": "旧预览",
+      "source": {
+        "materialId": "11111111-1111-4111-8111-111111111111",
+        "contentVersion": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "pageNumber": 5
+      }
+    },
+    "origins": [
+      {
+        "kind": "document",
+        "materialId": "11111111-1111-4111-8111-111111111111",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "pageNumber": 5
+      }
+    ]
+  },
+  {
+    "name": "conversation-excerpt",
+    "note": {
+      "id": "note-old",
+      "notebookId": "notebook-unclassified",
+      "title": "课堂笔记",
+      "content": "保留我的正文。",
+      "tagIds": [
+        "subject:c-language"
+      ],
+      "revision": 4,
+      "courseId": "",
+      "questionId": "",
+      "summary": "旧预览",
+      "source": null,
+      "excerpt": {
+        "title": "原对话标题",
+        "content": "这里是 AI 回复中的原选段。",
+        "selection": null,
+        "quoteKind": "selection",
+        "message": {
+          "conversationId": "conversation-original",
+          "messageIds": [
+            "message-user",
+            "message-assistant"
+          ]
+        }
+      }
+    },
+    "origins": [
+      {
+        "kind": "conversation",
+        "conversationId": "conversation-original",
+        "messageIds": [
+          "message-user",
+          "message-assistant"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "merged-material-and-conversation",
+    "note": {
+      "id": "note-old",
+      "notebookId": "notebook-unclassified",
+      "title": "课堂笔记",
+      "content": "保留我的正文。",
+      "tagIds": [
+        "subject:c-language"
+      ],
+      "revision": 4,
+      "courseId": "",
+      "questionId": "",
+      "summary": "旧预览",
+      "source": null,
+      "origins": [
+        {
+          "source": {
+            "materialId": "11111111-1111-4111-8111-111111111111",
+            "contentVersion": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "pageNumber": 20
+          }
+        },
+        {
+          "source": null,
+          "excerpt": {
+            "title": "原对话标题",
+            "content": "这里是 AI 回复中的原选段。",
+            "selection": null,
+            "quoteKind": "selection",
+            "message": {
+              "conversationId": "conversation-original",
+              "messageIds": [
+                "message-user",
+                "message-assistant"
+              ]
+            }
+          }
+        },
+        {
+          "source": {
+            "materialId": "11111111-1111-4111-8111-111111111111",
+            "contentVersion": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "pageNumber": 20
+          }
+        }
+      ]
+    },
+    "origins": [
+      {
+        "kind": "document",
+        "materialId": "11111111-1111-4111-8111-111111111111",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "pageNumber": 20
+      },
+      {
+        "kind": "conversation",
+        "conversationId": "conversation-original",
+        "messageIds": [
+          "message-user",
+          "message-assistant"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "mixed-single-legacy-origin",
+    "note": {
+      "id": "note-old",
+      "notebookId": "notebook-unclassified",
+      "title": "课堂笔记",
+      "content": "保留我的正文。",
+      "tagIds": [
+        "subject:c-language"
+      ],
+      "revision": 4,
+      "courseId": "",
+      "questionId": "",
+      "summary": "旧预览",
+      "source": {
+        "courseId": "c-language",
+        "version": "example-1",
+        "kind": "questions",
+        "itemId": "C008"
+      },
+      "excerpt": {
+        "title": "原对话标题",
+        "content": "这里是 AI 回复中的原选段。",
+        "selection": null,
+        "quoteKind": "selection",
+        "message": {
+          "conversationId": "conversation-original",
+          "messageIds": [
+            "message-user",
+            "message-assistant"
+          ]
+        }
+      }
+    },
+    "origins": [
+      {
+        "kind": "question",
+        "materialId": "c-language:questions",
+        "version": "example-1",
+        "questionId": "C008"
+      },
+      {
+        "kind": "conversation",
+        "conversationId": "conversation-original",
+        "messageIds": [
+          "message-user",
+          "message-assistant"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "without-source",
+    "note": {
+      "id": "note-old",
+      "notebookId": "notebook-unclassified",
+      "title": "课堂笔记",
+      "content": "保留我的正文。",
+      "tagIds": [
+        "subject:c-language"
+      ],
+      "revision": 4,
+      "courseId": "",
+      "questionId": "",
+      "summary": "旧预览",
+      "source": null
+    },
+    "origins": []
+  },
+  {
+    "name": "existing-linked-note-with-quotes",
+    "note": {
+      "id": "note-current",
+      "notebookId": "notebook-unclassified",
+      "title": "合并笔记",
+      "content": "保留笔记自己的正文。",
+      "tagIds": [],
+      "revision": 3,
+      "createdAt": null,
+      "updatedAt": null,
+      "origins": [
+        {
+          "kind": "document",
+          "materialId": "11111111-1111-4111-8111-111111111111",
+          "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "pageNumber": 20,
+          "quote": "同页中的第一段"
+        },
+        {
+          "kind": "document",
+          "materialId": "11111111-1111-4111-8111-111111111111",
+          "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "pageNumber": 20,
+          "quote": "同页中的第二段"
+        },
+        {
+          "kind": "conversation",
+          "conversationId": "conversation-original",
+          "messageIds": [
+            "message-user"
+          ],
+          "quote": "消息中的一段文字"
+        }
+      ]
+    },
+    "origins": [
+      {
+        "kind": "document",
+        "materialId": "11111111-1111-4111-8111-111111111111",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "pageNumber": 20
+      },
+      {
+        "kind": "conversation",
+        "conversationId": "conversation-original",
+        "messageIds": [
+          "message-user"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "existing-linked-note-with-long-title",
+    "note": {
+      "id": "note-long-title",
+      "notebookId": "notebook-unclassified",
+      "title": "标题标题标题标题标题标题标题标题标题标题标题标题标题标题标题标题标题标题标题标题",
+      "content": "保留笔记自己的正文。",
+      "tagIds": [],
+      "revision": 3,
+      "createdAt": null,
+      "updatedAt": null,
+      "origins": [
+        {
+          "kind": "document",
+          "materialId": "11111111-1111-4111-8111-111111111111",
+          "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "pageNumber": 20
+        },
+        {
+          "kind": "conversation",
+          "conversationId": "conversation-original",
+          "messageIds": [
+            "message-user"
+          ]
+        }
+      ]
+    },
+    "origins": [
+      {
+        "kind": "document",
+        "materialId": "11111111-1111-4111-8111-111111111111",
+        "version": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "pageNumber": 20
+      },
+      {
+        "kind": "conversation",
+        "conversationId": "conversation-original",
+        "messageIds": [
+          "message-user"
+        ]
+      }
+    ]
+  }
+]

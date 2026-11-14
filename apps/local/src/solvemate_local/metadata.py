@@ -11,6 +11,13 @@ SCHEMA = json.loads(
     .joinpath("schemas/ai-metadata.schema.json")
     .read_text(encoding="utf-8")
 )
+APP_SCHEMA = json.loads(
+    files("solvemate_local")
+    .joinpath("schemas/app-data.schema.json")
+    .read_text(encoding="utf-8")
+)
+MAX_NOTE_TITLE_LENGTH = APP_SCHEMA["$defs"]["Note"]["properties"]["title"]["maxLength"]
+
 LEGACY_SCHEMA = json.loads(
     files("solvemate_local")
     .joinpath("schemas/ai-metadata-v2.schema.json")

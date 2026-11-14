@@ -1,5 +1,6 @@
 import { Component, type ReactNode } from "react";
 import { logError } from "./logger";
+import { StartupUpdate } from "./components/StartupUpdate";
 import styles from "./App.module.css";
 
 export class ErrorBoundary extends Component<
@@ -26,6 +27,7 @@ export class ErrorBoundary extends Component<
           页面无法显示当前记录，原有本地数据未被清除。请重新打开应用后重试。
         </p>
         <button onClick={() => window.location.reload()}>重新打开</button>
+        <StartupUpdate />
       </main>
     );
   }

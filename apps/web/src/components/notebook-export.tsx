@@ -1,5 +1,5 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import type { Note, Notebook } from "@solvemate/contracts";
+import type { Note, Notebook, NoteOrigin } from "@solvemate/contracts";
 import katexCss from "katex/dist/katex.min.css?inline";
 import { DataRequestError } from "../refresh/errors";
 import { dataRefresh } from "../refresh/coordinator";
@@ -52,8 +52,9 @@ export async function notebookHtml(
   notes: Note[],
   tags: Record<string, string>,
   base = window.location.href,
+  originLabel?: (origin: NoteOrigin) => string,
 ) {
-  return `<style>${await fontStyles(base)}\n${notebookPrintCss}</style>${renderToStaticMarkup(<NotebookDocument notebook={notebook} notes={notes} tags={tags} />)}`;
+  return `<style>${await fontStyles(base)}\n${notebookPrintCss}</style>${renderToStaticMarkup(<NotebookDocument notebook={notebook} notes={notes} tags={tags} originLabel={originLabel} />)}`;
 }
 
 export async function exportNotebook(
@@ -61,8 +62,15 @@ export async function exportNotebook(
   notes: Note[],
   tags: Record<string, string>,
   signal?: AbortSignal,
+  originLabel?: (origin: NoteOrigin) => string,
 ) {
-  const html = await notebookHtml(notebook, notes, tags);
+  const html = await notebookHtml(
+    notebook,
+    notes,
+    tags,
+    window.location.href,
+    originLabel,
+  );
   let response: Response;
   try {
     response = await fetch("/local-api/v1/user/exports/notebook.pdf", {

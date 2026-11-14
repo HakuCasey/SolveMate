@@ -175,13 +175,13 @@ export function RobotsPage({
     setImportError("");
     try {
       if (file.size > maxRobotImportBytes)
-        throw new Error("机器人配置文件不能超过 1 MB。");
+        throw new Error("配置文件不能超过 1 MB。");
       const robot = await onImport(parseRobotConfiguration(await file.text()));
       setSelectedId(robot.id);
       setTab("persona");
       setInvalidField(null);
       setStatus("");
-      showSaved("机器人配置已导入");
+      showSaved("配置已导入");
     } catch (error) {
       setImportError(
         error instanceof Error ? error.message : "导入失败，请重试。",
@@ -207,7 +207,7 @@ export function RobotsPage({
     setSelectedId(robot.id);
     setTab("persona");
     setInvalidField(null);
-    setStatus("已新建机器人，可以修改它的配置。");
+    setStatus("已新建，可以编辑配置。");
   }
 
   async function saveRobot(): Promise<Robot | null> {

@@ -217,7 +217,7 @@ export function applyRobotAi(
   };
 }
 
-/** 删除教师仅影响可用列表，旧会话保留教师身份，不改成另一位教师。 */
+/** 删除机器人仅影响可用列表，旧会话保留原编号，不改为其他机器人。 */
 export function replaceRobots(
   data: AppData,
   robots: Robot[],

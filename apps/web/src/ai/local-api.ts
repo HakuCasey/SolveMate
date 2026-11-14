@@ -47,7 +47,7 @@ async function request<T>(
         "request_timeout",
       );
     throw new LocalAiError(
-      "无法连接本机 AI 服务，请使用 npm start 启动 SolveMate 后重试。",
+      "无法连接本机 AI 服务，请在项目目录运行 npm start 后重试。",
     );
   }
   let result: unknown;

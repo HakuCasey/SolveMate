@@ -93,6 +93,9 @@ export {
   assertLegacyMetadataV2,
   aiMetadataSchema,
   assertUserData,
+  assertNoteMetadata,
+  maxNoteTitleLength,
+  truncateNoteTitle,
 } from "./metadata";
 import type {
   ReadingSelection,
@@ -139,20 +142,45 @@ export interface Notebook {
 /** 固定资料版本及其阅读位置，供对话引用和笔记来源复用。 */
 export type LearningLocation = ReadingSelection | MaterialLocation;
 
+/** 资料来源固定到版本与位置，对话来源固定到消息编号；原文由来源对象维护。 */
+export type NoteOrigin =
+  | {
+      kind: "document";
+      materialId: string;
+      version: string;
+      pageNumber: number;
+    }
+  | {
+      kind: "question";
+      materialId: string;
+      version: string;
+      questionId: string;
+    }
+  | {
+      kind: "conversation";
+      conversationId: string;
+      messageIds: [string, ...string[]];
+    };
+
 export interface Note {
   id: string;
   notebookId: string;
-  courseId: CourseId;
-  questionId: string;
   title: string;
-  summary: string;
   content: string;
-  revision: number;
   tagIds: string[];
-  source?: LearningLocation | null;
-  /** 记录时的选段快照；对话来源不冒充资料原文。 */
-  excerpt?: ReadingReference;
+  revision: number;
+  /** Unix 毫秒；旧记录没有可靠时间时为 null，不使用迁移时间冒充。 */
+  createdAt: number | null;
+  updatedAt: number | null;
+  origins: NoteOrigin[];
 }
+
+export {
+  migrateNoteMetadata,
+  originsFromReading,
+  locationForOrigin,
+  uniqueNoteOrigins,
+} from "./note-metadata";
 
 export interface NoteTag {
   id: string;

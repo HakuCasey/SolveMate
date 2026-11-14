@@ -776,3 +776,85 @@ def test_different_sessions_keep_independent_hosts_when_one_exits(tmp_path):
             await p.close()
 
     asyncio.run(exercise())
+
+
+@pytest.mark.parametrize(
+    "outcome", ["success", "missing", "busy", "invalid", "cancelled"]
+)
+def test_rename_only_updates_registered_session_and_releases_host(tmp_path, outcome):
+    calls = []
+
+    class RenameHost:
+        closed = False
+
+        async def rpc(self, method, body):
+            calls.append((method, body))
+            if outcome in {"missing", "busy"}:
+                raise ConnectionError("Native rename rejected", "session_" + outcome)
+            if outcome == "invalid":
+                return {}
+            if outcome == "cancelled":
+                raise asyncio.CancelledError
+            return {"title": body["title"], "seq": 8}
+
+        async def close(self):
+            self.closed = True
+
+    async def scenario():
+        host = RenameHost()
+        process = DshProcess("unused", str(tmp_path), harness_home=tmp_path)
+
+        async def owned_host(workspace):
+            assert workspace == str(tmp_path)
+            return host
+
+        process.host = owned_host
+        title = '指针讨论 & "地址"'
+        if outcome == "success":
+            await process.rename(SID, title)
+        elif outcome == "cancelled":
+            with pytest.raises(asyncio.CancelledError):
+                await process.rename(SID, title)
+        else:
+            with pytest.raises(ConnectionError) as error:
+                await process.rename(SID, title)
+            assert error.value.code == (
+                "rename_unconfirmed" if outcome == "invalid" else "session_" + outcome
+            )
+        assert calls == [("session/rename", {"sessionId": SID, "title": title})]
+        assert host.closed
+        assert not process.sessions
+
+    asyncio.run(scenario())
+
+
+def test_native_rename_adapter_reuses_process_and_cleans_up_start_failure():
+    calls = []
+
+    class Process:
+        failure = None
+
+        async def start(self):
+            calls.append("start")
+            if self.failure:
+                raise self.failure
+
+        async def rename(self, sid, title):
+            calls.append((sid, title))
+
+        async def close(self):
+            calls.append("close")
+
+    async def scenario():
+        process = Process()
+        adapter = DshAdapter(lambda *args, **kwargs: process)
+        assert adapter.public_capabilities({})["rename"] == "supported"
+        await adapter.rename_session("unused", SID, "新名称", "unused")
+        assert calls == ["start", (SID, "新名称"), "close"]
+        calls.clear()
+        process.failure = ConnectionError("Host start failed", "program_start_failed")
+        with pytest.raises(ConnectionError):
+            await adapter.rename_session("unused", SID, "新名称", "unused")
+        assert calls == ["start", "close"]
+
+    asyncio.run(scenario())

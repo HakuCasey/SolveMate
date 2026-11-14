@@ -290,3 +290,105 @@ it("refreshes from the service without rerunning migration or treating a cache a
   expect(await storage.recoveries()).toEqual([record]);
   service.userCache.close();
 });
+
+it("upgrades old offline note caches after retaining the original envelope", async () => {
+  const service = await import("./local-service");
+  const { cachedEnvelope } = await import("./local-client");
+  const fixtures = (
+    await import("../../../../packages/contracts/fixtures/note-metadata.json")
+  ).default;
+  const original = {
+    storeId: "original-store",
+    revision: 7,
+    value: {
+      ...createInitialData(),
+      noteLibrary: {
+        ...createInitialData().noteLibrary!,
+        notes: [fixtures[3].note],
+      },
+    },
+  };
+  const next = await cachedEnvelope(
+    original as unknown as import("./local-client").StateEnvelope,
+  );
+  expect(next.value!.noteLibrary!.notes[0].origins).toEqual(
+    fixtures[3].origins,
+  );
+  expect(await service.userCache.get("notes-backup:original-store:7")).toEqual(
+    original,
+  );
+  expect(original.value.noteLibrary.notes[0]).toHaveProperty("excerpt");
+  service.userCache.close();
+});
+
+it("loads valid local records while an older browser import needs a choice", async () => {
+  const old = new DexieStorage();
+  await old.save(createInitialData());
+  old.close();
+  const existing = createInitialData();
+  existing.noteLibrary!.notes = [];
+  state = { ...state, value: existing, revision: 3 };
+  const service = await import("./local-service");
+  expect(await new service.LocalAppStorage().load()).toEqual(existing);
+  expect(service.userStorageStatus.snapshot().loadFailure).toBeInstanceOf(
+    service.MigrationRequired,
+  );
+  expect(state.value).toEqual(existing);
+  service.userCache.close();
+});
+
+it("uses a readable cache when returned records cannot be parsed and refuses to overwrite the server", async () => {
+  const service = await import("./local-service");
+  const storage = new service.LocalAppStorage();
+  await storage.load();
+  await storage.save(createInitialData());
+  const original = state.value;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn((input: string | URL | Request, init?: RequestInit) =>
+      String(input).endsWith("/state") && init?.method !== "PUT"
+        ? Promise.resolve(reply({ ...state, value: { broken: true } }))
+        : fetcher(input, init),
+    ),
+  );
+  expect(await storage.load()).toEqual(original);
+  expect(service.userStorageStatus.snapshot().loadFailure).toBeInstanceOf(
+    Error,
+  );
+  await expect(storage.save(createInitialData())).rejects.toThrow("未通过校验");
+  expect(state.value).toBe(original);
+  service.userCache.close();
+});
+
+it("keeps a valid cache readable when the server reports corrupt JSON", async () => {
+  const service = await import("./local-service");
+  const storage = new service.LocalAppStorage();
+  await storage.load();
+  await storage.save(createInitialData());
+  const original = state.value;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(() =>
+      Promise.resolve(
+        reply(
+          {
+            code: "invalid_user_data",
+            detail: "本机学习记录无法解析，原记录已保留。",
+          },
+          422,
+        ),
+      ),
+    ),
+  );
+  expect(await storage.load()).toEqual(original);
+  await service.prepareUserStorage();
+  expect(service.userStorageStatus.snapshot().loadFailure).toBeInstanceOf(
+    Error,
+  );
+  await expect(storage.save(createInitialData())).rejects.toThrow("无法解析");
+  expect(state.value).toBe(original);
+  vi.stubGlobal("fetch", vi.fn(fetcher));
+  expect(await storage.refresh()).toEqual(original);
+  expect(service.userStorageStatus.snapshot().loadFailure).toBeNull();
+  service.userCache.close();
+});

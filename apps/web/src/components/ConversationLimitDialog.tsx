@@ -19,7 +19,7 @@ export function ConversationLimitDialog({
       <AlertDialog.Portal>
         <AlertDialog.Overlay className={styles.overlay} />
         <AlertDialog.Content className={styles.dialog}>
-          <AlertDialog.Title>对话数量已达上限</AlertDialog.Title>
+          <AlertDialog.Title>进行中的对话已达上限</AlertDialog.Title>
           <AlertDialog.Description>
             {conversationLimits.message}
           </AlertDialog.Description>

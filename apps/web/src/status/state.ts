@@ -53,11 +53,13 @@ export function recordStatus(input: {
   online: boolean;
   unsaved: boolean;
   readError?: string;
+  reading?: boolean;
 }) {
+  if (input.readError) return { label: "记录读取失败", attention: true };
+  if (input.reading) return { label: "正在读取…", attention: false };
   if (input.conflict || input.saveState === "error")
     return { label: "保存失败", attention: true };
   if (!input.online) return { label: "本机服务未连接", attention: true };
-  if (input.readError) return { label: "记录读取失败", attention: true };
   if (input.unsaved) return { label: "有未保存修改", attention: true };
   return {
     label: input.saveState === "saving" ? "正在保存…" : "已保存",

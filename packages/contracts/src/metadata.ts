@@ -3,6 +3,14 @@ import schema from "../ai-metadata.schema.json";
 import legacySchema from "../legacy/ai-metadata-v2.schema.json";
 import appSchema from "../app-data.schema.json";
 
+export const maxNoteTitleLength =
+  appSchema.$defs.Note.properties.title.maxLength;
+
+/** 按 Unicode 字符截断，避免切断一个字符。 */
+export function truncateNoteTitle(value: string): string {
+  return Array.from(value).slice(0, maxNoteTitleLength).join("");
+}
+
 const validator = new Ajv2020({ allErrors: true });
 validator.addSchema(schema);
 const checkApp = validator.compile(appSchema);
@@ -57,6 +65,19 @@ export function assertUserData(value: unknown): void {
     );
   }
 }
+/** 笔记结构与本机服务共用应用 Schema，不在页面维护第二套字段检查。 */
+export function assertNoteMetadata(value: unknown): void {
+  const check = validator.getSchema(`${appSchema.$id}#/$defs/Note`)!;
+  if (!check(value)) throw new Error("Invalid note metadata.");
+  const note = value as { createdAt: number | null; updatedAt: number | null };
+  if (
+    note.createdAt !== null &&
+    note.updatedAt !== null &&
+    note.updatedAt < note.createdAt
+  )
+    throw new Error("Note update time precedes creation time.");
+}
+
 export type MetadataName = keyof typeof schema.$defs;
 
 /** 同一份 Schema 用于网页边界、保存校验和本机服务，错误不包含材料正文。 */

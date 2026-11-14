@@ -29,18 +29,18 @@ export function robotConfigurationBlob(robot: Robot) {
 }
 export function parseRobotConfiguration(text: string): Robot {
   if (new TextEncoder().encode(text).length > maxRobotImportBytes)
-    throw new Error("机器人配置文件不能超过 1 MB。");
+    throw new Error("配置文件不能超过 1 MB。");
   let value: unknown;
   try {
     value = JSON.parse(text.replace(/^\uFEFF/, ""));
   } catch {
-    throw new Error("文件不是有效的 JSON，请选择 SolveMate 导出的机器人配置。");
+    throw new Error("文件不是有效的 JSON，请重新选择导出的配置文件。");
   }
   if (!value || typeof value !== "object" || Array.isArray(value))
-    throw new Error("请选择 SolveMate 导出的机器人配置。");
+    throw new Error("请选择通过“导出配置”生成的 JSON 文件。");
   const file = value as Record<string, unknown>;
   if (file.format !== format)
-    throw new Error("请选择 SolveMate 导出的机器人配置。");
+    throw new Error("请选择通过“导出配置”生成的 JSON 文件。");
   if (file.version !== 1)
     throw new Error("此配置文件的版本暂不支持，请更新应用后重试。");
   try {
@@ -55,7 +55,7 @@ export function parseRobotConfiguration(text: string): Robot {
     if (!robot.name.trim() || !robot.prompt.trim())
       throw new Error("Required configuration is empty.");
   } catch {
-    throw new Error("机器人配置不完整或字段无效，原有配置未更改。");
+    throw new Error("配置不完整或字段无效，原有配置未更改。");
   }
   return structuredClone(file.robot as Robot);
 }

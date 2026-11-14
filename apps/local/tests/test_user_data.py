@@ -17,6 +17,7 @@ from test_service import HEADERS
 
 from solvemate_local import user_data
 from solvemate_local.main import create_app
+from solvemate_local.note_metadata import reading_origins
 from solvemate_local.user_data import UserData, UserDataError, migrate_uploads
 
 
@@ -43,9 +44,16 @@ def data():
                     "notebookId": "notebook-unclassified",
                     "title": "笔记",
                     "content": "原笔记",
-                    "summary": "",
-                    "courseId": "c-language",
-                    "questionId": "C001",
+                    "createdAt": None,
+                    "updatedAt": None,
+                    "origins": [
+                        {
+                            "kind": "question",
+                            "materialId": "c-language:questions",
+                            "version": "example-1",
+                            "questionId": "C001",
+                        }
+                    ],
                     "revision": 1,
                     "tagIds": [],
                 }
@@ -547,7 +555,7 @@ def test_official_material_metadata_rejects_duplicate_ids_without_replacing_stat
             "version": "example-1",
             "kind": "textbooks",
             "itemId": "B001",
-            "chapterIndex": 2,
+            "pageNumber": 3,
         },
         None,
     ],
@@ -560,7 +568,7 @@ def test_note_source_roundtrip_preserves_old_notes_and_rejects_stale_edits(
     store.save(initial, 0)
     changed = deepcopy(initial)
     note = deepcopy(changed["noteLibrary"]["notes"][0])
-    note.update(id="note-source", source=source, courseId="", questionId="")
+    note.update(id="note-source", origins=reading_origins(source))
     changed["noteLibrary"]["notes"].append(note)
     saved = store.save(changed, 1)
     with pytest.raises(UserDataError):
@@ -595,7 +603,14 @@ def test_invalid_note_source_does_not_replace_old_state(tmp_path, source):
     initial = data()
     store.save(initial, 0)
     invalid = deepcopy(initial)
-    invalid["noteLibrary"]["notes"][0]["source"] = source
+    invalid["noteLibrary"]["notes"][0]["origins"] = [
+        {
+            "kind": "document",
+            "materialId": "11111111-1111-4111-8111-111111111111",
+            "version": "a" * 64,
+            "pageNumber": source.get("pageNumber", 0),
+        }
+    ]
     with pytest.raises(UserDataError):
         store.save(invalid, 1)
     assert store.state()["value"] == initial
@@ -696,16 +711,25 @@ def test_conversation_group_limits_preserve_records_and_allow_cleanup(tmp_path):
             "messages": [],
             "example": False,
         }
-        for i in range(limits["total"])
+        for i in range(limits["active"] + 80)
     ]
     with TestClient(create_app(tmp_path / "ai"), headers=HEADERS) as client:
         saved = client.put(
             "/local-api/v1/user/state", json={"value": value, "expectedRevision": 0}
         )
         assert saved.status_code == 200, saved.text
-        for index, target in [(0, "archived"), (-1, "active")]:
+        for create_new in (False, True):
             changed = deepcopy(value)
-            changed["conversations"][index]["status"] = target
+            if create_new:
+                changed["conversations"].append(
+                    {
+                        **deepcopy(value["conversations"][0]),
+                        "id": "extra",
+                        "status": "active",
+                    }
+                )
+            else:
+                changed["conversations"][-1]["status"] = "active"
             response = client.put(
                 "/local-api/v1/user/state",
                 json={"value": changed, "expectedRevision": saved.json()["revision"]},
@@ -714,10 +738,25 @@ def test_conversation_group_limits_preserve_records_and_allow_cleanup(tmp_path):
             assert response.json()["code"] == "conversation_limit_reached"
             assert response.json()["detail"] == limits["message"]
             assert client.get("/local-api/v1/user/state").json()["value"] == value
-        value["conversations"][0]["status"] = "deleted"
+        # 归档没有上限；进行中已满时仍允许归档，随后可移回一条。
+        archived = deepcopy(value)
+        archived["conversations"][0]["status"] = "archived"
+        response = client.put(
+            "/local-api/v1/user/state",
+            json={"value": archived, "expectedRevision": saved.json()["revision"]},
+        )
+        assert response.status_code == 200, response.text
+        archived["conversations"][-1]["status"] = "active"
+        restored = client.put(
+            "/local-api/v1/user/state",
+            json={"value": archived, "expectedRevision": response.json()["revision"]},
+        )
+        assert restored.status_code == 200, restored.text
+        value = archived
+        value["conversations"][-1]["status"] = "deleted"
         removed = client.put(
             "/local-api/v1/user/state",
-            json={"value": value, "expectedRevision": saved.json()["revision"]},
+            json={"value": value, "expectedRevision": restored.json()["revision"]},
         )
         assert removed.status_code == 200
         value["conversations"].append(
@@ -790,3 +829,40 @@ def test_unsubmitted_question_with_no_connection_is_saved_and_read_back(tmp_path
         )
         assert rejected.status_code == 422
         assert client.get("/local-api/v1/user/state").json()["value"] == value
+
+
+def test_merged_note_origins_roundtrip_and_invalid_origin_preserves_data(tmp_path):
+    store = UserData(tmp_path)
+    value = data()
+    note = value["noteLibrary"]["notes"][0]
+    note.update(
+        origins=[
+            {
+                "kind": "document",
+                "materialId": "11111111-1111-4111-8111-111111111111",
+                "version": "a" * 64,
+                "pageNumber": 3,
+            },
+            {
+                "kind": "question",
+                "materialId": "c-language:questions",
+                "version": "example-1",
+                "questionId": "C001",
+            },
+        ],
+    )
+    store.save(value, 0)
+    store.close()
+    store = UserData(tmp_path)
+    assert store.state()["value"] == value
+    for origins in [
+        [{"kind": "invalid"}],
+        [{"source": {"pageNumber": 0}}],
+        [{"excerpt": {}}],
+    ]:
+        invalid = deepcopy(value)
+        invalid["noteLibrary"]["notes"][0]["origins"] = origins
+        with pytest.raises(UserDataError):
+            store.save(invalid, 1)
+        assert store.state()["value"] == value
+    store.close()

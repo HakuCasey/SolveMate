@@ -80,18 +80,7 @@ export const sampleNotebooks: Notebook[] = seedData.notebooks.map((item) => ({
   revision: 1,
 }));
 
-export const sampleNotes: Note[] = seedData.notes.map((note) => {
-  if (!sampleNotebooks.some((notebook) => notebook.id === note.notebookId))
-    throw new Error(`Sample note has an unknown notebook: ${note.id}`);
-  const course = courses.find((item) => item.id === note.courseId);
-  if (!course) throw new Error(`Sample note has an unknown course: ${note.id}`);
-  return {
-    ...note,
-    courseId: course.id,
-    revision: 1,
-    tagIds: [`subject:${course.id}`],
-  };
-});
+export const sampleNotes = structuredClone(seedData.notes) as Note[];
 
 export function createInitialData(): AppData {
   const data: unknown = {
@@ -122,6 +111,22 @@ export function createInitialData(): AppData {
     if (session.selection) session.selection.version = "example-1";
   });
   return initializeNotes(initial, sampleNotebooks, sampleNotes);
+}
+
+/** 记录尚未读取时用于显示界面，不写入存储，也不以示例冒充用户记录。 */
+export function createEmptyData(): AppData {
+  const initial = createInitialData();
+  return {
+    ...initial,
+    conversations: [],
+    noteLibrary: {
+      notebooks: initial.noteLibrary!.notebooks.filter(
+        (item) => item.id === "notebook-unclassified",
+      ),
+      notes: [],
+      customTags: [],
+    },
+  };
 }
 
 export function getCurrentContent(

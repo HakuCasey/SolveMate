@@ -177,7 +177,7 @@ class HermesAdapter(AcpAdapter):
         )
         if result is None or result == {}:
             raise ConnectionError(
-                "Hermes 未找到原会话。请检查当前 Hermes 的会话记录；SolveMate 中的记录仍保留，未创建新会话。",
+                "Hermes 未找到原会话。请检查当前 Hermes 的会话记录；本地记录仍保留，未创建新会话。",
                 "session_missing",
             )
         if not isinstance(result, dict):

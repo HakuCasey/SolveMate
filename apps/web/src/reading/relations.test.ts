@@ -61,7 +61,7 @@ describe("learning material relations", () => {
     expect(relations(data).material(source).available).toBe(true);
     expect(data).toEqual(before);
     expect(
-      sourceForNote({ ...data.noteLibrary!.notes[0], source: null }),
+      sourceForNote({ ...data.noteLibrary!.notes[0], origins: [] }),
     ).toBeNull();
   });
   it("groups a book across chapters and versions but keeps each exact original location", () => {
@@ -145,7 +145,7 @@ describe("learning material relations", () => {
       available: true,
     });
     expect(index.related(page).notes).toHaveLength(1);
-    expect(data.noteLibrary!.notes[0].source).toEqual(source);
+    expect(sourceForNote(data.noteLibrary!.notes[0])).toEqual(source);
   });
   it("keeps historical note sources after subject deletion, and does not associate a same-named upload", () => {
     let data = createNote(

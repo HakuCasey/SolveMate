@@ -2,6 +2,7 @@ import { useDraftBackup } from "../refresh/drafts";
 import { useEditRevision } from "../refresh/useEditRevision";
 import { useId, useRef, useState } from "react";
 import { Dialog } from "radix-ui";
+import { truncateNoteTitle } from "@solvemate/contracts";
 import type { Note, Notebook, NoteLibrary } from "@solvemate/contracts";
 import type { SubjectDirectory } from "../state/subjects";
 import {
@@ -14,10 +15,16 @@ import { NotebookDestinationSelect } from "./NotebookDestinationSelect";
 import styles from "./NoteManagement.module.css";
 
 export type NoteManagementTarget =
+  | {
+      kind: "mergeNotes";
+      item: Notebook;
+      notes: Pick<Note, "id" | "revision">[];
+    }
   | { kind: "renameNotebook" | "deleteNotebook"; item: Notebook }
   | { kind: "renameNote" | "deleteNote" | "tags" | "moveNote"; item: Note };
 
 const headings = {
+  mergeNotes: "合并笔记",
   renameNotebook: "重命名笔记本",
   deleteNotebook: "删除笔记本",
   renameNote: "重命名笔记",
@@ -83,9 +90,10 @@ export function NoteManagementDialog({
   };
   const getRevision = useEditRevision(
     target.item,
-    (target.kind.endsWith("Notebook") ? library.notebooks : library.notes).find(
-      (item) => item.id === target.item.id,
-    ),
+    (target.kind.endsWith("Notebook") || target.kind === "mergeNotes"
+      ? library.notebooks
+      : library.notes
+    ).find((item) => item.id === target.item.id),
   );
   function addTag() {
     const value = tagName.trim();
@@ -124,7 +132,13 @@ export function NoteManagementDialog({
     }
     const base = { id: target.item.id, revision };
     let action: NoteAction;
-    if (target.kind === "renameNotebook" || target.kind === "renameNote")
+    if (target.kind === "mergeNotes")
+      action = {
+        kind: "mergeNotes",
+        notebookId: target.item.id,
+        notes: target.notes,
+      };
+    else if (target.kind === "renameNotebook" || target.kind === "renameNote")
       action = { ...base, kind: target.kind, title: name };
     else if (target.kind === "deleteNotebook")
       action = { ...base, kind: target.kind, deleteNotes };
@@ -148,17 +162,19 @@ export function NoteManagementDialog({
     try {
       await onAction(action);
       saved(
-        deleting
-          ? target.kind === "deleteNotebook"
-            ? "笔记本已删除"
-            : "笔记已删除"
-          : target.kind === "tags"
-            ? "笔记标签已保存"
-            : target.kind === "moveNote"
-              ? "笔记本已更换"
-              : target.kind === "renameNotebook"
-                ? "笔记本名称已保存"
-                : "笔记名称已保存",
+        target.kind === "mergeNotes"
+          ? "笔记已合并"
+          : deleting
+            ? target.kind === "deleteNotebook"
+              ? "笔记本已删除"
+              : "笔记已删除"
+            : target.kind === "tags"
+              ? "笔记标签已保存"
+              : target.kind === "moveNote"
+                ? "笔记本已更换"
+                : target.kind === "renameNotebook"
+                  ? "笔记本名称已保存"
+                  : "笔记名称已保存",
       );
       onClose();
     } catch (failure) {
@@ -189,18 +205,30 @@ export function NoteManagementDialog({
         >
           <Dialog.Title>{headings[target.kind]}</Dialog.Title>
           <Dialog.Description>
-            {target.kind === "deleteNotebook"
-              ? "请选择是否同时删除笔记本中的所有笔记。"
-              : target.kind === "deleteNote"
-                ? "确认删除这篇笔记？"
-                : target.kind === "tags"
-                  ? "选择已有标签，也可以添加新标签。"
-                  : target.kind === "moveNote"
-                    ? "选择已有笔记本，也可以新建笔记本。"
-                    : "修改名称后，编号和已有内容保持不变。"}
+            {target.kind === "mergeNotes"
+              ? `将这 ${target.notes.length} 篇笔记按列表顺序合并为一篇，保留第一篇的标题及全部标签和来源。`
+              : target.kind === "deleteNotebook"
+                ? "请选择是否同时删除笔记本中的所有笔记。"
+                : target.kind === "deleteNote"
+                  ? "确认删除这篇笔记？"
+                  : target.kind === "tags"
+                    ? "选择已有标签，也可以添加新标签。"
+                    : target.kind === "moveNote"
+                      ? "选择已有笔记本，也可以新建笔记本。"
+                      : "修改名称后，编号和已有内容保持不变。"}
           </Dialog.Description>
           {target.kind === "deleteNotebook" && (
             <p className={styles.warning}>高危操作，请谨慎确认。</p>
+          )}
+          {target.kind === "mergeNotes" && (
+            <ol className={styles.mergePreview}>
+              {target.notes.map(({ id }) => (
+                <li key={id}>
+                  {library.notes.find((note) => note.id === id)?.title ??
+                    "笔记已删除"}
+                </li>
+              ))}
+            </ol>
           )}
           <form
             onSubmit={(event) => {
@@ -214,10 +242,16 @@ export function NoteManagementDialog({
                 {target.kind === "renameNotebook" ? "笔记本名称" : "笔记名称"}
                 <input
                   value={name}
-                  maxLength={80}
+                  maxLength={target.kind === "renameNotebook" ? 80 : undefined}
                   disabled={saving}
                   onFocus={(event) => event.currentTarget.select()}
-                  onChange={(event) => setName(event.target.value)}
+                  onChange={(event) =>
+                    setName(
+                      target.kind === "renameNote"
+                        ? truncateNoteTitle(event.target.value)
+                        : event.target.value,
+                    )
+                  }
                 />
               </label>
             )}
@@ -352,7 +386,9 @@ export function NoteManagementDialog({
                     : "正在保存…"
                   : deleting
                     ? "确认删除"
-                    : "保存"}
+                    : target.kind === "mergeNotes"
+                      ? "确认合并"
+                      : "保存"}
               </button>
             </div>
           </form>

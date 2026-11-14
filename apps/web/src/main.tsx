@@ -1,3 +1,4 @@
+import { clearReopenParameter } from "./pwa/reopen";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { applyTheme } from "./theme/theme";
@@ -6,6 +7,8 @@ import { ErrorBoundary } from "./ErrorBoundary";
 import { SaveFeedbackProvider } from "./components/SaveFeedback";
 import "./styles.css";
 import "katex/dist/katex.min.css";
+
+clearReopenParameter();
 
 // 首屏使用默认主题；个人设置载入后由应用恢复已保存的明暗模式。
 applyTheme(

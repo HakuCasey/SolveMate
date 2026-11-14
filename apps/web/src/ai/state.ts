@@ -38,9 +38,7 @@ export function mergeAiTurn(data: AppData, turn: AiTurn): AppData {
     )
       return conversation;
     if (conversation.robotId && conversation.robotId !== turn.teacher.id)
-      throw new Error(
-        "执行结果中的机器人与当前对话不一致，未更改对话的机器人。",
-      );
+      throw new Error("回复对应的机器人与当前对话不一致，对话配置未更改。");
     const existingBinding = sessionBindings(conversation).find(
       (binding) => binding.connectionId === turn.connectionId,
     );

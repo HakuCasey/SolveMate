@@ -10,6 +10,7 @@ import {
   localRequest,
   LocalServiceError,
   envelope,
+  cachedEnvelope,
   remember,
   toBase64,
   type StateEnvelope,
@@ -102,7 +103,7 @@ async function initialize() {
     const old = saved ? null : await legacy.rawRecord();
     if (!saved && !old) throw error;
     initialEnvelope = saved
-      ? envelope(saved)
+      ? await cachedEnvelope(saved)
       : {
           storeId: "legacy-offline",
           revision: 0,

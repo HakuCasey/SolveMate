@@ -1,3 +1,4 @@
+import { migrateNoteMetadata } from "@solvemate/contracts";
 import { assertLegacyMetadataV2 as assertV2 } from "@solvemate/contracts";
 import legacySchema from "../../../../packages/contracts/legacy/ai-metadata-v2.schema.json";
 import type {
@@ -197,8 +198,9 @@ export function upgradeConversation(
 export function migrateAiMetadata(value: unknown): AppData {
   const old = record(value);
   if (old.schemaVersion === 3) {
-    assertAppData(value);
-    return value;
+    const next = migrateNoteMetadata(value);
+    assertAppData(next);
+    return next;
   }
   if (old.schemaVersion !== 2) assertLegacyAppData(value);
   const robots = (old.robots as unknown[]).map(upgradeRobot);
@@ -210,6 +212,7 @@ export function migrateAiMetadata(value: unknown): AppData {
       upgradeConversation(item, robots),
     ),
   };
-  assertAppData(next);
-  return next;
+  const upgraded = migrateNoteMetadata(next);
+  assertAppData(upgraded);
+  return upgraded;
 }

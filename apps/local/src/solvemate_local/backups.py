@@ -22,6 +22,7 @@ from pydantic import BaseModel, Field
 
 from .file_exports import save_download_file, validate_filename
 from .metadata import validate_metadata
+from .note_metadata import migrate_note_metadata
 from .user_data import UserDataError, validate_data
 
 logger = logging.getLogger(__name__)
@@ -31,7 +32,7 @@ MAX_EXPANDED = 8 * 1024**3
 MAX_FILES = 200000
 
 
-def invalid(message="备份文件无效或已损坏，请选择完整的 SolveMate 备份。"):
+def invalid(message="备份文件无效或已损坏，请重新选择完整的 ZIP 备份。"):
     return UserDataError(message, "backup_invalid", 422)
 
 
@@ -369,7 +370,7 @@ class Backups:
                 if name == "app.sqlite3":
                     row = db.execute("SELECT value FROM state WHERE id=1").fetchone()
                     if row:
-                        validate_data(json.loads(row[0]))
+                        validate_data(migrate_note_metadata(json.loads(row[0])))
                 else:
                     # 检查全部 JSON，避免恢复后才发现配置或执行记录无法读取。
                     for table in ("config", "connections", "turns"):
@@ -430,15 +431,23 @@ class Backups:
 
     def prepare_revisions(self, app, folder):
         # 存储身份表示当前目录；替换内容提高版本，阻止其他窗口覆盖恢复结果。
-        current_state = app.state.user.state()
+        try:
+            current_state = app.state.user.state()
+        except UserDataError:
+            # 原 JSON 无法读取时仍可从有效备份恢复；替换前的完整备份由现有流程保存。
+            row = app.state.user.db.execute(
+                "SELECT revision FROM state WHERE id=1"
+            ).fetchone()
+            current_state = {"value": None, "revision": row[0] if row else 0}
         with closing(sqlite3.connect(folder / "app.sqlite3")) as db, db:
             row = db.execute("SELECT value FROM state WHERE id=1").fetchone()
-            if row and current_state["value"] and current_state["value"].get("drafts"):
-                value = json.loads(row[0])
-                value["drafts"] = {
-                    **value.get("drafts", {}),
-                    **current_state["value"].get("drafts", {}),
-                }
+            if row:
+                value = migrate_note_metadata(json.loads(row[0]))
+                if current_state["value"] and current_state["value"].get("drafts"):
+                    value["drafts"] = {
+                        **value.get("drafts", {}),
+                        **current_state["value"]["drafts"],
+                    }
                 validate_data(value)
                 db.execute(
                     "UPDATE state SET value=? WHERE id=1",
@@ -450,7 +459,7 @@ class Backups:
             )
             db.execute(
                 "UPDATE state SET revision=MAX(revision,?)+1",
-                (app.state.user.state()["revision"],),
+                (current_state["revision"],),
             )
         current = app.state.ai.store
         with closing(sqlite3.connect(folder / "ai/state.sqlite3")) as db, db:

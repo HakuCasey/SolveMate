@@ -4,6 +4,7 @@ import base64
 import hashlib
 import io
 import json
+import logging
 import math
 import os
 import re
@@ -19,14 +20,11 @@ from pathlib import Path
 from jsonschema import Draft202012Validator
 from referencing import Registry, Resource
 
-from .metadata import SCHEMA, validate_metadata
+from .metadata import APP_SCHEMA, SCHEMA, validate_metadata
+from .note_metadata import migrate_note_metadata
 
-APP_SCHEMA = json.loads(
-    Path(__file__)
-    .with_name("schemas")
-    .joinpath("app-data.schema.json")
-    .read_text(encoding="utf-8")
-)
+logger = logging.getLogger(__name__)
+
 MAX_ROBOTS = json.loads(
     Path(__file__)
     .with_name("schemas")
@@ -112,6 +110,12 @@ def validate_data(value):
         books = {item["id"] for item in library["notebooks"]}
         tags = {item["id"] for item in library["customTags"]}
         for note in library["notes"]:
+            if (
+                note["createdAt"] is not None
+                and note["updatedAt"] is not None
+                and note["updatedAt"] < note["createdAt"]
+            ):
+                raise UserDataError("笔记更新时间早于创建时间，原记录已保留。")
             if note["notebookId"] not in books or any(
                 not tag.startswith("subject:") and tag not in tags
                 for tag in note["tagIds"]
@@ -209,18 +213,71 @@ class UserData:
             "SELECT value FROM metadata WHERE id='storeId'"
         ).fetchone()[0]
 
+        self.record_error = None
+        self.prepare_notes()
+
+    def prepare_notes(self):
+        try:
+            self.upgrade_notes()
+            self.record_error = None
+        except UserDataError as error:
+            self.record_error = error
+            logger.error(
+                "Local records could not be read; original data retained (%s).",
+                type(error).__name__,
+            )
+        except OSError as error:
+            self.record_error = UserDataError(
+                "转换前备份未能保存，请检查 user/backups 的写入权限后重新读取。原记录已保留。",
+                "record_backup_failed",
+                503,
+            )
+            logger.error(
+                "Local record backup failed; original data retained (%s).",
+                type(error).__name__,
+            )
+
+    def upgrade_notes(self):
+        # 备份原 JSON 后在事务内替换，抬高保存版本，旧窗口不能覆盖迁移结果。
+        with self.lock, self.db:
+            self.db.execute("BEGIN IMMEDIATE")
+            row = self.db.execute("SELECT * FROM state WHERE id=1").fetchone()
+            if not row:
+                return
+            try:
+                original = json.loads(row["value"])
+                upgraded = migrate_note_metadata(original)
+                validate_data(upgraded)
+            except (ValueError, KeyError, TypeError) as error:
+                raise UserDataError("本机学习记录无法解析，原记录已保留。") from error
+            if upgraded is original:
+                return
+            digest = hashlib.sha256(row["value"].encode("utf-8")).hexdigest()
+            atomic_write(
+                self.root / "backups" / f"notes-{digest}.json",
+                row["value"].encode("utf-8"),
+            )
+            self.db.execute(
+                "UPDATE state SET value=?, revision=revision+1 WHERE id=1",
+                (encoded(upgraded),),
+            )
+
     def close(self):
         self.db.close()
 
     def state(self):
         with self.lock:
+            if self.record_error is not None and not self.db.in_transaction:
+                self.prepare_notes()
+            if self.record_error is not None:
+                raise self.record_error
             row = self.db.execute("SELECT * FROM state WHERE id=1").fetchone()
             if row:
                 try:
                     value = json.loads(row["value"])
                 except ValueError as error:
                     raise UserDataError(
-                        "本机学习记录无法解析，原数据已保留，请从备份恢复。"
+                        "本机学习记录无法解析，原数据已保留。"
                     ) from error
                 validate_data(value)
             return {
@@ -252,18 +309,15 @@ class UserData:
                 for item in (current["value"] or {}).get("conversations", [])
             )
             after = Counter(item["status"] for item in value["conversations"])
-            before["total"] = before["active"] + before["archived"]
-            after["total"] = after["active"] + after["archived"]
-            for kind in ("active", "archived", "total"):
-                if (
-                    after[kind] > CONVERSATION_LIMITS[kind]
-                    and after[kind] > before[kind]
-                ):
-                    raise UserDataError(
-                        CONVERSATION_LIMITS["message"],
-                        "conversation_limit_reached",
-                        422,
-                    )
+            if (
+                after["active"] > CONVERSATION_LIMITS["active"]
+                and after["active"] > before["active"]
+            ):
+                raise UserDataError(
+                    CONVERSATION_LIMITS["message"],
+                    "conversation_limit_reached",
+                    422,
+                )
             previous_robots = (current["value"] or {}).get("robots", [])
             if len(value["robots"]) > MAX_ROBOTS and len(value["robots"]) > len(
                 previous_robots
@@ -432,7 +486,8 @@ class UserData:
                 "SELECT 1 FROM migrations WHERE source=? AND digest=?", (source, digest)
             ).fetchone():
                 return self.state()
-            value = payload.get("value")
+            original = payload.get("value")
+            value = migrate_note_metadata(original) if original is not None else None
             if value is not None:
                 validate_data(value)
             current = self.state()

@@ -29,8 +29,8 @@ import {
 import { OfficialLibrary } from "./content/library";
 import { OfficialLibraryService } from "./content/library-service";
 import { officialEntryId } from "./content/entries";
-import { Link, NotebookPen, RefreshCw, SquarePen } from "lucide-react";
-import { conversationMetadata } from "@solvemate/contracts";
+import { NotebookPen, SquarePen } from "lucide-react";
+import { conversationMetadata, truncateNoteTitle } from "@solvemate/contracts";
 import type {
   AppData,
   Subject,
@@ -43,10 +43,12 @@ import type {
   SessionBinding,
   LearningLocation,
   Note,
+  MessageSource,
 } from "@solvemate/contracts";
 import {
   applyNoteAction,
   noteTags,
+  customNoteTagIds,
   notePreview,
   createNote,
   editNote,
@@ -91,6 +93,7 @@ import { NotebookList } from "./components/NotebookList";
 import { PaneHeader } from "./components/PaneHeader";
 import { ConversationList } from "./components/ConversationList";
 import { Sidebar } from "./components/Sidebar";
+import { BackupDialog } from "./components/BackupDialog";
 import { SubjectDialog, type SubjectAction } from "./components/SubjectDialog";
 import {
   addSubject,
@@ -150,10 +153,7 @@ import {
 import { RefreshControls } from "./refresh/RefreshControls";
 import { useDraftBackup, formDrafts } from "./refresh/drafts";
 import { useSaveFeedback } from "./components/SaveFeedback";
-import {
-  UserStorageGate,
-  useUserStorageStatus,
-} from "./storage/UserStorageGate";
+import { useUserStorageStatus } from "./storage/UserStorageGate";
 
 type View =
   | "reading"
@@ -166,27 +166,11 @@ type View =
   | "library";
 
 export function App() {
-  return (
-    <UserStorageGate>
-      <LocalWorkspace />
-    </UserStorageGate>
-  );
+  return <LocalWorkspace />;
 }
 
 function LocalWorkspace() {
   const content = useOfficialContent();
-  if (!content.ready)
-    return (
-      <main className={styles.loading}>
-        <h1>SolveMate</h1>
-        <p role={content.loadError ? "alert" : "status"}>
-          {content.loadError || "正在读取本地内容…"}
-        </p>
-        {content.loadError && (
-          <button onClick={() => window.location.reload()}>重新打开</button>
-        )}
-      </main>
-    );
   return <Workspace content={content} />;
 }
 
@@ -211,7 +195,9 @@ function Workspace({ content }: { content: OfficialContent }) {
   const {
     data,
     setData,
-    loadFailed,
+    loadState,
+    loadFailure,
+    retryRead,
     saveState,
     conflict,
     retrySave,
@@ -226,6 +212,7 @@ function Workspace({ content }: { content: OfficialContent }) {
     resolveConflict,
   } = useLocalData(sourceAvailableCourses);
   const [conversationLimitOpen, setConversationLimitOpen] = useState(false);
+  const [backupOpen, setBackupOpen] = useState(false);
   const saveChanges = useCallback(
     async (change: (previous: AppData) => AppData) => {
       try {
@@ -573,25 +560,7 @@ function Workspace({ content }: { content: OfficialContent }) {
     setData((previous) => (previous ? change(previous) : previous));
   }
 
-  if (!data)
-    return (
-      <main className={styles.loading}>
-        <h1>SolveMate</h1>
-        {loadFailed ? (
-          <>
-            <p role="alert">
-              无法读取本机学习记录。原有数据已保留，请确认本机服务已启动后重试。
-            </p>
-            <button onClick={() => window.location.reload()}>
-              <RefreshCw aria-hidden="true" />
-              重新打开
-            </button>
-          </>
-        ) : (
-          <p role="status">正在读取本地内容…</p>
-        )}
-      </main>
-    );
+  if (!data) return null;
 
   const selection = resolvedSelection!;
   const resizable =
@@ -615,10 +584,7 @@ function Workspace({ content }: { content: OfficialContent }) {
   const note =
     noteLibrary.notes.find((item) => item.id === noteId) ??
     noteLibrary.notes[0];
-  const noteDisplayTagIds =
-    note?.tagIds.filter((id) => !id.startsWith("subject:")) ?? [];
-  const noteSource = note ? sourceForNote(note) : null;
-  const noteMaterial = noteSource ? relations.material(noteSource) : null;
+  const noteDisplayTagIds = note ? customNoteTagIds(note) : [];
   const noteNotebook = noteLibrary.notebooks.find(
     (item) => item.id === note?.notebookId,
   );
@@ -720,7 +686,12 @@ function Workspace({ content }: { content: OfficialContent }) {
   }
   function prepareReload() {
     const currentSaveState = readSaveState();
-    if (currentSaveState !== "saved" || submitting.current)
+    if (
+      (loadState === "ready" &&
+        !storageStatus.loadFailure &&
+        currentSaveState !== "saved") ||
+      submitting.current
+    )
       throw new Error(
         currentSaveState === "saving" || submitting.current
           ? "正在保存当前内容，请稍后再更新应用。"
@@ -762,26 +733,33 @@ function Workspace({ content }: { content: OfficialContent }) {
     setView("materials");
   }
 
+  function openMessageSource(source: MessageSource) {
+    const original = data!.conversations.find(
+      (item) => item.id === source.conversationId && item.status !== "deleted",
+    );
+    const message = original?.messages.find((item) =>
+      source.messageIds.includes(item.id),
+    );
+    if (
+      !original ||
+      !message ||
+      !source.messageIds.every((id) =>
+        original.messages.some((item) => item.id === id),
+      )
+    ) {
+      setCommandError("原对话或消息已删除，无法打开来源。");
+      return;
+    }
+    openConversation(original);
+    setMessageFocus({
+      id: message.id,
+      request: Date.now(),
+      conversationId: original.id,
+    });
+  }
   function openReference(reference: ReadingReference) {
     if (reference.message) {
-      const original = data!.conversations.find(
-        (item) =>
-          item.id === reference.message!.conversationId &&
-          item.status !== "deleted",
-      );
-      const message = original?.messages.find((item) =>
-        reference.message!.messageIds.includes(item.id),
-      );
-      if (!original || !message) {
-        setCommandError("原对话或消息已删除，已保存的引用内容仍保留。");
-        return;
-      }
-      openConversation(original);
-      setMessageFocus({
-        id: message.id,
-        request: Date.now(),
-        conversationId: original.id,
-      });
+      openMessageSource(reference.message);
       return;
     }
     const location = reference.material ?? reference.selection;
@@ -1316,6 +1294,12 @@ function Workspace({ content }: { content: OfficialContent }) {
           pending={pendingSwitch}
           onClose={() => setPendingSwitch(null)}
         />
+        {backupOpen && (
+          <BackupDialog
+            onClose={() => setBackupOpen(false)}
+            onRefresh={() => dataRefresh.refresh(undefined, false, true)}
+          />
+        )}
         <div className={styles.shell}>
           <StudyProvider
             allowed={studyAllowed}
@@ -1325,6 +1309,7 @@ function Workspace({ content }: { content: OfficialContent }) {
             <Sidebar
               subjects={subjects}
               onRefreshData={() => dataRefresh.refresh(undefined, false, true)}
+              onOpenBackup={() => setBackupOpen(true)}
               onSubjectAction={setSubjectAction}
               ai={ai}
               view={view}
@@ -1486,9 +1471,15 @@ function Workspace({ content }: { content: OfficialContent }) {
               {view === "notes" && (
                 <NotebookList
                   library={noteLibrary}
+                  relations={relations}
                   directory={subjectDirectory}
                   activeNoteId={note?.id ?? null}
                   onSelect={setNoteId}
+                  onMessage={openMessageSource}
+                  onLocation={(source) => {
+                    if ("materialId" in source) selectMaterial({ ...source });
+                    else selectContent({ ...source });
+                  }}
                   onAction={async (action) => {
                     await saveChanges((previous) =>
                       applyNoteAction(
@@ -1513,40 +1504,6 @@ function Workspace({ content }: { content: OfficialContent }) {
                   <PaneHeader
                     icon={NotebookPen}
                     title={noteNotebook?.title ?? "笔记"}
-                    detail={
-                      note?.excerpt?.message ? (
-                        <button
-                          className={styles.noteSource}
-                          title={note.excerpt.title}
-                          onClick={() => openReference(note.excerpt!)}
-                        >
-                          <Link aria-hidden="true" />
-                          来源对话
-                        </button>
-                      ) : (
-                        noteMaterial && (
-                          <button
-                            type="button"
-                            className={styles.noteSource}
-                            aria-label="查看原文"
-                            title={`来源：${noteMaterial.title} · ${noteMaterial.position}${noteMaterial.removed ? "（资料已从列表删除）" : ""}`}
-                            disabled={!noteMaterial.available}
-                            onClick={() => {
-                              if (noteSource && "materialId" in noteSource)
-                                selectMaterial({ ...noteSource });
-                              else if (noteSource)
-                                selectContent({ ...noteSource });
-                            }}
-                          >
-                            <Link aria-hidden="true" />
-                            <span>
-                              {noteMaterial.title} · {noteMaterial.position}
-                              {noteMaterial.removed && "（资料已从列表删除）"}
-                            </span>
-                          </button>
-                        )
-                      )
-                    }
                     actions={
                       note && (
                         <button
@@ -1716,7 +1673,8 @@ function Workspace({ content }: { content: OfficialContent }) {
                   previous,
                   {
                     title:
-                      notePreview(reference.content).slice(0, 80) || "选段笔记",
+                      truncateNoteTitle(notePreview(reference.content)) ||
+                      "选段笔记",
                     content: reference.content,
                     notebookId:
                       destination.kind === "existing"
@@ -1777,6 +1735,14 @@ function Workspace({ content }: { content: OfficialContent }) {
         <StatusBar>
           <RefreshControls
             saveState={saveState}
+            loadFailure={loadFailure ?? storageStatus.loadFailure}
+            loadingRecords={loadState === "loading"}
+            readError={content.loadError}
+            onRetryRead={retryRead}
+            onOpenBackup={() => {
+              setRecordDetailsOpen(false);
+              setBackupOpen(true);
+            }}
             conflict={conflict}
             online={storageStatus.online}
             errors={[
@@ -1816,7 +1782,9 @@ function Workspace({ content }: { content: OfficialContent }) {
           <PwaControls
             prepareReload={prepareReload}
             saveFailure={
-              saveState === "error" || conflict
+              loadState === "ready" &&
+              !storageStatus.loadFailure &&
+              (saveState === "error" || conflict)
                 ? conflict
                   ? "记录存在修改冲突，请先选择要保留的内容。"
                   : saveError || "学习记录未能保存。"

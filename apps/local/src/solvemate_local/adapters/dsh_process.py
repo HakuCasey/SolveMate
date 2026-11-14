@@ -118,6 +118,21 @@ class DshProcess:
         finally:
             await host.close()
 
+    async def rename(self, sid, title):
+        # 管理原编号，不读取模型目录、不提交问题，也不创建替代会话。
+        host = await self.host(self.workspace)
+        try:
+            result = await host.rpc(
+                "session/rename", {"sessionId": sid, "title": title}
+            )
+            if not isinstance(result, dict) or result.get("title") != title:
+                raise ConnectionError(
+                    "DSH 未确认指定的会话名称，本地名称已保留，可再次保存重试。",
+                    "rename_unconfirmed",
+                )
+        finally:
+            await host.close()
+
     async def create(self, workspace):
         host = await self.host(workspace)
         try:

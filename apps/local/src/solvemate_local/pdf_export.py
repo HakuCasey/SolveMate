@@ -5,6 +5,7 @@ import os
 import shutil
 import signal
 import sys
+from html import escape
 from html.parser import HTMLParser
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -81,6 +82,7 @@ class ExportMarkup(HTMLParser):
         if tag in {
             "script",
             "meta",
+            "title",
             "base",
             "link",
             "iframe",
@@ -99,7 +101,7 @@ class ExportMarkup(HTMLParser):
         self.handle_starttag(tag, attrs)
 
 
-async def render_pdf(html, timeout=45):
+async def render_pdf(html, timeout=45, *, title="笔记本"):
     ExportMarkup().feed(html)
     executable = find_pdf_browser()
     # CSP 在正文之前生效，导出只使用内嵌字体与本机字体，禁止脚本、外部文件和网络资源。
@@ -111,7 +113,9 @@ async def render_pdf(html, timeout=45):
             '<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">'
             + '<meta http-equiv="Content-Security-Policy" content="'
             + policy
-            + '"></head><body>'
+            + '"><title>'
+            + escape(title)
+            + "</title></head><body>"
             + html
             + "</body></html>",
             encoding="utf-8",
@@ -210,7 +214,8 @@ async def notebook_pdf(body: NotebookPdf, request: Request):
             "已有笔记本正在导出，请等待完成后重试。", "pdf_export_busy", 409
         )
     async with lock:
-        task = asyncio.create_task(render_pdf(body.html))
+        # 标题从已核对版本的笔记本读取，不接受网页另传一份名称。
+        task = asyncio.create_task(render_pdf(body.html, title=notebook["title"]))
         try:
             while not task.done():
                 await asyncio.wait({task}, timeout=0.25)

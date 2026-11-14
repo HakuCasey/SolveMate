@@ -73,17 +73,17 @@
 .entry:hover {
   background: var(--sm-ground);
 }
-.entry[aria-pressed="true"] {
+.entry[data-active="true"] {
   background: var(--sm-active);
 }
-.entry > svg {
+.openEntry > svg {
   width: 14px;
   height: 14px;
   flex-shrink: 0;
   margin-top: 2px;
   color: var(--sm-soft);
 }
-.entry[aria-pressed="true"] > svg {
+.entry[data-active="true"] .openEntry > svg {
   color: var(--sm-accent);
 }
 .copy {
@@ -179,4 +179,62 @@
 .entry[data-state="open"],
 .notebookButton[data-state="open"] {
   background: var(--sm-active);
+}
+
+.notebookHeading {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.notebookHeading .notebookButton {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+}
+.selectButton,
+.selectionBar button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  white-space: nowrap;
+  color: var(--sm-accent);
+}
+.selectButton svg,
+.selectionBar svg {
+  width: 14px;
+  height: 14px;
+}
+.selectButton:hover,
+.selectionBar button:hover:not(:disabled) {
+  background: var(--sm-active);
+}
+.selectionBar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 6px;
+  color: var(--sm-soft);
+  font-size: 12px;
+}
+.selectionBar > span {
+  flex: 1;
+}
+.selectionBar button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.openEntry {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  gap: 8px;
+  padding: 0;
+  color: inherit;
+  text-align: left;
 }

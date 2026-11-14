@@ -115,7 +115,7 @@ export function ConversationList({
       <PaneHeader
         icon={MessagesSquare}
         title="对话"
-        detail={`${active.length + archived.length}/${conversationLimits.total}`}
+        detail={`${active.length + archived.length}`}
         actions={
           <button type="button" disabled={!robots.length} onClick={onNew}>
             <SquarePen aria-hidden="true" />
@@ -165,9 +165,7 @@ export function ConversationList({
           >
             <ChevronDown aria-hidden="true" />
             <span>已归档</span>
-            <small>
-              {archived.length}/{conversationLimits.archived}
-            </small>
+            <small>{archived.length}</small>
           </button>
           <div
             className={styles.list}

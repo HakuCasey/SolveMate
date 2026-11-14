@@ -329,3 +329,69 @@ it("keeps failed transactional candidates separately from subsequent working upd
       .recoveries.some((x) => x.value.settings.fontSize === 21),
   ).toBe(true);
 });
+
+it("restores unsaved old note content using the current metadata without changing its origin", async () => {
+  const fixtures = (
+    await import("../../../../packages/contracts/fixtures/note-metadata.json")
+  ).default;
+  const { migrateNoteMetadata } = await import("@solvemate/contracts");
+  const original = {
+    ...createInitialData(),
+    noteLibrary: {
+      ...createInitialData().noteLibrary!,
+      notes: [fixtures[1].note],
+    },
+  };
+  const base = original as unknown as import("@solvemate/contracts").AppData;
+  const pending = structuredClone(base);
+  pending.noteLibrary!.notes[0].content = "没有保存成功的笔记内容";
+  const current = migrateNoteMetadata(base);
+  const save = vi.fn(async () => {});
+  const controller = new LocalDataController({
+    load: async () => current,
+    save,
+    recoveries: async () => [
+      { id: "old-write", createdAt: 1, base, value: pending },
+    ],
+  });
+  controller.initialize(current);
+  await controller.restoreRecoveries();
+  expect(await controller.restoreRecovery("old-write")).toBe(true);
+  const note = controller.readData()!.noteLibrary!.notes[0];
+  expect(note.content).toBe("没有保存成功的笔记内容");
+  expect(note.origins).toEqual(fixtures[1].origins);
+  expect(note).not.toHaveProperty("excerpt");
+});
+
+it("keeps the workspace available after a read failure and never saves its empty display state", async () => {
+  const { createEmptyData } = await import("../data/catalog");
+  const fallback = createEmptyData(),
+    save = vi.fn(async () => {}),
+    preserve = vi.fn(async () => {});
+  const controller = new LocalDataController(
+    { load: async () => null, save, preserve },
+    fallback,
+  );
+  controller.failLoad(new Error("记录格式无法读取"));
+  expect(controller.readData()).toBe(fallback);
+  expect(controller.readData()!.conversations).toEqual([]);
+  expect(controller.readData()!.noteLibrary!.notes).toEqual([]);
+  controller.update((old) => ({
+    ...old!,
+    settings: { ...old!.settings, appearance: "dark" },
+  }));
+  await expect(
+    controller.commit((old) => ({
+      ...old,
+      drafts: { general: "未保存的输入" },
+    })),
+  ).rejects.toThrow("原记录尚未读取成功");
+  expect(save).not.toHaveBeenCalled();
+  expect(preserve).toHaveBeenCalled();
+  expect(controller.snapshot().loadState).toBe("error");
+  const existing = createInitialData();
+  controller.initialize(existing);
+  expect(controller.readData()).toBe(existing);
+  expect(controller.snapshot().loadFailure).toBeNull();
+  expect(controller.snapshot().recoveries.length).toBeGreaterThan(0);
+});

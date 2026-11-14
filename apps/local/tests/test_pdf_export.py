@@ -32,7 +32,9 @@ def test_explicit_missing_browser_is_not_silently_replaced(tmp_path):
     assert failed.value.code == "pdf_browser_missing"
 
 
-@pytest.mark.parametrize("element", ["script", "meta", "base", "iframe", "object"])
+@pytest.mark.parametrize(
+    "element", ["script", "meta", "base", "iframe", "object", "title"]
+)
 def test_export_rejects_navigation_and_executable_elements(element):
     with pytest.raises(UserDataError) as failed:
         pdf_export.ExportMarkup().feed(f"<{element} src='file:///private/data'>")
@@ -42,8 +44,8 @@ def test_export_rejects_navigation_and_executable_elements(element):
 def test_export_checks_saved_notebook_snapshot_and_origin(monkeypatch, tmp_path):
     called = []
 
-    async def render(html):
-        called.append(html)
+    async def render(html, *, title):
+        called.append((html, title))
         return b"%PDF-1.7\nsample"
 
     monkeypatch.setattr(pdf_export, "render_pdf", render)
@@ -73,7 +75,7 @@ def test_export_checks_saved_notebook_snapshot_and_origin(monkeypatch, tmp_path)
             headers={"origin": "https://other.example"},
         )
         assert denied.status_code == 403
-        assert len(called) == 1
+        assert called == [("<h1>笔记</h1>", "未分类")]
         assert client.get("/local-api/v1/user/state").json() == saved.json()
 
 
@@ -119,3 +121,34 @@ def test_timeout_removes_owned_process_and_temporary_files(monkeypatch):
     assert failed.value.code == "pdf_export_timeout"
     assert killed == [child]
     assert roots and not roots[0].exists()
+
+
+def test_pdf_title_is_escaped_and_temporary_filename_is_not_used(monkeypatch):
+    captured = []
+
+    class Process:
+        returncode = 0
+
+        async def wait(self):
+            return 0
+
+    async def launch(*args, **kwargs):
+        directory = Path(
+            next(
+                arg.removeprefix("--user-data-dir=")
+                for arg in args
+                if arg.startswith("--user-data-dir=")
+            )
+        ).parent
+        captured.append((directory / "notebook.html").read_text(encoding="utf-8"))
+        (directory / "notebook.pdf").write_bytes(b"%PDF-1.7\n%%EOF")
+        return Process()
+
+    monkeypatch.setattr(pdf_export, "find_pdf_browser", lambda: "/browser")
+    monkeypatch.setattr(pdf_export.asyncio, "create_subprocess_exec", launch)
+    title = '课程 </title> & "笔记"'
+    assert asyncio.run(pdf_export.render_pdf("<p>正文</p>", title=title)).startswith(
+        b"%PDF-"
+    )
+    assert "<title>课程 &lt;/title&gt; &amp; &quot;笔记&quot;</title>" in captured[0]
+    assert "<p>正文</p>" in captured[0]

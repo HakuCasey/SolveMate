@@ -34,7 +34,7 @@ async function request(path = "", options: RequestInit = {}) {
     });
   } catch {
     throw new DataRequestError(
-      "无法连接本机资料服务，请使用 npm start 启动 SolveMate 后重试。",
+      "无法连接本机资料服务，请在项目目录运行 npm start 后重试。",
       "unavailable",
     );
   }

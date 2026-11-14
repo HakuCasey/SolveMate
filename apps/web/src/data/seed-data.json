@@ -46,39 +46,75 @@
   "notes": [
     {
       "id": "N001",
-      "questionId": "M001",
       "title": "有理化以后，为什么能约掉 x？",
-      "summary": "区分零点的函数值与零点附近的极限。",
       "content": "求极限时，关心的是 x 接近 0 时函数值的变化，而不是把 x 直接设成 0。\n\n### 先消掉根式差\n\n直接代入会得到 0/0。乘上共轭式，分子变成 \\((1+3x)-1=3x\\)，原式化为 \\(3/(\\sqrt{1+3x}+1)\\)。再让 x 趋于 0，就得到 \\(3/2\\)。\n\n### 约分成立的范围\n\n求极限考察的是 x 接近 0 但不等于 0 时的函数值。在这个范围内，约去 x 是合法的，化简前后函数的极限相同。\n\n### 下次检查\n\n- 先确认趋近方向和定义域。\n- 约分使用 x 不等于 0，不等于要求原函数在零点有定义。\n- 化简后再求极限，不要先代入得到 0/0 就停下。",
-      "courseId": "calculus",
-      "notebookId": "notebook-calculus"
+      "notebookId": "notebook-calculus",
+      "revision": 1,
+      "tagIds": ["subject:calculus"],
+      "createdAt": null,
+      "updatedAt": null,
+      "origins": [
+        {
+          "kind": "question",
+          "materialId": "calculus:questions",
+          "version": "example-1",
+          "questionId": "M001"
+        }
+      ]
     },
     {
       "id": "N002",
-      "questionId": "M005",
       "title": "幂指函数：先看谁在变化",
-      "summary": "底数和指数都在变化时，先取对数再求导。",
       "content": "分析求导方法时，先判断底数和指数分别是常数还是变量。M005 中两者都随 x 变化。\n\n### 为什么取对数\n\n幂函数求导公式要求指数是常数。这道题的底数和指数都随 x 变化。先取对数得到 \\(\\ln y=x\\ln x\\)，再对两边求导。\n\n### 两边求导\n\n左侧用链式法则得到 \\(y\\prime/y\\)，右侧用乘积法则得到 \\(\\ln x+1\\)。因此 \\(y\\prime=x^x(\\ln x+1)\\)。\n\n### 适用条件\n\n这里使用实数对数 \\(\\ln x\\)，所以要求 x 大于 0。这个范围内，\\(x^x\\) 也可以改写成 \\(e^{x\\ln x}\\)。",
-      "courseId": "calculus",
-      "notebookId": "notebook-calculus"
+      "notebookId": "notebook-calculus",
+      "revision": 1,
+      "tagIds": ["subject:calculus"],
+      "createdAt": null,
+      "updatedAt": null,
+      "origins": [
+        {
+          "kind": "question",
+          "materialId": "calculus:questions",
+          "version": "example-1",
+          "questionId": "M005"
+        }
+      ]
     },
     {
       "id": "N003",
-      "questionId": "C008",
       "title": "sizeof 和 strlen，数的不是一回事",
-      "summary": "数组容量包含结尾空字符，字符串长度不包含它。",
       "content": "C008 中 char word[] = \"cat\" 定义了一个字符数组。它保存 c、a、t，以及结尾空字符 \\0，一共 4 个元素。\n\n### 数组占多少空间\n\nsizeof word 得到整个数组的字节数。C 中 sizeof(char) 为 1，因此本题得到 4。\n\n### 字符串有多长\n\nstrlen(word) 从起始位置数到第一个空字符之前，得到 3。它要求传入的是有效、以空字符结尾的字符串。\n\n### 不要机械套用\n\n- sizeof 不等于字符串长度。\n- 数组作为函数形参时会调整为指针类型，不能用 sizeof 形参取得原数组容量。\n- 结尾空字符 \\0 和字符 0 不是一回事。",
-      "courseId": "c-language",
-      "notebookId": "notebook-c-language"
+      "notebookId": "notebook-c-language",
+      "revision": 1,
+      "tagIds": ["subject:c-language"],
+      "createdAt": null,
+      "updatedAt": null,
+      "origins": [
+        {
+          "kind": "question",
+          "materialId": "c-language:questions",
+          "version": "example-1",
+          "questionId": "C008"
+        }
+      ]
     },
     {
       "id": "N004",
-      "questionId": "C010",
       "title": "值传递与指针修改，怎样同时成立？",
-      "summary": "复制的是地址，解引用访问的是原变量。",
       "content": "C 的函数参数按值传递。swap 接收到的是 x 和 y 的地址的副本，而不是 x、y 变量本身的副本。\n\n### 跟着地址看执行过程\n\n- 调用 swap(&x, &y) 时，把两个变量的地址传给 a 和 b。\n- temp = *a 保存原来的 x，也就是 3。\n- *a = *b 把原来的 y，也就是 7，写到 x。\n- *b = temp 把 3 写到 y。\n\n### 结果\n\n原变量变成 x = 7、y = 3，所以程序输出 7 3。\n\n### 两种操作要分清\n\n给局部指针 a 重新赋值，只改变这个局部副本；给 *a 赋值，则修改它当前指向的对象。前提是指针有效，且指向可以修改的对象。",
-      "courseId": "c-language",
-      "notebookId": "notebook-c-language"
+      "notebookId": "notebook-c-language",
+      "revision": 1,
+      "tagIds": ["subject:c-language"],
+      "createdAt": null,
+      "updatedAt": null,
+      "origins": [
+        {
+          "kind": "question",
+          "materialId": "c-language:questions",
+          "version": "example-1",
+          "questionId": "C010"
+        }
+      ]
     }
   ],
   "conversations": [

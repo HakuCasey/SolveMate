@@ -1,9 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi, afterEach } from "vitest";
 import { assertMetadata } from "@solvemate/contracts";
 import { createInitialData } from "../data/catalog";
 import { assertAppData } from "../data/validation";
 import { makeMessageReference, appendReference } from "../reading/reference";
 import { createNote, editNote, unclassifiedNotebookId } from "./notes";
+
+afterEach(() => vi.restoreAllMocks());
 
 function fixture() {
   const data = createInitialData();
@@ -18,6 +20,7 @@ function fixture() {
 }
 describe("selection notes and destinations", () => {
   it("creates the notebook and note atomically with stable ids and the original message", () => {
+    vi.spyOn(Date, "now").mockReturnValue(1794600000000);
     const { data, reference } = fixture();
     const value = {
       title: "讨论摘录",
@@ -46,8 +49,10 @@ describe("selection notes and destinations", () => {
       data.noteLibrary!.notes.some((item) => item.id === "note-excerpt"),
     ).toBe(false);
     const note = first.noteLibrary!.notes[0];
-    expect(note.source).toBeNull();
-    expect(note.excerpt).toEqual(reference);
+    expect(note.content).toBe(reference.content);
+    expect(note.origins).toEqual([
+      { kind: "conversation", ...reference.message },
+    ]);
     expect(
       first.noteLibrary!.notebooks.find((book) => book.id === note.notebookId)
         ?.title,
@@ -58,7 +63,7 @@ describe("selection notes and destinations", () => {
       { title: "自己的理解", content: "补充正文。" },
       note.revision,
     );
-    expect(changed.noteLibrary!.notes[0].excerpt).toEqual(reference);
+    expect(changed.noteLibrary!.notes[0].origins).toEqual(note.origins);
     assertAppData(changed);
   });
   it("refuses invalid content, duplicate names and stale destinations without changing the original library", () => {

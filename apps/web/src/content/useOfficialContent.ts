@@ -77,12 +77,14 @@ export function useOfficialContent() {
       })
       .catch((error: unknown) => {
         logError("Failed to restore downloaded courses.", error);
-        if (active)
+        if (active) {
+          setReady(true);
           setLoadError(
             error instanceof Error
               ? error.message
               : "无法读取本机课程，原有记录已保留，请重新读取。",
           );
+        }
       });
     return () => {
       active = false;
@@ -94,8 +96,11 @@ export function useOfficialContent() {
     if (downloading.current) return;
     const request = ++contentGeneration.current;
     const latest = await contentStorage.load();
-    if (request === contentGeneration.current && !downloading.current)
+    if (request === contentGeneration.current && !downloading.current) {
       applySnapshot(latest);
+      setLoadError("");
+      setReady(true);
+    }
   });
 
   const refresh = useCallback((): Promise<void> => {

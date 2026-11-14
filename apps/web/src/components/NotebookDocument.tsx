@@ -1,4 +1,5 @@
-import type { Note, Notebook } from "@solvemate/contracts";
+import type { Note, Notebook, NoteOrigin } from "@solvemate/contracts";
+import { customNoteTagIds } from "../state/notes";
 import { Markdown } from "./Markdown";
 
 /** 导出使用固定白纸排版，不随当前界面明暗模式改变。 */
@@ -25,10 +26,12 @@ export function NotebookDocument({
   notebook,
   notes,
   tags,
+  originLabel,
 }: {
   notebook: Notebook;
   notes: Note[];
   tags: Record<string, string>;
+  originLabel?: (origin: NoteOrigin) => string;
 }) {
   return (
     <main>
@@ -50,16 +53,25 @@ export function NotebookDocument({
       {notes.map((note, index) => (
         <section className="note" id={`note-${index}`} key={note.id}>
           <h2>{note.title}</h2>
-          {note.tagIds.some((id) => !id.startsWith("subject:") && tags[id]) && (
+          {customNoteTagIds(note).some((id) => tags[id]) && (
             <p className="muted">
-              {note.tagIds
-                .filter((id) => !id.startsWith("subject:"))
+              {customNoteTagIds(note)
                 .map((id) => tags[id])
                 .filter(Boolean)
                 .join(" · ")}
             </p>
           )}
-          {note.excerpt && <p className="muted">来源：{note.excerpt.title}</p>}
+          {note.origins.map((origin, index) => (
+            <p className="muted" key={index}>
+              来源：
+              {originLabel?.(origin) ??
+                (origin.kind === "conversation"
+                  ? "对话"
+                  : origin.kind === "question"
+                    ? `题目 ${origin.questionId}`
+                    : `第 ${origin.pageNumber} 页`)}
+            </p>
+          ))}
           <Markdown exportMode>{note.content}</Markdown>
         </section>
       ))}

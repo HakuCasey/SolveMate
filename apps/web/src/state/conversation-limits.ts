@@ -12,20 +12,19 @@ export function conversationCounts(conversations: ConversationStatus[]) {
   ).length;
   return { active, archived, total: active + archived };
 }
-/** 删除记录不占数量；旧超限记录可继续读取、整理，但不能继续增加超限组的数量。 */
+/** 只限制进行中的数量；已有超限记录仍可读取和整理。 */
 export function requireConversationLimits(
   before: ConversationStatus[],
   after: ConversationStatus[],
 ) {
   const previous = conversationCounts(before),
     next = conversationCounts(after);
-  for (const kind of ["active", "archived", "total"] as const)
-    if (next[kind] > conversationLimits[kind] && next[kind] > previous[kind])
-      throw new DataRequestError(
-        conversationLimits.message,
-        "conversation_limit_reached",
-        422,
-      );
+  if (next.active > conversationLimits.active && next.active > previous.active)
+    throw new DataRequestError(
+      conversationLimits.message,
+      "conversation_limit_reached",
+      422,
+    );
 }
 export function requireConversationCapacity(
   conversations: Conversation[],

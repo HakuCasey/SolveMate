@@ -7,8 +7,12 @@ import type {
   LearningLocation,
   Note,
 } from "@solvemate/contracts";
-import { sourceForNote, type LearningRelations } from "../reading/relations";
+import {
+  learningMaterialId,
+  type LearningRelations,
+} from "../reading/relations";
 import styles from "./RelatedLearning.module.css";
+import { locationForOrigin } from "@solvemate/contracts";
 
 export function RelatedLearning({
   source,
@@ -89,7 +93,12 @@ export function RelatedLearning({
               )
             ) : related.notes.length ? (
               related.notes.map((item) => {
-                const origin = sourceForNote(item);
+                const origin = item.origins
+                  .map(locationForOrigin)
+                  .find(
+                    (source) =>
+                      source && learningMaterialId(source) === material.id,
+                  );
                 return (
                   <button
                     className={styles.entry}

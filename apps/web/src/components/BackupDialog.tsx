@@ -61,7 +61,7 @@ export function BackupDialog({
       !file.name.toLowerCase().endsWith(".zip") ||
       file.size > 4 * 1024 ** 3
     ) {
-      setError("请选择不超过 4 GiB 的 SolveMate ZIP 备份。");
+      setError("请选择不超过 4 GiB 的 ZIP 备份。");
       return;
     }
     pending.current = true;
@@ -177,9 +177,8 @@ export function BackupDialog({
             </section>
             <section>
               <h3>恢复数据</h3>
-              <p>
-                将替换当前资料和记录，恢复前自动备份当前数据。未保存的输入和草稿会保留。
-              </p>
+              <p>选择此前导出的 ZIP 备份，默认保存在系统“下载”文件夹。</p>
+              <p>恢复会替换当前资料和记录，替换前会自动备份现有数据。</p>
               <input
                 ref={fileInput}
                 type="file"

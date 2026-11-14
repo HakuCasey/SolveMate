@@ -9,7 +9,7 @@ export function createRobot(id: string = crypto.randomUUID()): Robot {
     id,
     name: "新机器人",
     specialty: "",
-    description: "定制你的学习伙伴",
+    description: "自定义角色与回答要求",
     icon: "bot",
     prompt: defaultTeacherPrompt,
     schemaVersion: 3,
@@ -134,7 +134,7 @@ export function upgradeRobotCatalog(data: AppData): AppData {
           session.robotId === "hero"
             ? {
                 ...session,
-                // 旧预置身份保留；目录升级不能切换已建立对话的教师。
+                // 旧预置身份保留；目录升级不能切换已建立对话的机器人。
                 robotId: session.robotId,
               }
             : session,

@@ -13,6 +13,8 @@ import {
 } from "./subjects";
 import {
   applyNoteAction,
+  createNote,
+  editNote,
   availableNoteTags,
   assertNoteLibrary,
   deleteNote,
@@ -27,6 +29,33 @@ import {
 } from "./notes";
 
 describe("notebook and note metadata", () => {
+  it("truncates generated, edited and renamed note titles to 24 Unicode characters without changing the body", () => {
+    const original = "字".repeat(24) + "其余标题";
+    let data = createNote(
+      createInitialData(),
+      {
+        title: original,
+        content: "完整正文不截断",
+        notebookId: unclassifiedNotebookId,
+      },
+      null,
+      null,
+      "title-test",
+    );
+    expect(data.noteLibrary!.notes[0].title).toBe("字".repeat(24));
+    data = editNote(
+      data,
+      "title-test",
+      { title: "🙂".repeat(25), content: "编辑后的完整正文" },
+      1,
+    );
+    expect(data.noteLibrary!.notes[0].title).toBe("🙂".repeat(24));
+    data = renameNote(data, "title-test", "题".repeat(30), 2);
+    expect(data.noteLibrary!.notes[0].title).toBe("题".repeat(24));
+    expect(data.noteLibrary!.notes[0].content).toBe("编辑后的完整正文");
+    assertNoteLibrary(data.noteLibrary);
+  });
+
   it("initializes old records once and never repopulates deleted notes", () => {
     const old = createInitialData();
     delete old.noteLibrary;
@@ -72,7 +101,7 @@ describe("notebook and note metadata", () => {
     expect(() =>
       deleteNotebook(initial, unclassifiedNotebookId, true, 1),
     ).toThrow("不能删除");
-    for (const name of [" ", "line\nbreak", "a".repeat(81)])
+    for (const name of [" ", "line\nbreak"])
       expect(() => renameNote(initial, "N001", name, 1)).toThrow("名称");
     expect(initial.noteLibrary!.notes[0].revision).toBe(1);
   });

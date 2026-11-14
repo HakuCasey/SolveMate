@@ -92,3 +92,18 @@ describe("status bar derives current business state", () => {
     ).toEqual([]);
   });
 });
+
+it("reports unreadable records before save errors and distinguishes initial loading", () => {
+  const base = {
+    saveState: "error" as const,
+    conflict: false,
+    online: true,
+    unsaved: false,
+  };
+  expect(recordStatus({ ...base, readError: "无法读取" }).label).toBe(
+    "记录读取失败",
+  );
+  expect(
+    recordStatus({ ...base, saveState: "saved", reading: true }).label,
+  ).toBe("正在读取…");
+});

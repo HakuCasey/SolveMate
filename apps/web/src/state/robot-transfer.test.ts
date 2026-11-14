@@ -52,7 +52,7 @@ describe("portable robot configuration", () => {
       "1 MB",
     );
     expect(() => parseRobotConfiguration(json({ format: "other" }))).toThrow(
-      "SolveMate",
+      "导出配置",
     );
     expect(() => parseRobotConfiguration(json({ version: 2 }))).toThrow("版本");
     expect(() =>

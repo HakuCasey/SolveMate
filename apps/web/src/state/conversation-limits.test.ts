@@ -47,7 +47,7 @@ describe("conversation limits and generated titles", () => {
       "指针是什么？ 1",
     );
   });
-  it("allows exactly 12 active conversations and rejects the next one without changing data", () => {
+  it("allows exactly 32 active conversations and rejects the next one without changing data", () => {
     const data = fixture(conversationLimits.active - 1);
     const next = createConversation(data);
     data.conversations.push(next);
@@ -55,28 +55,37 @@ describe("conversation limits and generated titles", () => {
     expect(() => createConversation(data)).toThrow(conversationLimits.message);
     expect(data.conversations).toHaveLength(conversationLimits.active);
   });
-  it("checks archiving and restoring against their destination group", () => {
-    const fullArchive = fixture(1, conversationLimits.archived);
-    expect(() =>
-      updateConversation(fullArchive, fullArchive.conversations[0].id, {
-        status: "archived",
-      }),
-    ).toThrow(conversationLimits.message);
-    const fullActive = fixture(conversationLimits.active, 1);
+  it("allows unlimited archives and checks capacity only when restoring to active", () => {
+    const fullActive = fixture(conversationLimits.active, 80);
     expect(() =>
       updateConversation(fullActive, fullActive.conversations.at(-1)!.id, {
         status: "active",
       }),
     ).toThrow(conversationLimits.message);
-    const room = fixture(1, conversationLimits.archived - 1);
-    const saved = updateConversation(room, room.conversations[0].id, {
-      status: "archived",
+    const archived = updateConversation(
+      fullActive,
+      fullActive.conversations[0].id,
+      {
+        status: "archived",
+      },
+    );
+    expect(conversationCounts(archived.conversations)).toEqual({
+      active: conversationLimits.active - 1,
+      archived: 81,
+      total: conversationLimits.active + 80,
     });
-    expect(conversationCounts(saved.conversations)).toEqual({
-      active: 0,
-      archived: conversationLimits.archived,
-      total: conversationLimits.archived,
-    });
+    expect(() =>
+      updateConversation(archived, archived.conversations.at(-1)!.id, {
+        status: "active",
+      }),
+    ).not.toThrow();
+    const manyArchives = fixture(1, 120);
+    expect(() => createConversation(manyArchives)).not.toThrow();
+    expect(() =>
+      updateConversation(manyArchives, manyArchives.conversations[0].id, {
+        status: "archived",
+      }),
+    ).not.toThrow();
   });
   it("does not count deleted records and releases capacity after deletion", () => {
     const data = fixture(conversationLimits.active, 0, 8);
@@ -95,15 +104,6 @@ describe("conversation limits and generated titles", () => {
     expect(() =>
       updateConversation(data, data.conversations[0].id, {
         status: "archived",
-      }),
-    ).not.toThrow();
-    const totalExcess = fixture(1, conversationLimits.total);
-    expect(() => createConversation(totalExcess)).toThrow(
-      conversationLimits.message,
-    );
-    expect(() =>
-      updateConversation(totalExcess, totalExcess.conversations[0].id, {
-        title: "重命名",
       }),
     ).not.toThrow();
   });

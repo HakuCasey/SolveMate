@@ -7,6 +7,7 @@ import type {
   Note,
   MaterialLocation,
   ReadingReference,
+  NoteOrigin,
 } from "@solvemate/contracts";
 import type { OfficialLibrary } from "../content/library";
 import { materialMembership } from "./library";
@@ -15,6 +16,7 @@ import {
   isSupportedReadingLocation,
   UNSUPPORTED_READING_REFERENCE,
 } from "./reference";
+import { locationForOrigin } from "@solvemate/contracts";
 import { officialEntryId } from "../content/entries";
 
 /** 资料身份不含学科名称、页码或版本；位置与版本仍由原记录各自保留。 */
@@ -26,19 +28,7 @@ export function learningMaterialId(source: LearningLocation): string {
       : officialEntryId(source);
 }
 
-/** 旧笔记仅关联内置题目；缺少新字段时读取原关联，不按当前下载版本改写。 */
-export function sourceForNote(note: Note): LearningLocation | null {
-  if (note.source !== undefined) return note.source;
-  return note.courseId && note.questionId
-    ? {
-        courseId: note.courseId,
-        version: "example-1",
-        kind: "questions",
-        itemId: note.questionId,
-        chapterIndex: 0,
-      }
-    : null;
-}
+export { sourceForNote } from "../state/note-origins";
 
 function sourcesForConversation(conversation: Conversation) {
   const sources: LearningLocation[] = [];
@@ -166,12 +156,14 @@ export class LearningMaterial {
 export class LearningRelations {
   private conversations = new Map<string, Conversation[]>();
   private notes = new Map<string, Note[]>();
+  private allConversations: Conversation[];
   constructor(
     data: Pick<AppData, "conversations" | "noteLibrary">,
     private readonly courses: Course[],
     private readonly materials: Material[],
     private readonly official: OfficialLibrary,
   ) {
+    this.allConversations = data.conversations;
     for (const conversation of data.conversations) {
       if (conversation.status === "deleted") continue;
       const ids = new Set(
@@ -190,17 +182,15 @@ export class LearningRelations {
           (a.lastActivityAt ?? a.createdAt ?? 0),
       );
     for (const note of data.noteLibrary?.notes ?? []) {
-      const source = sourceForNote(note);
-      const origin = note.excerpt?.message;
-      const conversation = origin
-        ? data.conversations.find(
-            (item) =>
-              item.id === origin.conversationId && item.status !== "deleted",
-          )
-        : undefined;
-      const sources = source
-        ? [source]
-        : conversation && origin
+      const sources = note.origins.flatMap((origin) => {
+        const source = locationForOrigin(origin);
+        if (source) return [source];
+        if (origin.kind !== "conversation") return [];
+        const conversation = data.conversations.find(
+          (item) =>
+            item.id === origin.conversationId && item.status !== "deleted",
+        );
+        return conversation
           ? sourcesForConversation({
               ...conversation,
               messages: conversation.messages.filter((item) =>
@@ -208,6 +198,7 @@ export class LearningRelations {
               ),
             })
           : [];
+      });
       for (const id of new Set(sources.map(learningMaterialId))) {
         const list = this.notes.get(id) ?? [];
         list.push(note);
@@ -222,6 +213,38 @@ export class LearningRelations {
       this.materials,
       this.official,
     );
+  }
+  describeOrigin(origin: NoteOrigin) {
+    const location = locationForOrigin(origin);
+    if (location) {
+      const material = this.material(location);
+      return {
+        label: `${material.title} · ${material.position}${material.removed ? "（资料已从列表删除）" : ""}`,
+        available: material.available,
+        location,
+        message: null,
+      };
+    }
+    if (origin.kind !== "conversation")
+      throw new Error("Unsupported note origin.");
+    const conversation = this.allConversations.find(
+      (item) => item.id === origin.conversationId && item.status !== "deleted",
+    );
+    const label = conversation?.title ?? "原对话不可用";
+    const message = {
+      conversationId: origin.conversationId,
+      messageIds: [...origin.messageIds] as [string, ...string[]],
+    };
+    return {
+      label,
+      available:
+        !!conversation &&
+        origin.messageIds.every((id) =>
+          conversation.messages.some((item) => item.id === id),
+        ),
+      location: null,
+      message,
+    };
   }
   related(source: LearningLocation) {
     const id = learningMaterialId(source);

@@ -43,7 +43,7 @@ class DshAcpAdapter(AcpAdapter):
                 message = str(error) + "\n" + error.details
                 if "session is not resumable:" in message:
                     raise ConnectionError(
-                        "DeepSeek Harness 未找到可恢复的原会话。请检查当前 Harness 的会话记录；SolveMate 中的记录仍保留，未创建新会话。",
+                        "DeepSeek Harness 未找到可恢复的原会话。请检查当前 Harness 的会话记录；本地记录仍保留，未创建新会话。",
                         "session_missing",
                     ) from error
                 if "session cwd does not match:" in message:
@@ -82,6 +82,7 @@ class DshAdapter(DshAcpAdapter):
     """复用程序查找与连接标识；正式会话操作全部由原生实现处理。"""
 
     protocol = "dsh-native"
+    supports_rename = True
 
     def __init__(self, factory=None):
         from .dsh_process import DshProcess
@@ -112,6 +113,14 @@ class DshAdapter(DshAcpAdapter):
 
     async def resume(self, process, sid, workspace):
         return await process.resume(sid, workspace)
+
+    async def rename_session(self, executable, sid, title, workspace):
+        process = self.process(executable, workspace)
+        try:
+            await process.start()
+            await process.rename(sid, title)
+        finally:
+            await process.close()
 
     async def select_model(self, process, sid, model, session):
         return await process.select(sid, model)

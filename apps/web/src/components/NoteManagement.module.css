@@ -198,3 +198,12 @@
   overflow: auto;
   font-size: 13px;
 }
+
+.mergePreview {
+  max-height: 200px;
+  overflow: auto;
+  padding-left: 24px;
+  font-size: 13px;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}

@@ -1,4 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { sourceForNote } from "./note-origins";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+afterEach(() => vi.restoreAllMocks());
 import { createInitialData } from "../data/catalog";
 import { assertAppData } from "../data/validation";
 import {
@@ -28,17 +31,21 @@ describe("note content and source", () => {
     assertAppData(data);
     expect(note).toMatchObject({
       title: "指针",
-      summary: "指针",
-      source,
+      origins: [
+        {
+          kind: "document",
+          materialId: source.materialId,
+          version: source.contentVersion,
+          pageNumber: source.pageNumber,
+        },
+      ],
       revision: 1,
       tagIds: ["subject:c-language"],
-      courseId: "",
-      questionId: "",
     });
-    expect(note.source).not.toBe(source);
+    expect(sourceForNote(note)).toEqual(source);
     expect(initial.noteLibrary!.notes).toHaveLength(4);
     expect(
-      JSON.parse(JSON.stringify(data)).noteLibrary.notes[0].source,
+      sourceForNote(JSON.parse(JSON.stringify(data)).noteLibrary.notes[0]),
     ).toEqual(source);
   });
   it("edits content without changing notebook, source, identity or tags", () => {
@@ -63,10 +70,9 @@ describe("note content and source", () => {
       id: "note-new",
       title: "指针与地址",
       content: "- 新的理解",
-      summary: "新的理解",
       notebookId: unclassifiedNotebookId,
       revision: 2,
-      source,
+      origins: initial.noteLibrary!.notes[0].origins,
       tagIds: ["subject:c-language"],
     });
     assertAppData(changed);
@@ -74,6 +80,7 @@ describe("note content and source", () => {
     expect(initial.noteLibrary!.notes[0].revision).toBe(1);
   });
   it("moves to an existing or new notebook without changing content or source", () => {
+    vi.spyOn(Date, "now").mockReturnValue(1000);
     const initial = createNote(
       createInitialData(),
       values,
@@ -184,7 +191,9 @@ describe("note content and source", () => {
     ).toThrow("已删除");
     const deleted = deleteNotebook(initial, "notebook-calculus", false, 1);
     expect(
-      deleted.noteLibrary!.notes.find((note) => note.id === "note-new")?.source,
+      sourceForNote(
+        deleted.noteLibrary!.notes.find((note) => note.id === "note-new")!,
+      ),
     ).toEqual(source);
     expect(() =>
       createNote(
@@ -213,15 +222,15 @@ describe("note content and source", () => {
     ).toThrow("名称");
     expect(initial).toEqual(before);
   });
-  it("edits a legacy note without rewriting its legacy source fields", () => {
+  it("edits a note without rewriting its material origins", () => {
     const initial = createInitialData(),
       note = initial.noteLibrary!.notes[0];
     const changed = editNote(initial, note.id, values, note.revision);
     expect(changed.noteLibrary!.notes[0]).toMatchObject({
-      courseId: note.courseId,
-      questionId: note.questionId,
+      origins: note.origins,
+      createdAt: note.createdAt,
     });
-    expect(changed.noteLibrary!.notes[0].source).toBeUndefined();
+    expect(changed.noteLibrary!.notes[0]).not.toHaveProperty("source");
     assertAppData(changed);
   });
 });

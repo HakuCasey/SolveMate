@@ -1,8 +1,9 @@
-import { useEffect, useRef, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
 import type { AppData, Course } from "@solvemate/contracts";
 import {
   courses,
   createInitialData,
+  createEmptyData,
   validateContentReferences,
   sampleNotebooks,
   sampleNotes,
@@ -33,7 +34,11 @@ function loadInitialData(available: Course[]): Promise<AppData> {
             error,
           );
         }
-        if (upgraded !== saved && userStorageStatus.snapshot().online)
+        if (
+          upgraded !== saved &&
+          userStorageStatus.snapshot().online &&
+          !userStorageStatus.snapshot().loadFailure
+        )
           await appStorage.save(upgraded);
         return upgraded;
       }
@@ -49,7 +54,7 @@ function loadInitialData(available: Course[]): Promise<AppData> {
 
 export function useLocalData(available: Course[] = courses) {
   const controller = useRef<LocalDataController | null>(null);
-  controller.current ??= new LocalDataController(appStorage);
+  controller.current ??= new LocalDataController(appStorage, createEmptyData());
   const store = controller.current;
   const snapshot = useSyncExternalStore(
     store.subscribe,
@@ -57,34 +62,38 @@ export function useLocalData(available: Course[] = courses) {
     store.snapshot,
   );
   const firstCourses = useRef(available).current;
-  useEffect(() => {
-    let cancelled = false;
-    void loadInitialData(firstCourses)
-      .then((saved) => {
-        if (!cancelled) store.initialize(saved);
-        if (!cancelled)
-          void store
-            .restoreRecoveries()
-            .catch((error: unknown) =>
-              logError("Failed to restore retained changes.", error),
-            );
-      })
-      .catch((error: unknown) => {
-        logError("Failed to open local learning data.", error);
-        if (!cancelled) store.failLoad();
-      });
-    return () => {
-      cancelled = true;
-    };
+  const load = useCallback(async () => {
+    try {
+      const saved = await loadInitialData(firstCourses);
+      store.initialize(saved);
+      await store
+        .restoreRecoveries()
+        .catch((error: unknown) =>
+          logError("Failed to restore retained changes.", error),
+        );
+    } catch (error) {
+      logError("Failed to open local learning data.", error);
+      store.failLoad(error);
+      throw error;
+    }
   }, [firstCourses, store]);
-  useRefreshResource("records", store.refresh);
+  useEffect(() => {
+    void load().catch(() => undefined);
+  }, [load]);
+  const refresh = useCallback(async () => {
+    if (store.snapshot().loadState !== "ready") await load();
+    else await store.refresh();
+  }, [load, store]);
+  useRefreshResource("records", refresh);
   return {
     ...snapshot,
     readData: store.readData,
     readSaveState: () => store.snapshot().saveState,
     setData: store.update,
     saveChanges: store.commit,
-    retrySave: store.retry,
+    retrySave: () =>
+      store.snapshot().loadState !== "ready" ? load() : store.retry(),
+    retryRead: refresh,
     restoreRecovery: store.restoreRecovery,
     resolveConflict: store.resolve,
   };

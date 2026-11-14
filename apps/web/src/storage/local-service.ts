@@ -14,14 +14,11 @@ import {
   localRequest,
   LocalServiceError,
   envelope,
+  cachedEnvelope,
   remember,
   type StateEnvelope,
 } from "./local-client";
-import {
-  ensureUserStorage,
-  MigrationRequired,
-  initialUserState,
-} from "./migration";
+import { ensureUserStorage, initialUserState } from "./migration";
 export {
   userCache,
   UserCache,
@@ -37,6 +34,20 @@ export {
   MigrationRequired,
   resolveMigration,
 } from "./migration";
+
+/** 浏览器迁移失败单独报告；本机记录及课程仍可分别尝试读取。 */
+export async function prepareUserStorage(
+  force = false,
+): Promise<unknown | null> {
+  try {
+    await ensureUserStorage(force);
+    return null;
+  } catch (error) {
+    const failure = error ?? new Error("浏览器记录未能读取，原记录已保留。");
+    publishStorageStatus({ loadFailure: failure });
+    return failure;
+  }
+}
 
 /** 页面保留现有存储接口；数据库版本由本机服务统一检查。 */
 export class LocalAppStorage implements AppStorage {
@@ -57,45 +68,53 @@ export class LocalAppStorage implements AppStorage {
   async forget(id: string) {
     await userCache.records.delete(`unsaved:${id}`);
   }
-  async refresh(): Promise<AppData | null> {
-    await this.queue.catch(() => undefined);
-    const saved = envelope(await (await localRequest("/state")).json());
+  private checkStore(saved: StateEnvelope) {
     if (this.storeId && saved.storeId !== this.storeId)
       throw new LocalServiceError(
-        "本机数据目录已变化，当前输入仍保留，请确认数据目录后再打开应用。",
+        "本机数据目录已变化，当前输入仍保留，请重新打开应用后读取。",
         "store_changed",
         422,
       );
+  }
+  async refresh(): Promise<AppData | null> {
+    if (userStorageStatus.snapshot().loadFailure) return this.load();
+    await this.queue.catch(() => undefined);
+    const saved = envelope(await (await localRequest("/state")).json());
+    this.checkStore(saved);
     this.revision = saved.revision;
     this.storeId = saved.storeId;
     await remember("state", saved);
+    publishStorageStatus({ loadFailure: null });
     return saved.value;
   }
   async load(): Promise<AppData | null> {
-    try {
-      await ensureUserStorage(!userStorageStatus.snapshot().online);
-    } catch (error) {
-      if (error instanceof MigrationRequired)
-        publishStorageStatus({
-          warning: "发现尚未处理的浏览器记录，请重新打开页面选择要使用的数据。",
-        });
-      throw error;
-    }
+    const preparationFailure = await prepareUserStorage(
+      !userStorageStatus.snapshot().online,
+    );
     await this.queue.catch(() => undefined);
     let saved: StateEnvelope;
     try {
       saved = envelope(await (await localRequest("/state")).json());
+      publishStorageStatus({ loadFailure: preparationFailure });
     } catch (error) {
       if (
         !(error instanceof LocalServiceError) ||
-        (error.code !== "unavailable" && error.status < 500)
+        (error.code !== "unavailable" &&
+          error.code !== "invalid_response" &&
+          error.code !== "invalid_user_data" &&
+          error.status < 500)
       )
         throw error;
-      saved = envelope(
+      publishStorageStatus({ loadFailure: error });
+      saved = await cachedEnvelope(
         (await userCache.get<StateEnvelope>("state")) ?? initialUserState(),
       );
-      publishStorageStatus({ online: false });
+      if (error.code === "unavailable" || error.status >= 500)
+        publishStorageStatus({ online: false });
     }
+    // 没有有效正式记录且旧记录未处理时，不能把读取失败解释成首次使用。
+    if (saved.value === null && preparationFailure) throw preparationFailure;
+    this.checkStore(saved);
     this.revision = saved.revision;
     this.storeId = saved.storeId;
     await remember("state", saved);

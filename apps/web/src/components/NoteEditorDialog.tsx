@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Dialog } from "radix-ui";
+import { truncateNoteTitle } from "@solvemate/contracts";
 import type { LearningLocation, Note, NoteLibrary } from "@solvemate/contracts";
 import { useDraftBackup } from "../refresh/drafts";
 import { useEditRevision } from "../refresh/useEditRevision";
@@ -103,10 +104,12 @@ export function NoteEditorDialog({
             标题
             <input
               value={value.title}
-              maxLength={80}
               placeholder="为笔记起一个标题"
               onChange={(event) =>
-                setValue({ ...value, title: event.target.value })
+                setValue({
+                  ...value,
+                  title: truncateNoteTitle(event.target.value),
+                })
               }
             />
           </label>

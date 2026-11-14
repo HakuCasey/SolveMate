@@ -1,0 +1,51 @@
+.source {
+  display: flex;
+  flex-shrink: 0;
+  align-self: flex-start;
+  white-space: nowrap;
+  margin-top: 2px;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  max-width: 100%;
+  color: var(--sm-soft);
+  font-size: 11px;
+  text-align: left;
+}
+.source > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.source svg {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+}
+.source:hover:not(:disabled) {
+  color: var(--sm-accent);
+}
+.source:disabled {
+  opacity: 0.6;
+}
+.list {
+  display: grid;
+  gap: 4px;
+  max-height: 280px;
+  overflow: auto;
+}
+.list .source {
+  margin: 0;
+  white-space: normal;
+  padding: 10px 8px;
+  border-radius: 6px;
+  font-size: 13px;
+}
+.list .source:hover:not(:disabled) {
+  background: var(--sm-active);
+}
+.list .source span {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}

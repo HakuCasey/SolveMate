@@ -141,72 +141,7 @@
         "notes": {
           "type": "array",
           "items": {
-            "type": "object",
-            "properties": {
-              "id": {
-                "type": "string",
-                "minLength": 1
-              },
-              "notebookId": {
-                "type": "string",
-                "minLength": 1
-              },
-              "courseId": {
-                "type": "string"
-              },
-              "questionId": {
-                "type": "string"
-              },
-              "title": {
-                "type": "string"
-              },
-              "summary": {
-                "type": "string"
-              },
-              "content": {
-                "type": "string"
-              },
-              "revision": {
-                "type": "integer",
-                "minimum": 1
-              },
-              "tagIds": {
-                "type": "array",
-                "items": {
-                  "type": "string",
-                  "minLength": 1
-                },
-                "uniqueItems": true
-              },
-              "source": {
-                "anyOf": [
-                  {
-                    "$ref": "urn:solvemate:ai-metadata:3#/$defs/ReadingSelection"
-                  },
-                  {
-                    "$ref": "urn:solvemate:ai-metadata:3#/$defs/MaterialLocation"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ]
-              },
-              "excerpt": {
-                "$ref": "urn:solvemate:ai-metadata:3#/$defs/ReadingReference"
-              }
-            },
-            "required": [
-              "id",
-              "notebookId",
-              "courseId",
-              "questionId",
-              "title",
-              "summary",
-              "content",
-              "revision",
-              "tagIds"
-            ],
-            "additionalProperties": false
+            "$ref": "#/$defs/Note"
           }
         },
         "customTags": {
@@ -521,6 +456,160 @@
         }
       },
       "description": "AI 会话字段由同一份 ConversationMetadata Schema 校验，此处只定义应用附加记录。"
+    },
+    "Note": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "notebookId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 24
+        },
+        "content": {
+          "type": "string"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "tagIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "createdAt": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "updatedAt": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "origins": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/NoteOrigin"
+          },
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "id",
+        "notebookId",
+        "title",
+        "content",
+        "revision",
+        "tagIds",
+        "createdAt",
+        "updatedAt",
+        "origins"
+      ],
+      "additionalProperties": false
+    },
+    "NoteOrigin": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "document"
+            },
+            "materialId": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^([a-f0-9-]{36}|[a-z0-9]+(?:-[a-z0-9]+)*:textbooks:[^:]+)$"
+            },
+            "version": {
+              "type": "string",
+              "minLength": 1
+            },
+            "pageNumber": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "kind",
+            "materialId",
+            "version",
+            "pageNumber"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "question"
+            },
+            "materialId": {
+              "type": "string",
+              "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*:questions$"
+            },
+            "version": {
+              "type": "string",
+              "minLength": 1
+            },
+            "questionId": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "kind",
+            "materialId",
+            "version",
+            "questionId"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "conversation"
+            },
+            "conversationId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "messageIds": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "minItems": 1,
+              "uniqueItems": true
+            }
+          },
+          "required": [
+            "kind",
+            "conversationId",
+            "messageIds"
+          ],
+          "additionalProperties": false
+        }
+      ]
     }
   }
 }

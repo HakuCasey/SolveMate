@@ -11,7 +11,7 @@ import { parseManifest, ContentError, type ReleaseManifest } from "./contracts";
 import { readPackage } from "./package";
 import { logError } from "../logger";
 import {
-  ensureUserStorage,
+  prepareUserStorage,
   localRequest,
   LocalServiceError,
   userCache,
@@ -22,7 +22,7 @@ import {
 /** 下载内容的正式副本和版本指针保存在本机；浏览器副本只用于缓存阅读。 */
 export class LocalContentStorage {
   async load() {
-    await ensureUserStorage();
+    await prepareUserStorage();
     let records: SavedCourse[], heads: CourseHead[], missingHeads: CourseHead[];
     try {
       const result = (await (await localRequest("/content")).json()) as {

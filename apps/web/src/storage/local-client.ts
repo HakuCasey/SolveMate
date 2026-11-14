@@ -1,3 +1,4 @@
+import { migrateNoteMetadata } from "@solvemate/contracts";
 import Dexie, { type Table } from "dexie";
 import type { AppData } from "@solvemate/contracts";
 import { assertAppData } from "../data/validation";
@@ -48,8 +49,12 @@ export class LocalServiceError extends DataRequestError {
     super(message, code, status);
   }
 }
-export type StorageStatus = { online: boolean; warning: string };
-let status: StorageStatus = { online: true, warning: "" };
+export type StorageStatus = {
+  online: boolean;
+  warning: string;
+  loadFailure: unknown | null;
+};
+let status: StorageStatus = { online: true, warning: "", loadFailure: null };
 const listeners = new Set<() => void>();
 export const userStorageStatus = {
   snapshot: () => status,
@@ -84,7 +89,7 @@ export async function localRequest(
     publishStorageStatus({ online: false });
     logError("Failed to connect to local storage.", error);
     throw new LocalServiceError(
-      "无法连接本机服务，请使用 npm start 启动 SolveMate 后重试。",
+      "无法连接本机服务，请在项目目录运行 npm start 后重试。",
       "unavailable",
     );
   }
@@ -125,7 +130,8 @@ export function envelope(value: unknown): StateEnvelope {
     );
   try {
     if (item.value !== null) assertAppData(item.value);
-  } catch {
+  } catch (error) {
+    logError("Local records did not pass application validation.", error);
     throw new LocalServiceError(
       "本机学习记录未通过校验，原数据已保留，请检查备份或使用对应版本打开。",
       "invalid_response",
@@ -133,6 +139,22 @@ export function envelope(value: unknown): StateEnvelope {
     );
   }
   return item;
+}
+/** 离线缓存也须先备份再转换；写入备份失败时不覆盖原缓存。 */
+export async function cachedEnvelope(
+  value: StateEnvelope | undefined,
+): Promise<StateEnvelope> {
+  if (!value) return envelope(value);
+  const upgraded = value?.value
+    ? migrateNoteMetadata(value.value)
+    : value?.value;
+  const current = envelope({ ...value, value: upgraded });
+  if (upgraded !== value.value)
+    await userCache.put(
+      `notes-backup:${value.storeId}:${value.revision}`,
+      value,
+    );
+  return current;
 }
 export function toBase64(bytes: Uint8Array): string {
   let result = "";

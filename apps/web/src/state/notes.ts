@@ -7,9 +7,15 @@ import type {
   LearningLocation,
   ReadingReference,
 } from "@solvemate/contracts";
-import { assertMetadata } from "@solvemate/contracts";
+import {
+  assertMetadata,
+  truncateNoteTitle,
+  assertNoteMetadata,
+  originsFromReading,
+  uniqueNoteOrigins,
+} from "@solvemate/contracts";
 import type { SubjectDirectory } from "./subjects";
-import { requireCurrentRecord } from "../refresh/errors";
+import { DataRequestError, requireCurrentRecord } from "../refresh/errors";
 
 export const unclassifiedNotebookId = "notebook-unclassified";
 const systemNotebook: Notebook = {
@@ -22,6 +28,11 @@ export type NoteDestination =
   { kind: "existing"; notebookId: string } | { kind: "new"; title: string };
 
 export type NoteAction =
+  | {
+      kind: "mergeNotes";
+      notebookId: string;
+      notes: Pick<Note, "id" | "revision">[];
+    }
   | {
       kind: "renameNotebook" | "renameNote";
       id: string;
@@ -55,6 +66,8 @@ export function applyNoteAction(
   action: NoteAction,
 ): AppData {
   switch (action.kind) {
+    case "mergeNotes":
+      return mergeNotes(data, action.notebookId, action.notes);
     case "renameNotebook":
       return renameNotebook(data, action.id, action.title, action.revision);
     case "renameNote":
@@ -115,6 +128,15 @@ function revision<T extends { revision: number }>(
 ): asserts item is T {
   requireCurrentRecord(item, expected);
 }
+/** 所有笔记修改统一推进修订号和时间，创建时间及未修改字段保持不变。 */
+function updatedNote(note: Note, changes: Partial<Note>): Note {
+  return {
+    ...note,
+    ...changes,
+    revision: note.revision + 1,
+    updatedAt: Math.max(Date.now(), note.createdAt ?? 0, note.updatedAt ?? 0),
+  };
+}
 function libraryOf(data: AppData) {
   if (!data.noteLibrary) throw new Error("笔记尚未读取完成，请稍后重试。");
   return data.noteLibrary;
@@ -172,11 +194,7 @@ export function deleteNotebook(
         ? library.notes.filter((note) => note.notebookId !== id)
         : library.notes.map((note) =>
             note.notebookId === id
-              ? {
-                  ...note,
-                  notebookId: unclassifiedNotebookId,
-                  revision: note.revision + 1,
-                }
+              ? updatedNote(note, { notebookId: unclassifiedNotebookId })
               : note,
           ),
     },
@@ -193,15 +211,13 @@ export function renameNote(
     library.notes.find((note) => note.id === id),
     expected,
   );
-  const name = title(value, "笔记");
+  const name = title(truncateNoteTitle(value.trim()), "笔记");
   return {
     ...data,
     noteLibrary: {
       ...library,
       notes: library.notes.map((note) =>
-        note.id === id
-          ? { ...note, title: name, revision: note.revision + 1 }
-          : note,
+        note.id === id ? updatedNote(note, { title: name }) : note,
       ),
     },
   };
@@ -221,6 +237,64 @@ export function deleteNote(
     noteLibrary: {
       ...library,
       notes: library.notes.filter((note) => note.id !== id),
+    },
+  };
+}
+
+/** 按当前列表顺序合并；先核对全部修订号，再一次替换，失败不删除原笔记。 */
+export function mergeNotes(
+  data: AppData,
+  notebookId: string,
+  selected: Pick<Note, "id" | "revision">[],
+): AppData {
+  const library = libraryOf(data);
+  requireNotebook(library, notebookId);
+  const ids = new Set(selected.map((item) => item.id));
+  if (ids.size < 2 || ids.size !== selected.length)
+    throw new Error("请选择同一笔记本中的至少两篇笔记。");
+  for (const item of selected) {
+    const note = library.notes.find((note) => note.id === item.id);
+    try {
+      revision(note, item.revision);
+    } catch (error) {
+      if (error instanceof DataRequestError)
+        throw new DataRequestError(
+          note
+            ? "所选笔记已更新，请取消合并，核对内容后重新选择。"
+            : "所选笔记已删除，请取消合并后重新选择。",
+          error.code,
+          error.status,
+        );
+      throw error;
+    }
+    if (note.notebookId !== notebookId)
+      throw new Error("所选笔记不在同一笔记本中，请重新选择。");
+  }
+  const ordered = library.notes.filter((note) => ids.has(note.id));
+  const first = ordered[0];
+  const content = ordered
+    .map((note, index) =>
+      index === 0 ? note.content : `## ${note.title}\n\n${note.content}`,
+    )
+    .join("\n\n---\n\n");
+  const origins = ordered.flatMap((note) => note.origins);
+  const uniqueOrigins = uniqueNoteOrigins(origins);
+  if (content.length > 100000)
+    throw new Error(
+      "合并后的正文超过 100000 个字符，请减少所选笔记。原笔记未作修改。",
+    );
+  const merged = updatedNote(first, {
+    ...validateContent({ title: first.title, content }),
+    tagIds: [...new Set(ordered.flatMap((note) => note.tagIds))],
+    origins: structuredClone(uniqueOrigins),
+  });
+  return {
+    ...data,
+    noteLibrary: {
+      ...library,
+      notes: library.notes.flatMap((note) =>
+        note.id === first.id ? [merged] : ids.has(note.id) ? [] : [note],
+      ),
     },
   };
 }
@@ -248,9 +322,7 @@ export function moveNote(
       ...library,
       notebooks,
       notes: library.notes.map((item) =>
-        item.id === id
-          ? { ...item, notebookId, revision: item.revision + 1 }
-          : item,
+        item.id === id ? updatedNote(item, { notebookId }) : item,
       ),
     },
   };
@@ -295,6 +367,11 @@ export function noteTags(
     ...library.customTags,
   ];
 }
+/** 列表、正文与导出只展示自定义标签，已有学科标签数据保持原样。 */
+export function customNoteTagIds(note: Pick<Note, "tagIds">): string[] {
+  return note.tagIds.filter((id) => !id.startsWith("subject:"));
+}
+
 export function availableNoteTags(
   library: NoteLibrary,
   directory: SubjectDirectory,
@@ -347,9 +424,7 @@ export function saveNoteTags(
       ...library,
       customTags,
       notes: library.notes.map((item) =>
-        item.id === id
-          ? { ...item, tagIds: [...tagIds], revision: item.revision + 1 }
-          : item,
+        item.id === id ? updatedNote(item, { tagIds: [...tagIds] }) : item,
       ),
     },
   };
@@ -380,13 +455,12 @@ function requireNotebook(library: NoteLibrary, id: string) {
     throw new Error("所选笔记本已删除，请重新选择。");
 }
 function validateContent(value: Pick<NoteContent, "title" | "content">) {
-  const name = title(value.title, "笔记");
+  const name = title(truncateNoteTitle(value.title.trim()), "笔记");
   if (!value.content.trim() || value.content.length > 100000)
     throw new Error("请输入笔记正文，最多支持 100000 个字符。");
   return {
     title: name,
     content: value.content,
-    summary: notePreview(value.content),
   };
 }
 
@@ -412,18 +486,18 @@ export function createNote(
       "materialId" in source ? "MaterialLocation" : "ReadingSelection",
       source,
     );
+  const now = Date.now();
   const note: Note = {
     ...validateContent(value),
     notebookId,
-    ...(excerpt ? { excerpt: structuredClone(excerpt) } : {}),
     id,
-    // 旧字段继续保留；新笔记的资料来源只从 source 读取。
-    courseId: "",
-    questionId: "",
-    source: source ? structuredClone(source) : null,
+    origins: originsFromReading(source, excerpt),
+    createdAt: now,
+    updatedAt: now,
     revision: 1,
     tagIds: [`subject:${subjectId ?? "unclassified"}`],
   };
+  assertNoteMetadata(note);
   return {
     ...data,
     noteLibrary: { ...library, notebooks, notes: [note, ...library.notes] },
@@ -447,9 +521,7 @@ export function editNote(
     noteLibrary: {
       ...library,
       notes: library.notes.map((item) =>
-        item.id === id
-          ? { ...item, ...validated, revision: item.revision + 1 }
-          : item,
+        item.id === id ? updatedNote(item, validated) : item,
       ),
     },
   };
@@ -496,9 +568,7 @@ export function assertNoteLibrary(
         !Number.isSafeInteger(note.revision) ||
         note.revision < 1 ||
         !library.notebooks.some((book) => book.id === note.notebookId) ||
-        ![note.content, note.summary, note.courseId, note.questionId].every(
-          (item) => typeof item === "string",
-        ) ||
+        typeof note.content !== "string" ||
         !Array.isArray(note.tagIds) ||
         note.tagIds.some(
           (tag) =>
@@ -510,12 +580,5 @@ export function assertNoteLibrary(
     )
   )
     throw new Error("Invalid notebook, note or tag metadata.");
-  for (const note of library.notes) {
-    if (note.excerpt) assertMetadata("ReadingReference", note.excerpt);
-    if (note.source != null)
-      assertMetadata(
-        "materialId" in note.source ? "MaterialLocation" : "ReadingSelection",
-        note.source,
-      );
-  }
+  for (const note of library.notes) assertNoteMetadata(note);
 }

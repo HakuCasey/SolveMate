@@ -1,3 +1,4 @@
+import { UserStorageRecovery } from "../storage/UserStorageGate";
 import { useEffect, useState } from "react";
 import { Dialog } from "radix-ui";
 import type { AppData } from "@solvemate/contracts";
@@ -74,6 +75,11 @@ export function RefreshControls({
   onResolve,
   chatDrafts,
   saveState,
+  loadFailure = null,
+  loadingRecords = false,
+  readError = "",
+  onRetryRead,
+  onOpenBackup,
   conflict,
   online,
   errors,
@@ -90,6 +96,11 @@ export function RefreshControls({
   onResolve: (index: number, choice: "local" | "remote") => void;
   chatDrafts: Record<string, string>;
   saveState: "saving" | "saved" | "error";
+  loadFailure?: unknown;
+  loadingRecords?: boolean;
+  readError?: string;
+  onRetryRead: () => Promise<void>;
+  onOpenBackup: () => void;
   conflict: boolean;
   online: boolean;
   errors: string[];
@@ -113,21 +124,32 @@ export function RefreshControls({
     saveState === "error" || conflict || drafts.activeCount > 0;
   const hasRetained = drafts.items.length > 0 || recoveries.length > 0;
   const hasDetails = hasPending || hasRetained;
+  const loadMessage =
+    loadFailure instanceof Error
+      ? loadFailure.message
+      : loadFailure
+        ? "记录未能读取，原数据已保留。"
+        : "";
   const messages = [
-    ...new Set([...errors, state.error, drafts.error].filter(Boolean)),
+    ...new Set(
+      [loadMessage, readError, ...errors, state.error, drafts.error].filter(
+        Boolean,
+      ),
+    ),
   ];
   const status = recordStatus({
     saveState,
     conflict,
     online,
     unsaved: drafts.activeCount > 0,
-    readError: state.error || drafts.error,
+    reading: loadingRecords,
+    readError: loadMessage || readError || state.error || drafts.error,
   });
   const Icon = status.attention
     ? status.label === "有未保存修改"
       ? Pencil
       : CircleAlert
-    : saveState === "saving"
+    : saveState === "saving" || loadingRecords
       ? LoaderCircle
       : Check;
   const tone =
@@ -138,8 +160,14 @@ export function RefreshControls({
         : saveState === "saving"
           ? "active"
           : "neutral";
-  const saving = saveState === "saving" && !status.attention;
-  const needsRefresh = conflict || !online || !!(state.error || drafts.error);
+  const saving =
+    (saveState === "saving" || loadingRecords) && !status.attention;
+  const needsRefresh =
+    !!loadFailure ||
+    !!readError ||
+    conflict ||
+    !online ||
+    !!(state.error || drafts.error);
   const hasActions =
     (saveState === "error" && !conflict) || needsRefresh || hasDetails;
   return (
@@ -170,9 +198,10 @@ export function RefreshControls({
             {message}
           </div>
         ))}
+        <UserStorageRecovery failure={loadFailure} onReload={onRetryRead} />
         {hasActions && (
           <div className={statusStyles.actions}>
-            {saveState === "error" && !conflict && (
+            {saveState === "error" && !conflict && !loadFailure && (
               <button className={statusStyles.primary} onClick={onRetry}>
                 重试保存
               </button>
@@ -182,8 +211,15 @@ export function RefreshControls({
                 disabled={state.refreshing}
                 onClick={() => void state.refresh(undefined, false, true)}
               >
-                {state.refreshing ? "正在刷新…" : "刷新数据"}
+                {state.refreshing
+                  ? "正在读取…"
+                  : loadFailure
+                    ? "重新读取"
+                    : "刷新数据"}
               </button>
+            )}
+            {!!loadFailure && (
+              <button onClick={onOpenBackup}>备份与恢复</button>
             )}
             {hasDetails && (
               <button
@@ -312,7 +348,7 @@ export function RefreshControls({
               </details>
             ))}
             <div className={styles.actions}>
-              {saveState === "error" && !conflict && (
+              {saveState === "error" && !conflict && !loadFailure && (
                 <button onClick={onRetry}>重试保存</button>
               )}
               <button
