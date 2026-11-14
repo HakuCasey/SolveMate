@@ -100,6 +100,8 @@ VITE_CONTENT_API_URL=https://content.example.com/api/v1
 
 完成安装或部署后，页面操作见[用户指南](docs/product/manual/README.md)。
 
+在“设置 → 备份与恢复”中可导出资料、对话、笔记和配置的完整 ZIP 备份，并恢复到当前本机数据目录。恢复前会自动备份当前数据；第三方 Harness 的登录信息与原生会话文件仍由对应软件管理，不包含在此备份中。
+
 ## 开发方式
 
 前端使用 React、TypeScript 和 Vite，后端使用 Python 和 FastAPI。完成上方依赖安装后，在仓库根目录启动网页开发服务：

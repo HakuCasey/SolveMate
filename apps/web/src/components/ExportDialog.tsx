@@ -20,7 +20,26 @@ import {
 } from "../exports/files";
 import styles from "./ExportDialog.module.css";
 
-/** 两种导出共用表单与状态，业务仅负责生成相应格式的文件。 */
+type ExportDialogProps = {
+  title: string;
+  name: string;
+  icon?: LucideIcon;
+  extension: ExportExtension;
+  description?: string;
+  onClose: () => void;
+} & (
+  | { generate: (signal: AbortSignal) => Promise<Blob>; perform?: never }
+  | {
+      generate?: never;
+      perform: (
+        filename: string,
+        directory: FileSystemDirectoryHandle | null,
+        signal: AbortSignal,
+      ) => Promise<ExportReceipt>;
+    }
+);
+
+/** 各类导出共用文件名、目录与反馈，大文件可由业务直接流式保存。 */
 export function ExportDialog({
   title,
   name,
@@ -28,16 +47,9 @@ export function ExportDialog({
   extension,
   description,
   generate,
+  perform,
   onClose,
-}: {
-  title: string;
-  name: string;
-  icon?: LucideIcon;
-  extension: ExportExtension;
-  description?: string;
-  generate: (signal: AbortSignal) => Promise<Blob>;
-  onClose: () => void;
-}) {
+}: ExportDialogProps) {
   const [filename, setFilename] = useState(() =>
     exportFilename(name, extension).slice(0, -(extension.length + 1)),
   );
@@ -112,14 +124,14 @@ export function ExportDialog({
     const controller = new AbortController();
     operation.current = controller;
     try {
-      const blob = await generate(controller.signal);
-      controller.signal.throwIfAborted();
-      const result = await saveExport(
-        blob,
-        fullName,
-        directory,
-        controller.signal,
-      );
+      const result = perform
+        ? await perform(fullName, directory, controller.signal)
+        : await saveExport(
+            await generate!(controller.signal),
+            fullName,
+            directory,
+            controller.signal,
+          );
       controller.signal.throwIfAborted();
       setReceipt(result);
       setPhase("success");

@@ -1,7 +1,9 @@
+import { BackupDialog } from "./BackupDialog";
 import { PopoverPanel } from "./PopoverPanel";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { ContextMenu, Popover } from "radix-ui";
 import {
+  ArchiveRestore,
   BookOpen,
   Bot,
   ChevronDown,
@@ -110,6 +112,7 @@ export function Sidebar({
   disabled = false,
   ai,
 }: SidebarProps) {
+  const [backupOpen, setBackupOpen] = useState(false);
   const [subjectsOpen, setSubjectsOpen] = useState(false);
   const [teachingOpen, setTeachingOpen] = useState(false);
   const [expandedSubjects, setExpandedSubjects] = useState<
@@ -167,6 +170,12 @@ export function Sidebar({
 
   return (
     <nav className={styles.sidebar} aria-label="功能菜单">
+      {backupOpen && (
+        <BackupDialog
+          onClose={() => setBackupOpen(false)}
+          onRefresh={onRefreshData}
+        />
+      )}
       <div className={styles.profile}>
         <div className={styles.profileRow}>
           <Popover.Root
@@ -535,6 +544,16 @@ export function Sidebar({
               </button>
               <button
                 className={styles.settingsItem}
+                onClick={() => {
+                  setSettingsOpen(false);
+                  setBackupOpen(true);
+                }}
+              >
+                <ArchiveRestore aria-hidden="true" />
+                <span>备份与恢复</span>
+              </button>
+              <button
+                className={styles.settingsItem}
                 disabled={refreshingData}
                 onClick={async () => {
                   setRefreshingData(true);
@@ -626,7 +645,10 @@ export function Sidebar({
                         type="button"
                         aria-pressed={settings.appearance === "light"}
                         onClick={() =>
-                          onSettingsChange({ ...settings, appearance: "light" })
+                          onSettingsChange({
+                            ...settings,
+                            appearance: "light",
+                          })
                         }
                       >
                         <Sun aria-hidden="true" />
@@ -637,7 +659,10 @@ export function Sidebar({
                         type="button"
                         aria-pressed={settings.appearance === "dark"}
                         onClick={() =>
-                          onSettingsChange({ ...settings, appearance: "dark" })
+                          onSettingsChange({
+                            ...settings,
+                            appearance: "dark",
+                          })
                         }
                       >
                         <Moon aria-hidden="true" />
@@ -666,7 +691,10 @@ export function Sidebar({
                             findTheme(settings.themeId).id === theme.id
                           }
                           onClick={() =>
-                            onSettingsChange({ ...settings, themeId: theme.id })
+                            onSettingsChange({
+                              ...settings,
+                              themeId: theme.id,
+                            })
                           }
                         >
                           <span className={styles.toneMark} aria-hidden="true">

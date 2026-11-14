@@ -1,0 +1,56 @@
+.sections {
+  display: grid;
+  gap: 18px;
+  margin-top: 24px;
+}
+.sections section + section {
+  border-top: 1px solid var(--sm-line);
+  padding-top: 18px;
+}
+.sections h3 {
+  font-size: 14px;
+  margin: 0 0 6px;
+}
+.sections section > p {
+  font-size: 12px;
+  color: var(--sm-soft);
+  line-height: 1.7;
+  margin: 0 0 12px;
+}
+.sections button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--sm-line);
+  color: var(--sm-accent);
+}
+.sections button svg,
+.progress svg {
+  width: 16px;
+  height: 16px;
+}
+.sections dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px 12px;
+  font-size: 12px;
+  padding: 12px;
+  border-radius: 8px;
+  background: var(--sm-ground);
+}
+.sections dt {
+  color: var(--sm-soft);
+}
+.sections dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.progress {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--sm-soft);
+  font-size: 12px;
+}

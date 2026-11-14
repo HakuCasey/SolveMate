@@ -73,3 +73,75 @@ describe("export filenames and directory writes", () => {
     expect(fake.removeEntry).toHaveBeenCalledWith("配置 (1).json");
   });
 });
+
+it("streams a large backup into the chosen directory", async () => {
+  const parts: number[][] = [];
+  const output = {
+    write: vi.fn(async (data: Uint8Array) => {
+      parts.push([...data]);
+    }),
+    close: vi.fn(),
+    abort: vi.fn().mockResolvedValue(undefined),
+  };
+  const directory = {
+    name: "资料",
+    getFileHandle: vi.fn(async (_name, options) => {
+      if (!options?.create)
+        throw new DOMException("Not found", "NotFoundError");
+      return { createWritable: async () => output };
+    }),
+    removeEntry: vi.fn(),
+  } as unknown as FileSystemDirectoryHandle;
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(new Uint8Array([1, 2]));
+      controller.enqueue(new Uint8Array([3, 4]));
+      controller.close();
+    },
+  });
+  await saveToDirectory(
+    directory,
+    "备份.zip",
+    stream,
+    new AbortController().signal,
+  );
+  expect(parts).toEqual([
+    [1, 2],
+    [3, 4],
+  ]);
+  expect(output.close).toHaveBeenCalledOnce();
+});
+
+it("removes an incomplete backup when the download stream fails", async () => {
+  const removeEntry = vi.fn().mockResolvedValue(undefined);
+  const output = {
+    write: vi.fn(),
+    close: vi.fn(),
+    abort: vi.fn().mockResolvedValue(undefined),
+  };
+  const directory = {
+    name: "资料",
+    removeEntry,
+    getFileHandle: vi.fn(async (_name, options) => {
+      if (!options?.create)
+        throw new DOMException("Not found", "NotFoundError");
+      return { createWritable: async () => output };
+    }),
+  } as unknown as FileSystemDirectoryHandle;
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.error(new Error("Stream interrupted"));
+    },
+  });
+  await expect(
+    saveToDirectory(
+      directory,
+      "备份.zip",
+      stream,
+      new AbortController().signal,
+    ),
+  ).rejects.toThrow("Stream interrupted");
+  expect(output.abort).toHaveBeenCalledOnce();
+  expect(removeEntry).toHaveBeenCalledWith("备份.zip");
+  expect(output.close).not.toHaveBeenCalled();
+});

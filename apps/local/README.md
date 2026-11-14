@@ -181,3 +181,11 @@ PDF 无需安装办公软件。PPTX 需安装 [LibreOffice](https://www.libreoff
 ### 学习时长
 
 `GET /local-api/v1/user/study` 读取每日统计，`POST` 提交时间段和数据目录编号。统计保存在 `user/app.sqlite3` 的 `study_days` 表中，与整份页面记录分别更新；合并重叠时间段，重复提交不增加时长。规则与验证见 [017 学习时长统计](../../docs/features/017-study-time/spec.md)。
+
+## 完整数据备份与恢复
+
+网页入口为“设置 → 备份与恢复”。本机服务生成 ZIP，包含个人记录数据库、AI 数据库、上传原件及派生文件、已下载内容及历史版本、AI 工作目录。备份不包含 `backups/`、代码或第三方 Harness 的登录信息与原生会话存储。可在当前目录或另一实例的 `SOLVEMATE_USER_DIR` 中恢复，默认位置继续为仓库根目录的 `user/`。
+
+恢复前校验格式、文件摘要和数据库，再自动生成 `backups/before-restore-<时间>-<编号>.zip`。替换期间暂停新业务请求，已有问答、连接检测、资料转换须先完成；替换失败回退原数据，进程中断则在下次启动时处理恢复记录。原资料与原生会话编号保留；恢复后的保存版本提高，旧窗口需要刷新后继续。未发送的提问草稿保留，未保存表单由既有草稿机制保护。
+
+接口为 `POST /local-api/v1/user/backups/export`、`POST /inspect`、`POST /{token}/restore`，均要求既有本机网页访问凭据。ZIP 上限为 4 GiB，展开后上限为 8 GiB；默认导出直接写系统下载目录，选择其他位置时向浏览器流式传输。详细规则见 [018](../../docs/features/018-data-backup/spec.md)。

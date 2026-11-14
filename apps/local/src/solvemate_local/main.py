@@ -11,6 +11,14 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from .acp import ConnectionError
+from .backups import (
+    Backups,
+    Maintenance,
+    MaintenanceMiddleware,
+)
+from .backups import (
+    router as backup_router,
+)
 from .file_exports import router as file_exports_router
 from .material_converter import MaterialError
 from .material_routes import router as material_router
@@ -59,32 +67,55 @@ def create_app(
         ).split(",")
     )
 
+    user_root = Path(configured_root or directory.parent)
+    uploads = Path(
+        materials_directory
+        or os.environ.get("SOLVEMATE_MATERIALS_DIR")
+        or user_root / "uploads"
+    )
+    maintenance = Maintenance()
+
     @asynccontextmanager
     async def lifespan(app):
         app.state.pdf_export_lock = asyncio.Lock()
-        store = Store(directory)
-        app.state.ai = AiService(store, registry=registry)
-        app.state.materials = None
-        app.state.user = None
-        try:
-            user_root = Path(configured_root or directory.parent)
+        app.state.maintenance = maintenance
+        app.state.ai = app.state.materials = app.state.user = None
+        backups = Backups(user_root, directory, uploads)
+        app.state.backups = backups
+        if not materials_directory and not os.environ.get("SOLVEMATE_MATERIALS_DIR"):
+            migrate_uploads(user_root)
+
+        async def close_resources():
+            if app.state.materials is not None:
+                await app.state.materials.close()
+                app.state.materials = None
+            if app.state.ai is not None:
+                await app.state.ai.close()
+                app.state.ai.store.close()
+                app.state.ai = None
+            if app.state.user is not None:
+                app.state.user.close()
+                app.state.user = None
+
+        def open_resources():
+            # 恢复与正常启动共用资源创建，路由始终读取当前服务对象。
             app.state.user = UserData(user_root)
-            uploads = materials_directory or os.environ.get("SOLVEMATE_MATERIALS_DIR")
-            if not uploads:
-                uploads = migrate_uploads(user_root)
+            app.state.ai = AiService(Store(directory), registry=registry)
             app.state.materials = Materials(
                 uploads, subject_check=app.state.user.require_subject
             )
+
+        app.state.open_resources = open_resources
+        app.state.close_resources = close_resources
+        try:
+            open_resources()
             yield
         finally:
-            if app.state.materials is not None:
-                await app.state.materials.close()
-            await app.state.ai.close()
-            store.close()
-            if app.state.user is not None:
-                app.state.user.close()
+            await close_resources()
+            backups.close()
 
     app = FastAPI(title="SolveMate Local", lifespan=lifespan)
+    app.include_router(backup_router)
 
     app.include_router(material_router)
     app.include_router(user_router)
@@ -135,7 +166,10 @@ def create_app(
                 status_code=403,
             )
         if request.method not in {"GET", "HEAD"}:
-            if request.url.path.startswith("/local-api/v1/user/"):
+            if (
+                request.url.path.startswith("/local-api/v1/user/")
+                and request.url.path != "/local-api/v1/user/backups/inspect"
+            ):
                 length = request.headers.get("content-length", "0")
                 if not length.isdigit() or int(length) > 128 * 1024 * 1024:
                     return JSONResponse(
@@ -152,10 +186,10 @@ def create_app(
                     {"detail": "请求缺少本机网页访问凭据。", "code": "client_required"},
                     status_code=403,
                 )
-            upload = (
-                request.method == "POST"
-                and request.url.path == "/local-api/v1/materials"
-            )
+            upload = request.method == "POST" and request.url.path in {
+                "/local-api/v1/materials",
+                "/local-api/v1/user/backups/inspect",
+            }
             if (
                 request.method == "POST"
                 and request.url.path == "/local-api/v1/user/exports/save"
@@ -347,5 +381,6 @@ def create_app(
                         }
         return document
 
+    app.add_middleware(MaintenanceMiddleware, maintenance=maintenance)
     app.openapi = metadata_openapi
     return app

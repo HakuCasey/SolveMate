@@ -1,4 +1,4 @@
-export type ExportExtension = "json" | "pdf";
+export type ExportExtension = "json" | "pdf" | "zip";
 export interface ExportReceipt {
   filename: string;
   directory: string;
@@ -71,7 +71,7 @@ export function numberedFilename(filename: string, number: number) {
 export async function saveToDirectory(
   directory: FileSystemDirectoryHandle,
   filename: string,
-  blob: Blob,
+  blob: Blob | ReadableStream<Uint8Array>,
   signal: AbortSignal,
 ): Promise<ExportReceipt> {
   for (let number = 0; number < 1000; number++) {
@@ -88,7 +88,24 @@ export async function saveToDirectory(
     let output: FileSystemWritableFileStream | undefined;
     try {
       output = await file.createWritable();
-      await output.write(blob);
+      if (blob instanceof Blob) await output.write(blob);
+      else {
+        const reader = blob.getReader();
+        const cancel = () => void reader.cancel().catch(() => undefined);
+        signal.addEventListener("abort", cancel, { once: true });
+        try {
+          while (true) {
+            signal.throwIfAborted();
+            const { done, value } = await reader.read();
+            if (done) break;
+            await output.write(value as Uint8Array<ArrayBuffer>);
+          }
+        } finally {
+          signal.removeEventListener("abort", cancel);
+          await reader.cancel().catch(() => undefined);
+          reader.releaseLock();
+        }
+      }
       signal.throwIfAborted();
       await output.close();
       return { filename: name, directory: directory.name };

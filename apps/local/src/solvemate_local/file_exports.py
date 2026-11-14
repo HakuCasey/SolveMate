@@ -3,6 +3,7 @@
 import asyncio
 import json
 import re
+import shutil
 from pathlib import Path
 
 from fastapi import APIRouter, Request
@@ -14,14 +15,14 @@ router = APIRouter(prefix="/local-api/v1/user/exports")
 MAX_EXPORT_BYTES = 128 * 1024 * 1024
 
 
-def validate_filename(filename):
+def validate_filename(filename, extensions=None):
     if (
         not filename
         or len(filename) > 180
         or len(filename.encode("utf-8")) > 240
         or re.search(r'[<>:"/\\|?*\x00-\x1f]', filename)
         or filename.endswith((".", " "))
-        or Path(filename).suffix.lower() not in {".json", ".pdf"}
+        or Path(filename).suffix.lower() not in (extensions or {".json", ".pdf"})
         or re.fullmatch(r"(?i)(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\..*)?", filename)
     ):
         raise UserDataError(
@@ -30,10 +31,10 @@ def validate_filename(filename):
     return filename
 
 
-def save_download(filename, content):
+def save_download(filename, content, extensions=None):
     directory = downloads_directory()
     directory.mkdir(parents=True, exist_ok=True)
-    original = Path(validate_filename(filename))
+    original = Path(validate_filename(filename, extensions))
     for number in range(1000):
         name = (
             original.name
@@ -47,7 +48,11 @@ def save_download(filename, content):
             continue
         try:
             with output:
-                output.write(content)
+                if isinstance(content, Path):
+                    with content.open("rb") as source:
+                        shutil.copyfileobj(source, output, 1024 * 1024)
+                else:
+                    output.write(content)
                 output.flush()
         except BaseException:
             target.unlink(missing_ok=True)
@@ -56,6 +61,10 @@ def save_download(filename, content):
     raise UserDataError(
         "同名文件过多，请修改文件名后重试。", "export_name_conflict", 409
     )
+
+
+def save_download_file(filename, source):
+    return save_download(filename, source, {".zip"})
 
 
 @router.get("/directory")
