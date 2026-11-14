@@ -15,6 +15,7 @@ SolveMate 的 MIT 许可证不替代第三方软件的许可证。依赖的准�
 | 公式字体        | KaTeX 随附字体                        | SIL Open Font License 1.1，保留字体原版权与保留名称 |
 | 内容 API        | FastAPI、Pydantic                     | MIT                                                 |
 | DSH 配置读取    | PyYAML                                | MIT                                                 |
+| DSH 实时订阅    | websockets                            | BSD-3-Clause                                        |
 | HTTP 服务       | Uvicorn                               | BSD-3-Clause                                        |
 
 ## 网页发行文件

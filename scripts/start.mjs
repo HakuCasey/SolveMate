@@ -209,7 +209,7 @@ async function main() {
   try {
     await manager.run("Checking backend dependencies", python, [
       "-c",
-      "import fastapi, uvicorn, solvemate_server, yaml, jsonschema, pypdf",
+      "import fastapi, uvicorn, solvemate_server, yaml, jsonschema, pypdf, websockets",
     ]);
     await manager.run("Building web application", process.execPath, [
       npmCli,

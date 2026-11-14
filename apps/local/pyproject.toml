@@ -5,10 +5,10 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "solvemate-local"
 version = "0.1.0"
-description = "SolveMate local AI connections and ACP sessions"
+description = "SolveMate local AI connections and Harness sessions"
 requires-python = ">=3.12"
 license = "MIT"
-dependencies = ["fastapi>=0.162,<1", "pydantic>=2.14,<3", "uvicorn>=0.54,<1", "PyYAML>=6.0.3,<7", "jsonschema>=4.26,<5", "referencing>=0.37,<1", "pypdf>=6.21.4,<7"]
+dependencies = ["fastapi>=0.162,<1", "pydantic>=2.14,<3", "uvicorn>=0.54,<1", "PyYAML>=6.0.3,<7", "jsonschema>=4.26,<5", "referencing>=0.37,<1", "pypdf>=6.21.4,<7", "websockets>=17.3,<18"]
 
 [project.optional-dependencies]
 dev = ["httpx2>=2.16,<3", "pytest>=9,<10", "ruff>=0.17,<1"]

@@ -73,7 +73,7 @@ class PlainAdapter(HarnessAdapter):
         process.model = model
         return OPTIONS
 
-    async def prompt(self, process, sid, text):
+    async def prompt(self, process, sid, text, request_id=None):
         process.update(
             {"sessionId": sid, "kind": "turn", "externalTurnId": "native-turn"}
         )

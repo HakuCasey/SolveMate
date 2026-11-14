@@ -281,7 +281,7 @@ class CodexAdapter(HarnessAdapter):
             )
         process.selections[sid] = (model, value)
 
-    async def prompt(self, process, sid, text):
+    async def prompt(self, process, sid, text, request_id=None):
         return await process.prompt(sid, text)
 
     async def cancel(self, process, sid):

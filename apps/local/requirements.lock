@@ -10,3 +10,6 @@ rpds-py==2026.9.1
 
 # PDF metadata and page text extraction.
 pypdf==6.21.4
+
+# DSH native live response subscriptions.
+websockets==17.4

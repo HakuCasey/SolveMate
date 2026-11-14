@@ -12,9 +12,10 @@ class HarnessSession:
 
 class HarnessEvent(TypedDict, total=False):
     sessionId: str
-    kind: Literal["text", "thinking", "tool", "turn"]
+    kind: Literal["text", "thinking", "tool", "turn", "received"]
     text: str
     replace: bool
+    committed: bool
     id: str
     title: str
     status: str

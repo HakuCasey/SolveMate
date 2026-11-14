@@ -10,7 +10,7 @@ from test_service import HEADERS, FakeAcp, FakeDshAdapter, connect
 
 from solvemate_local.adapters import AdapterRegistry
 from solvemate_local.adapters.codex import CodexAdapter
-from solvemate_local.adapters.dsh import DshAdapter
+from solvemate_local.adapters.dsh import DshAcpAdapter as DshAdapter
 from solvemate_local.adapters.hermes import HermesAdapter
 from solvemate_local.errors import ConnectionError
 from solvemate_local.main import create_app

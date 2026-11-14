@@ -10,7 +10,7 @@ from test_adapters import FakeHermes, completed, question
 from test_service import FakeAcp, FakeDshAdapter
 
 from solvemate_local.adapters import AdapterRegistry
-from solvemate_local.adapters.dsh import DshAdapter
+from solvemate_local.adapters.dsh import DshAcpAdapter as DshAdapter
 from solvemate_local.adapters.hermes import HermesAdapter
 from solvemate_local.errors import ConnectionError
 from solvemate_local.models import ConnectionConfig, DetectRequest

@@ -6,7 +6,9 @@ from .base import AcpAdapter, acp_permission, acp_update
 from .dsh_catalog import catalog_options
 
 
-class DshAdapter(AcpAdapter):
+class DshAcpAdapter(AcpAdapter):
+    """保留 ACP 检测与合同验证入口；原生执行失败时不自动回退到这里。"""
+
     requires_probe_session = False
     short_name = "DSH"
     id = "deepseek-local"
@@ -74,3 +76,59 @@ class DshAdapter(AcpAdapter):
 
     async def release_session(self, process, sid):
         await process.call("session/close", {"sessionId": sid})
+
+
+class DshAdapter(DshAcpAdapter):
+    """复用程序查找与连接标识；正式会话操作全部由原生实现处理。"""
+
+    protocol = "dsh-native"
+
+    def __init__(self, factory=None):
+        from .dsh_process import DshProcess
+
+        self.factory = factory or DshProcess
+
+    def process(self, executable, workspace, on_update=None, on_permission=None):
+        return self.factory(
+            executable, workspace, on_update, on_permission, harness_home=self.home()
+        )
+
+    def public_capabilities(self, raw):
+        result = super().public_capabilities({"sessionCapabilities": {"resume": {}}})
+        result["rawTextDeltas"] = "supported"
+        return result
+
+    async def start(self, process):
+        return await process.start()
+
+    async def probe_options(self, process, model):
+        return await process.catalog(model)
+
+    async def new_session(self, process, workspace, model=""):
+        return await process.create(workspace)
+
+    async def inspect_session(self, process, session):
+        return await process.inspect(session.id)
+
+    async def resume(self, process, sid, workspace):
+        return await process.resume(sid, workspace)
+
+    async def select_model(self, process, sid, model, session):
+        return await process.select(sid, model)
+
+    async def select_reasoning(self, process, sid, value):
+        model = process.sessions[sid].options["currentModel"]
+        await process.select(sid, model, value)
+
+    async def prompt(self, process, sid, text, request_id=None):
+        return await process.prompt(sid, text, request_id)
+
+    async def cancel(self, process, sid):
+        await process.cancel(sid)
+
+    async def release_session(self, process, sid):
+        await process.release(sid)
+
+    async def finish_turn(self, process, sid):
+        await process.release(sid)
+        return True

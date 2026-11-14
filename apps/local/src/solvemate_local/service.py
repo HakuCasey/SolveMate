@@ -762,6 +762,9 @@ class AiService:
                 turn["externalSessionId"] = sid
                 self.persist(turn)
                 session = await adapter.inspect_session(process, session)
+            self.store.update_binding_protocol(
+                request.conversationId, adapter.id, adapter.protocol
+            )
             self.store.mark_binding(request.conversationId, "bound", adapter.id)
             loaded.add(sid)
             self.session_turns[(adapter.id, sid)] = turn["id"]
@@ -812,9 +815,11 @@ class AiService:
                 "messageIds": prepared.message_ids,
             }
             self.progress(turn, "waiting")
-            result = await adapter.prompt(process, sid, prepared.text)
+            result = await adapter.prompt(
+                process, sid, prepared.text, request_id=turn["id"]
+            )
             self.confirm_delivery(turn)
-            cancelled = turn.get("stopRequested") or result == "cancelled"
+            cancelled = result == "cancelled"
             turn["status"] = "cancelled" if cancelled else result
             if not cancelled and (result == "failed" or not turn["content"].strip()):
                 turn.update(
@@ -833,7 +838,17 @@ class AiService:
             raise
         except Exception as error:  # noqa: BLE001 - 后台执行必须保存失败状态，日志只记录类别。
             turn.update(
-                status="cancelled" if turn.get("stopRequested") else "failed",
+                status="interrupted"
+                if getattr(error, "code", None)
+                in {
+                    "host_stopped",
+                    "execution_unconfirmed",
+                    "stop_unconfirmed",
+                    "permission_interrupted",
+                }
+                else "cancelled"
+                if turn.get("stopRequested")
+                else "failed",
                 error="第三方 Harness 中的会话无法匹配。"
                 if getattr(error, "code", None) == "session_missing"
                 else str(error)
@@ -857,7 +872,9 @@ class AiService:
                     else "bound",
                     turn["connectionId"],
                 )
-            if turn.get("dispatch") and not turn["dispatch"].get("receivedAt"):
+            if getattr(error, "code", None) == "submission_cancelled":
+                turn["dispatch"] = None
+            elif turn.get("dispatch") and not turn["dispatch"].get("receivedAt"):
                 turn["submissionStatus"] = "uncertain"
             logger.warning(
                 "AI turn failed: %s", getattr(error, "code", type(error).__name__)
@@ -889,6 +906,7 @@ class AiService:
                 turn.get("dispatch", {})
                 and turn["dispatch"].get("receivedAt")
                 and turn["content"]
+                and turn.get("contentCommitted", True)
             ):
                 self.store.confirm_receipts(
                     turn["connectionId"],
@@ -899,6 +917,18 @@ class AiService:
             self.persist(turn)
             if sid:
                 self.session_turns.pop((turn["connectionId"], sid), None)
+                if process:
+                    try:
+                        released = await adapter.finish_turn(process, sid)
+                        if released:
+                            self.connections.loaded.get(
+                                turn["connectionId"], set()
+                            ).discard(sid)
+                    except (ConnectionError, OSError, TimeoutError):
+                        logger.warning(
+                            "Failed to release Harness turn resources: connection=%s",
+                            turn["connectionId"],
+                        )
             self.jobs.pop(turn["id"], None)
 
     @staticmethod
@@ -925,9 +955,13 @@ class AiService:
             return
         kind = params.get("kind")
         if kind == "text":
+            if "committed" in params:
+                turn["contentCommitted"] = params["committed"]
             text = params.get("text", "")
             turn["content"] = text if params.get("replace") else turn["content"] + text
             phase = "responding"
+        elif kind == "received":
+            phase = "waiting"
         elif kind == "thinking":
             phase = "thinking"
         elif kind == "turn":

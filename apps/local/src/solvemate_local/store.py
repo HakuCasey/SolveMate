@@ -399,6 +399,14 @@ class Store:
                 ),
             )
 
+    def update_binding_protocol(self, conversation_id, connection_id, protocol):
+        """恢复原编号成功后更新传输协议，不改写历史执行或重新绑定。"""
+        with self.db:
+            self.db.execute(
+                "UPDATE bindings SET protocol=?,revision=revision+1 WHERE conversation_id=? AND connection_id=? AND protocol<>?",
+                (protocol, conversation_id, connection_id, protocol),
+            )
+
     def complete_binding(self, conversation_id, external_id, connection_id=None):
         binding = self.binding(conversation_id, connection_id)
         if not binding:

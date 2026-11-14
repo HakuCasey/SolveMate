@@ -13,7 +13,7 @@ from pypdf import PdfWriter
 from solvemate_local.acp import ConnectionError, launch_spec, safe_error
 from solvemate_local.adapters import AdapterRegistry
 from solvemate_local.adapters.base import acp_update
-from solvemate_local.adapters.dsh import DshAdapter
+from solvemate_local.adapters.dsh import DshAcpAdapter as DshAdapter
 from solvemate_local.adapters.hermes import HermesAdapter
 from solvemate_local.main import create_app
 from solvemate_local.store import Store
@@ -496,7 +496,7 @@ def test_parallel_conversations_keep_independent_external_sessions(tmp_path):
 def test_auto_connection_keeps_discovery_mode_and_binds_actual_program(
     monkeypatch, tmp_path
 ):
-    from solvemate_local.adapters.dsh import DshAdapter
+    from solvemate_local.adapters.dsh import DshAcpAdapter as DshAdapter
 
     monkeypatch.setattr(
         DshAdapter, "resolve", staticmethod(lambda value="": sys.executable)

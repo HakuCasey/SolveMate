@@ -1,11 +1,13 @@
 """模拟 DSH 的两阶段参数解析与进程退出，不启动 Harness 或调用模型。"""
 
 import asyncio
+import json
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
-from solvemate_local.adapters import dsh_catalog
+from solvemate_local.adapters import dsh_catalog, dsh_host
 from solvemate_local.errors import ConnectionError
 
 
@@ -17,6 +19,9 @@ def test_catalog_launch_keeps_global_options_before_web_options_and_cleans_up(
     async def spawn(*argv, **kwargs):
         # 模拟 DSH：Web 参数之后的 --patch 会被 Web 解析器拒绝。
         valid = argv.index("--patch") < argv.index("--no-open")
+        rows = json.loads(Path(argv[argv.index("--patch") + 1]).read_text())
+        assert {"id": "config-editor", "disabled": True} in rows
+        assert kwargs["env"]["DSH_HOME"] == str(tmp_path)
         port = argv[argv.index("--port") + 1]
         stdout, stderr = asyncio.StreamReader(), asyncio.StreamReader()
         if valid:
@@ -38,15 +43,21 @@ def test_catalog_launch_keeps_global_options_before_web_options_and_cleans_up(
         closed.append(child)
 
     def read(url, port):
-        return {
-            "groups": [
-                {"id": "test", "name": "Test", "models": [{"id": "m", "name": "Model"}]}
-            ]
-        }
+        return SimpleNamespace(
+            rpc=lambda method, request: {
+                "groups": [
+                    {
+                        "id": "test",
+                        "name": "Test",
+                        "models": [{"id": "m", "name": "Model"}],
+                    }
+                ]
+            }
+        )
 
-    monkeypatch.setattr(dsh_catalog.asyncio, "create_subprocess_exec", spawn)
-    monkeypatch.setattr(dsh_catalog, "stop_process_tree", stop)
-    monkeypatch.setattr(dsh_catalog, "read_catalog", read)
+    monkeypatch.setattr(dsh_host.asyncio, "create_subprocess_exec", spawn)
+    monkeypatch.setattr(dsh_host, "stop_process_tree", stop)
+    monkeypatch.setattr(dsh_host, "DshHttp", read)
     process = SimpleNamespace(
         executable=str(tmp_path / "dsh"),
         workspace=str(tmp_path),

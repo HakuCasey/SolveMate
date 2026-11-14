@@ -91,7 +91,7 @@ class HarnessAdapter:
         """按原生编号改名，不创建会话、不向模型发送改名指令。"""
         raise ConnectionError("当前适配器不支持会话改名。", "rename_unsupported")
 
-    async def prompt(self, process, sid, text):
+    async def prompt(self, process, sid, text, request_id=None):
         raise NotImplementedError
 
     async def cancel(self, process, sid):
@@ -105,6 +105,10 @@ class HarnessAdapter:
 
     async def release_session(self, process, sid):
         pass
+
+    async def finish_turn(self, process, sid):
+        """返回是否已释放会话；保持长连接的适配器无须额外操作。"""
+        return False
 
     async def release_probe(self, process, sid):
         await self.release_session(process, sid)
@@ -165,7 +169,7 @@ class AcpAdapter(HarnessAdapter):
             )
         return HarnessSession(sid, self.describe(result))
 
-    async def prompt(self, process, sid, text):
+    async def prompt(self, process, sid, text, request_id=None):
         result = await process.call(
             "session/prompt",
             {"sessionId": sid, "prompt": [{"type": "text", "text": text}]},

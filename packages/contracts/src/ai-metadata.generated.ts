@@ -39,7 +39,13 @@ export type AiMetadataContract =
   | MaterialVersion;
 export type ProviderId = "deepseek-harness" | "hermes" | "codex";
 export type HarnessProtocol =
-  "acp" | "codex-app-server" | "opencode" | "openclaw" | "hermes" | "api";
+  | "acp"
+  | "codex-app-server"
+  | "dsh-native"
+  | "opencode"
+  | "openclaw"
+  | "hermes"
+  | "api";
 export type TurnStatus =
   "running" | "completed" | "failed" | "cancelled" | "interrupted";
 export type TurnPhase =

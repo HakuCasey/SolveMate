@@ -17,6 +17,7 @@
       "enum": [
         "acp",
         "codex-app-server",
+        "dsh-native",
         "opencode",
         "openclaw",
         "hermes",

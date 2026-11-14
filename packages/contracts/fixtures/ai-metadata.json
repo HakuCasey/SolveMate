@@ -1,5 +1,17 @@
 [
   {
+    "name": "SessionBinding",
+    "value": {
+      "conversationId": "chat",
+      "connectionId": "deepseek-local",
+      "protocol": "dsh-native",
+      "externalSessionId": "existing-acp-session",
+      "state": "bound",
+      "revision": 2
+    },
+    "valid": true
+  },
+  {
     "name": "ModelSelection",
     "value": {
       "kind": "connection-default"
