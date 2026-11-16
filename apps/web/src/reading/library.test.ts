@@ -8,8 +8,8 @@ import {
   createConversation,
 } from "../state/conversations";
 const directory = createSubjectDirectory(courses);
-const file = (id: string, courseId: string | null) =>
-  ({ id, courseId, currentVersion: "a".repeat(64) }) as Material;
+const file = (id: string, subjectId: string | null) =>
+  ({ id, subjectId, currentVersion: "a".repeat(64) }) as Material;
 describe("subject libraries", () => {
   it("hides deleted entries in every subject while retaining their history metadata", () => {
     const removed = {
@@ -63,7 +63,7 @@ describe("subject libraries", () => {
       courseId: "c-language",
       kind: "textbooks",
     });
-    item.courseId = "calculus";
+    item.subjectId = "calculus";
     expect(scopeForMaterial(location, [item], directory).courseId).toBe(
       "calculus",
     );
@@ -86,7 +86,7 @@ describe("subject libraries", () => {
       null,
       location,
     );
-    item.courseId = "c-language";
+    item.subjectId = "c-language";
     expect(conversationForMaterial([conversation], location)?.id).toBe(
       conversation.id,
     );

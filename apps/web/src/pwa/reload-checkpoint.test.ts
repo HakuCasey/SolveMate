@@ -94,8 +94,7 @@ describe("application reload checkpoint", () => {
     value.drafts.chat = "x".repeat(10001);
     expect(() => saveReloadCheckpoint(value, storage)).toThrow("无法保存");
     value.drafts.chat = "问题";
-    value.reading.references[key][0].reference.selection!.kind =
-      "invalid" as "questions";
+    value.reading.references[key][0].reference.material!.pageNumber = 0;
     expect(() => saveReloadCheckpoint(value, storage)).toThrow("无法保存");
     expect(values.size).toBe(0);
     log.mockRestore();

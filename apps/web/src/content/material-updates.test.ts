@@ -1,5 +1,7 @@
+import "fake-indexeddb/auto";
 import { describe, expect, it, vi } from "vitest";
-import type { AppData } from "@solvemate/contracts";
+import { materialApi } from "../materials/api";
+import { materialFixtures } from "./library.test-support";
 import { createInitialData } from "../data/catalog";
 import { packageFixture } from "./fixtures.test-support";
 import { readPackage } from "./package";
@@ -23,7 +25,17 @@ async function saved(marker = "", pdf = false): Promise<InstalledCourse> {
 async function setup(firstDownload = false, changeQuestions = true) {
   const old = await saved(),
     next = await saved(changeQuestions ? "Changed question" : "", true);
-  let data = createInitialData();
+  const data = {
+    ...createInitialData(),
+    materials: materialFixtures(
+      firstDownload
+        ? makeSnapshot().activeCourses
+        : makeSnapshot(
+            [old],
+            [{ courseId: old.courseId, version: old.version }],
+          ).activeCourses,
+    ),
+  };
   let snapshot = firstDownload
     ? makeSnapshot()
     : makeSnapshot([old], [{ courseId: old.courseId, version: old.version }]);
@@ -46,13 +58,23 @@ async function setup(firstDownload = false, changeQuestions = true) {
     expect(read().get(questions).version).toBe(expected);
     return next;
   });
-  const save = vi.fn(
-    async (change: (data: AppData) => AppData) => (data = change(data)),
-  );
+  const save = vi
+    .spyOn(materialApi, "activate")
+    .mockImplementation(async (item, version) => {
+      const next = {
+        ...item,
+        currentVersion: version,
+        updatedAt: Date.now(),
+        revision: item.revision + 1,
+      };
+      data.materials = data.materials.map((old) =>
+        old.id === item.id ? next : old,
+      );
+      return next;
+    });
   const service = new OfficialLibraryService({
     read,
     install,
-    save,
     load: async () => snapshot,
     refresh: async () => undefined,
   });
@@ -94,11 +116,12 @@ describe("independent official material updates", () => {
     expect(test.read().get(questions).version).toBe(test.old.version);
     expect(test.read().get(questions).updatedAt).toBe(100);
   });
-  it("does not mark sibling entries as downloaded on the first material download", async () => {
+  it("keeps bundled sibling contents and version unchanged when downloading one material", async () => {
     const test = await setup(true);
     await test.service.acquire(book);
     expect(test.read().get(book).downloaded).toBe(true);
-    expect(test.read().get(questions).downloaded).toBe(false);
+    expect(test.read().get(questions).downloaded).toBe(true);
+    expect(test.read().get(questions).updatedAt).toBe(100);
     expect(test.read().get(questions).selection().version).toBe("example-1");
   });
   it("retains all chosen versions if downloading fails", async () => {
@@ -111,14 +134,7 @@ describe("independent official material updates", () => {
   });
   it("keeps the old material readable when saving the new choice fails after downloading", async () => {
     const test = await setup();
-    // 第一次提交由真实保存函数固定旧版本，第二次提交失败。
-    const original = test.save.getMockImplementation()!;
-    test.save.mockReset();
-    let calls = 0;
-    test.save.mockImplementation(async (change) => {
-      if (++calls === 2) throw new Error("Save failed");
-      return original(change);
-    });
+    test.save.mockRejectedValueOnce(new Error("Save failed"));
     await expect(test.service.acquire(book, true)).rejects.toThrow(
       "Save failed",
     );

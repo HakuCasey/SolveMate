@@ -10,8 +10,8 @@ import {
 import { LocalDataController } from "../storage/controller";
 import { createMaterialOperations } from "./operations";
 
-const record = (file: File, courseId: string | null) =>
-  ({ id: file.name, courseId, revision: 1 }) as Material;
+const record = (file: File, subjectId: string | null) =>
+  ({ id: file.name, subjectId, revision: 1 }) as Material;
 const file = (name: string) => new File(["%PDF-example"], name);
 function setup() {
   let data = addSubject(
@@ -25,7 +25,7 @@ function setup() {
   );
   const assignCourse = vi.fn(async (item: Material, id: string | null) => ({
     ...item,
-    courseId: id,
+    subjectId: id,
     revision: item.revision + 1,
   }));
   const operations = createMaterialOperations({
@@ -133,13 +133,13 @@ describe("material operations use the subject directory", () => {
     ).toEqual([]);
     const original = {
       id: "same-material",
-      courseId: "subject-physics",
+      subjectId: "subject-physics",
       revision: 3,
     } as Material;
     const moved = await test.operations.assignCourse(original, null, vi.fn());
     expect(moved).toMatchObject({
       id: original.id,
-      courseId: null,
+      subjectId: null,
       revision: 4,
     });
   });
@@ -172,6 +172,6 @@ describe("material operations use the subject directory", () => {
       vi.fn(),
     );
     expect(result.failed).toEqual([]);
-    expect(result.saved[0].courseId).toBe("subject-new");
+    expect(result.saved[0].subjectId).toBe("subject-new");
   });
 });

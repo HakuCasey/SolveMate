@@ -10,6 +10,8 @@ import { dataRefresh } from "../refresh/coordinator";
 
 export function useMaterials(readSubjects: () => SubjectDirectory) {
   const [items, setItems] = useState<Material[]>([]);
+  const latestItems = useRef(items);
+  const readItems = useCallback(() => latestItems.current, []);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
   const importing = useRef(false);
@@ -17,6 +19,7 @@ export function useMaterials(readSubjects: () => SubjectDirectory) {
     createMaterialQuery(
       materialApi.list,
       (next) => {
+        latestItems.current = next.items;
         setItems(next.items);
         setError(next.warning);
       },
@@ -30,12 +33,15 @@ export function useMaterials(readSubjects: () => SubjectDirectory) {
   const applyRecord = useCallback(
     (record: Material) => {
       query.invalidate();
-      setItems((previous) => [
+      const previous = latestItems.current;
+      const next = [
         previous.find(
           (item) => item.id === record.id && item.revision > record.revision,
         ) ?? record,
         ...previous.filter((item) => item.id !== record.id),
-      ]);
+      ];
+      latestItems.current = next;
+      setItems(next);
     },
     [query],
   );
@@ -154,6 +160,7 @@ export function useMaterials(readSubjects: () => SubjectDirectory) {
     updateRecord(() => materialApi.remove(item));
   return {
     items,
+    readItems,
     error,
     busy,
     refresh,

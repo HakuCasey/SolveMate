@@ -451,7 +451,10 @@ def test_deleted_shared_subject_cannot_receive_upload_from_stale_browser(tmp_pat
         )
         assert response.status_code == 409
         assert response.json()["code"] == "subject_unavailable"
-        assert client.get("/local-api/v1/materials").json() == []
+        assert not any(
+            item["source"] == "personal"
+            for item in client.get("/local-api/v1/materials").json()
+        )
 
 
 def test_changed_directory_is_rejected_by_server_and_disk_failure_is_explicit(
@@ -514,16 +517,22 @@ def test_official_material_metadata_survives_restart_and_stale_writes(tmp_path):
         {"id": "calculus:textbooks:B001", "subjectId": "calculus", "deletedAt": None}
     ]
     store = UserData(tmp_path)
-    first = store.save(value, 0)
-    changed = deepcopy(value)
-    changed["officialMaterials"][0]["deletedAt"] = 123
-    store.save(changed, first["revision"])
-    with pytest.raises(UserDataError):
-        store.save(value, first["revision"])
+    # 旧客户端保存的归属迁移后只存在统一资料表中。
+    value["officialMaterials"][0].update(deletedAt=123, customTitle="我的高数课本")
+    with store.db:
+        store.db.execute("INSERT INTO state VALUES (1,?,1)", (json.dumps(value),))
+    from solvemate_local.materials import Materials
+
+    library = Materials(tmp_path / "uploads", user=store)
+    assert library.get("calculus:textbooks:B001")["title"] == "我的高数课本"
+    assert library.get("calculus:textbooks:B001")["deletedAt"] == 123
+    with pytest.raises(UserDataError, match="页面版本已过期"):
+        store.save(value, 1)
+    assert "officialMaterials" not in store.state()["value"]
     store.close()
     reopened = UserData(tmp_path)
-    assert reopened.state()["value"]["officialMaterials"][0]["deletedAt"] == 123
-    assert reopened.state()["value"]["selection"] == value["selection"]
+    library = Materials(tmp_path / "uploads", user=reopened)
+    assert library.get("calculus:textbooks:B001")["title"] == "我的高数课本"
     reopened.close()
 
 

@@ -60,7 +60,12 @@ def encoded(value):
 
 
 def validate_data(value):
-    if next(VALIDATOR.iter_errors(value), None):
+    checked = (
+        {key: item for key, item in value.items() if key != "officialMaterials"}
+        if isinstance(value, dict)
+        else value
+    )
+    if next(VALIDATOR.iter_errors(checked), None):
         raise UserDataError("学习记录格式不正确，原有数据已保留。")
     for key in ("robots", "conversations", "subjects", "officialMaterials"):
         ids = [item["id"] for item in value.get(key, [])]
@@ -287,6 +292,13 @@ class UserData:
             }
 
     def save(self, value, expected):
+        from .material_locations import unify_locations
+
+        if "officialMaterials" in value:
+            raise UserDataError(
+                "页面版本已过期，请更新应用后重试。", "client_outdated", 409
+            )
+        value = unify_locations(value)
         validate_data(value)
         serialized = encoded(value)
         with self.lock, self.db:
@@ -334,6 +346,23 @@ class UserData:
                     raise UserDataError(
                         "命名重复，请重新命名。", "robot_name_duplicate", 422
                     )
+            # 学科删除和资料移除属于同一次提交，不靠页面隐藏维持一致性。
+            removed = {s["id"] for s in value.get("subjects", []) if s.get("deleted")}
+            if (
+                removed
+                and self.db.execute(
+                    "SELECT 1 FROM metadata WHERE id='unifiedMaterials'"
+                ).fetchone()
+            ):
+                from .material_repository import MaterialRepository
+
+                repository = MaterialRepository(self)
+                for item in repository.list():
+                    if item["subjectId"] in removed and item.get("deletedAt") is None:
+                        import time
+
+                        item["deletedAt"] = int(time.time() * 1000)
+                        repository.save(item)
             self.db.execute(
                 "INSERT OR REPLACE INTO state VALUES (1,?,?)",
                 (serialized, expected + 1),
@@ -470,6 +499,13 @@ class UserData:
                 self.db.execute(
                     "INSERT OR REPLACE INTO heads VALUES (?,?)", (course, version)
                 )
+                if self.db.execute(
+                    "SELECT 1 FROM metadata WHERE id='unifiedMaterials'"
+                ).fetchone():
+                    from .material_migration import index_packages
+                    from .material_repository import MaterialRepository
+
+                    index_packages(MaterialRepository(self))
 
     def migrate(self, body):
         source = body["sourceId"]
@@ -487,7 +523,13 @@ class UserData:
             ).fetchone():
                 return self.state()
             original = payload.get("value")
-            value = migrate_note_metadata(original) if original is not None else None
+            from .material_locations import unify_locations
+
+            value = (
+                unify_locations(migrate_note_metadata(original))
+                if original is not None
+                else None
+            )
             if value is not None:
                 validate_data(value)
             current = self.state()
@@ -552,5 +594,19 @@ class UserData:
                         "INSERT OR REPLACE INTO heads VALUES (?,?)",
                         (head["courseId"], head["version"]),
                     )
+                if self.db.execute(
+                    "SELECT 1 FROM metadata WHERE id='unifiedMaterials'"
+                ).fetchone():
+                    from .material_migration import apply_legacy_catalog, index_packages
+                    from .material_repository import MaterialRepository
+
+                    repository = MaterialRepository(self)
+                    index_packages(repository)
+                    if value is not None and "officialMaterials" in value:
+                        apply_legacy_catalog(repository, value)
+                        value.pop("officialMaterials")
+                        self.db.execute(
+                            "UPDATE state SET value=? WHERE id=1", (encoded(value),)
+                        )
                 self.db.execute("INSERT INTO migrations VALUES (?,?)", (source, digest))
             return self.state()

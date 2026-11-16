@@ -1,4 +1,4 @@
-"""用户原件、阅读文件与固定版本的存取；官方内容继续由内容服务管理。"""
+"""资料、固定版本和文件读取统一管理；上传与社区下载只负责取得文件。"""
 
 import asyncio
 import hashlib
@@ -8,7 +8,6 @@ import os
 import re
 import shutil
 import tempfile
-import threading
 import time
 import uuid
 import zipfile
@@ -18,7 +17,6 @@ from pypdf import PdfReader
 from pypdf import __version__ as pypdf_version
 
 from .material_converter import MaterialError, convert_pptx
-from .metadata import validate_metadata
 
 log = logging.getLogger(__name__)
 MAX_BYTES = 100 * 1024 * 1024
@@ -41,10 +39,15 @@ def read_pdf(path):
 
 
 class Materials:
-    def __init__(self, directory, subject_check=None):
+    def __init__(self, directory, subject_check=None, user=None):
         self.directory = Path(directory)
         self.directory.mkdir(parents=True, exist_ok=True)
-        self.lock = threading.RLock()
+        from .material_migration import migrate_materials
+        from .user_data import UserData
+
+        self.user = user or UserData(self.directory.parent)
+        self.repository = migrate_materials(self.user, self.directory)
+        self.lock = self.repository.lock
         self.tasks = {}
         self.runtime_errors = {}
         self.processing_slots = asyncio.Semaphore(2)
@@ -59,60 +62,15 @@ class Materials:
                 self.save(record)
 
     def save(self, record):
-        with self.lock:
-            record.pop(
-                "availability", None
-            )  # 文件可用性按实际文件计算，不保存到正式元数据。
-            record["revision"] += 1
-            record["updatedAt"] = int(time.time() * 1000)
-            validate_metadata("Material", record)
-            path = self.directory / record["id"] / "record.json"
-            temporary = path.with_suffix(".tmp")
-            temporary.write_text(
-                json.dumps(record, ensure_ascii=False), encoding="utf-8"
-            )
-            os.replace(temporary, path)
+        self.repository.save(record)
 
     def list(self):
-        records = []
-        self.read_errors = 0
-        with self.lock:
-            for path in self.directory.glob("*/record.json"):
-                try:
-                    record = json.loads(path.read_text(encoding="utf-8"))
-                    validate_metadata("Material", record)
-                    if path.parent.name != record["id"]:
-                        raise ValueError(
-                            "Material identifier does not match its directory."
-                        )
-                    records.append(self.with_runtime_error(record))
-                except (ValueError, OSError):
-                    # 一份损坏的记录不能阻止其他资料打开，保留原文件供恢复。
-                    self.read_errors += 1
-                    log.warning(
-                        "Failed to read material metadata: %s", path.parent.name
-                    )
-        return sorted(records, key=lambda item: item["createdAt"], reverse=True)
+        records = self.repository.list()
+        self.read_errors = self.repository.read_errors
+        return [self.with_runtime_error(record) for record in records]
 
-    def get(self, ident):
-        if not re.fullmatch(r"[a-f0-9-]{36}", ident):
-            raise MaterialError("资料编号无效。", status=404)
-        try:
-            record = json.loads(
-                (self.directory / ident / "record.json").read_text(encoding="utf-8")
-            )
-            validate_metadata("Material", record)
-        except FileNotFoundError as error:
-            raise MaterialError(
-                "没有找到资料记录，请重新打开资料列表。", status=404
-            ) from error
-        except (OSError, ValueError) as error:
-            raise MaterialError(
-                "资料记录暂时无法读取，请恢复文件后刷新。", status=422
-            ) from error
-        if record["id"] != ident:
-            raise MaterialError("资料记录与编号不一致，原文件未改动。", status=409)
-        return self.with_runtime_error(record)
+    def get(self, ident, version=None):
+        return self.with_runtime_error(self.repository.get(ident, version))
 
     def with_runtime_error(self, record):
         error = self.runtime_errors.get(record["id"])
@@ -141,7 +99,21 @@ class Materials:
         return record
 
     def folder(self, record):
-        return self.directory / record["id"] / record["currentVersion"]
+        relative = Path(record["version"]["storagePath"].replace("\\", "/"))
+        root = self.directory if relative.parts[0] == "uploads" else self.user.root
+        path = (
+            root / Path(*relative.parts[1:])
+            if relative.parts[0] == "uploads"
+            else root / relative
+        ).resolve()
+        if not path.is_relative_to(root.resolve()):
+            raise MaterialError("资料文件路径无效。")
+        # 文件名也必须位于该版本目录内，不能借导入记录读取目录外文件。
+        for field in ("originalAssetId", "readerAssetId"):
+            asset = record["version"].get(field)
+            if asset and not (path / asset).resolve().is_relative_to(path):
+                raise MaterialError("资料文件路径无效。")
+        return path
 
     async def import_file(self, request, filename, course_id=None):
         # 文件名仅作显示，磁盘路径只使用生成的编号与经校验的扩展名。
@@ -181,7 +153,7 @@ class Materials:
                     if (
                         existing.get("deletedAt") is None
                         and existing["currentVersion"] == version
-                        and existing["courseId"] == (course_id or None)
+                        and existing["subjectId"] == (course_id or None)
                     ):
                         existing_folder = self.folder(existing)
                         existing_folder.mkdir(parents=True, exist_ok=True)
@@ -208,7 +180,8 @@ class Materials:
                 record = {
                     "id": ident,
                     "title": Path(filename).stem,
-                    "courseId": course_id or None,
+                    "subjectId": course_id or None,
+                    "kind": "textbooks",
                     "source": "personal",
                     "currentVersion": version,
                     "revision": 0,
@@ -216,6 +189,7 @@ class Materials:
                     "updatedAt": now,
                     "version": {
                         "contentVersion": version,
+                        "storagePath": (Path("uploads") / ident / version).as_posix(),
                         "mediaType": MEDIA_TYPES[suffix],
                         "originalAssetId": "original" + suffix,
                         "readerAssetId": None,
@@ -263,48 +237,21 @@ class Materials:
 
         task.add_done_callback(complete)
 
-    def assign_course(self, ident, course_id, revision):
-        if course_id is not None and not re.fullmatch(
-            r"[a-z0-9]+(?:-[a-z0-9]+)*", course_id
-        ):
-            raise MaterialError("科目编号无效，请重新选择。")
-        if self.subject_check:
-            self.subject_check(course_id)
-        with self.lock:
-            record = self.editable(ident, revision)
-            if record["courseId"] != course_id:
-                record["courseId"] = course_id
-                self.save(record)
-            return record
-
-    def editable(self, ident, revision):
-        record = self.get(ident)
-        if record.get("deletedAt") is not None:
-            raise MaterialError("资料已删除，请重新读取列表。", "material_deleted", 409)
-        if record["revision"] != revision:
-            raise MaterialError(
-                "资料已更新，请重新读取列表后重试。", "material_conflict", 409
-            )
-        return record
+    def assign_course(self, ident, subject_id, revision):
+        return self.repository.edit(ident, revision, subjectId=subject_id)
 
     def rename(self, ident, title, revision):
-        title = title.strip()
-        if not title or len(title) > 240 or any(ord(char) < 32 for char in title):
-            raise MaterialError("资料名称应为 1–240 个字符，不能包含控制字符。")
-        with self.lock:
-            record = self.editable(ident, revision)
-            if record["title"] != title:
-                record["title"] = title
-                self.save(record)
-            return record
+        return self.repository.edit(ident, revision, title=title)
 
     def delete(self, ident, revision):
-        with self.lock:
-            record = self.editable(ident, revision)
-            # 只删除目录条目；稳定编号、原件和阅读文件供历史对话继续使用。
-            record["deletedAt"] = int(time.time() * 1000)
-            self.save(record)
-            return record
+        return self.repository.edit(ident, revision, deletedAt=int(time.time() * 1000))
+
+    def activate(self, ident, version, revision):
+        with self.repository.transaction():
+            record = self.repository.get(ident, version)
+            if not (self.folder(record) / record["version"]["readerAssetId"]).is_file():
+                raise MaterialError("资料文件缺失，请重新下载或恢复文件。")
+            return self.repository.activate(ident, version, revision)
 
     def save_processing(self, record):
         # 只提交处理结果，保留处理期间发生的改名、移动和删除。
@@ -389,7 +336,7 @@ class Materials:
         with original.open("rb") as source:
             if (
                 hashlib.file_digest(source, "sha256").hexdigest()
-                != record["currentVersion"]
+                != record["version"]["sha256"]
             ):
                 raise MaterialError(
                     "原文件与保存的版本不一致，请重新导入，原记录仍保留。",
@@ -403,11 +350,7 @@ class Materials:
         return record
 
     def reader_path(self, ident, version):
-        record = self.get(ident)
-        if record["currentVersion"] != version:
-            raise MaterialError(
-                "资料版本不存在，未替换为其他版本。", "material_version_missing", 404
-            )
+        record = self.get(ident, version)
         name = record["version"]["readerAssetId"]
         if record["version"]["status"] != "ready" or not name:
             raise MaterialError(
@@ -424,6 +367,8 @@ class Materials:
 
     def page(self, ident, version, page_number):
         record, path = self.reader_path(ident, version)
+        if record["kind"] != "textbooks":
+            raise MaterialError("该资料不使用页码定位。")
         if page_number < 1 or page_number > record["version"]["pageCount"]:
             raise MaterialError("页码超出资料范围。", "page_out_of_range")
         cache = self.folder(record) / "text" / f"{page_number}.json"
@@ -467,17 +412,32 @@ class Materials:
             log.warning("Failed to cache extracted page for material %s", ident)
         return result
 
+    def questions(self, ident, version):
+        record, path = self.reader_path(ident, version)
+        if record["kind"] != "questions":
+            raise MaterialError("该资料不是题目集。")
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))["questions"]
+        except (OSError, ValueError, KeyError) as error:
+            raise MaterialError(
+                "题目文件无法读取，请恢复文件或重新下载后重试。", "questions_unreadable"
+            ) from error
+
     def validate_reference(self, reference):
         location = reference.material
         if location:
-            record = self.get(location["materialId"])
-            if record["currentVersion"] != location["contentVersion"]:
-                raise MaterialError(
-                    "引用的资料版本不存在，请重新选择。", "material_version_missing"
-                )
+            record = self.get(location["materialId"], location["contentVersion"])
             if record["version"]["status"] != "ready":
                 raise MaterialError("资料尚未处理完成，请稍后引用。")
-            if location["pageNumber"] > record["version"]["pageCount"]:
+            if location.get("questionId"):
+                questions = self.questions(
+                    location["materialId"], location["contentVersion"]
+                )
+                if not any(q["id"] == location["questionId"] for q in questions):
+                    raise MaterialError("引用题目不存在，请重新选择。")
+            elif record["kind"] != "textbooks":
+                raise MaterialError("题目集需使用题号引用，请重新选择。")
+            elif location["pageNumber"] > record["version"]["pageCount"]:
                 raise MaterialError("引用页码超出资料范围，请重新选择。")
             if not reference.content.strip():
                 raise MaterialError("引用中没有可供 AI 读取的文字，请重新选择内容。")

@@ -1,3 +1,4 @@
+import { materialFixtures } from "../content/library.test-support";
 import { describe, expect, it } from "vitest";
 import type { Material, ReadingSelection } from "@solvemate/contracts";
 import { courses, createInitialData } from "../data/catalog";
@@ -27,14 +28,17 @@ const book: ReadingSelection = {
 const material = {
   id: page.materialId,
   title: "课堂课本",
-  courseId: "c-language",
+  subjectId: "c-language",
 } as Material;
 const values = {
   title: "理解指针",
   content: "指针保存对象的地址。",
   notebookId: unclassifiedNotebookId,
 };
-function relations(data = createInitialData(), materials: Material[] = []) {
+function relations(
+  data = createInitialData(),
+  materials: Material[] = materialFixtures(courses),
+) {
   return new LearningRelations(
     data,
     courses,
@@ -49,9 +53,9 @@ describe("learning material relations", () => {
       before = structuredClone(data);
     const source = sourceForNote(data.noteLibrary!.notes[0])!;
     expect(source).toMatchObject({
-      courseId: "calculus",
-      itemId: "M001",
-      version: "example-1",
+      materialId: "calculus:questions",
+      questionId: "M001",
+      contentVersion: "example-1",
     });
     expect(
       relations(data)
@@ -128,7 +132,7 @@ describe("learning material relations", () => {
     ];
     data = createNote(data, values, page, "c-language", "note-upload");
     const source = structuredClone(page);
-    const moved = { ...material, title: "指针讲义", courseId: "calculus" };
+    const moved = { ...material, title: "指针讲义", subjectId: "calculus" };
     let index = relations(data, [moved]);
     expect(index.material(page)).toMatchObject({
       title: "指针讲义",
@@ -156,7 +160,13 @@ describe("learning material relations", () => {
       "note-book",
     );
     data = removeSubject(data, courses, "calculus");
-    const index = relations(data, [{ ...material, title: "高等数学示例教材" }]);
+    const index = relations(data, [
+      ...materialFixtures(courses).map((item) => ({
+        ...item,
+        deletedAt: item.subjectId === "calculus" ? 1 : null,
+      })),
+      { ...material, title: "高等数学示例教材" },
+    ]);
     expect(index.material(book)).toMatchObject({
       removed: true,
       available: true,
@@ -210,7 +220,12 @@ describe("linked reading context", () => {
   it("requires an explicit PDF page and does not infer a chapter's first page", async () => {
     const data = createInitialData();
     const library = new OfficialLibrary(makeSnapshot([], []), data);
-    const index = new LearningRelations(data, courses, [], library);
+    const index = new LearningRelations(
+      data,
+      courses,
+      materialFixtures(courses),
+      library,
+    );
     const legacySource = { ...book };
     delete legacySource.pageNumber;
     const legacy = index.material(legacySource);
@@ -221,10 +236,10 @@ describe("linked reading context", () => {
     expect(legacySource.pageNumber).toBeUndefined();
     const material = index.material({ ...book, pageNumber: 2 });
     const reference = await material.readContext(async () => {
-      throw new Error("Unexpected upload request");
+      return courses[0].textbooks[0].pdf!.pages[1];
     });
     expect(reference.title).toBe(material.readingLabel);
-    expect(reference.selection?.pageNumber).toBe(2);
+    expect(reference.material?.pageNumber).toBe(2);
     expect(reference.content).toBe(courses[0].textbooks[0].pdf!.pages[1]);
   });
   it("reads an upload by fixed identity, version and page, and refuses empty text", async () => {
@@ -233,7 +248,7 @@ describe("linked reading context", () => {
       id: page.materialId,
       title: "C 语言课本",
       currentVersion: page.contentVersion,
-      courseId: "c-language",
+      subjectId: "c-language",
     } as Material;
     const material = new LearningRelations(
       data,
@@ -262,4 +277,26 @@ describe("linked reading context", () => {
       }),
     ).rejects.toThrow("文件已删除");
   });
+});
+
+it("uses the same saved material title for community note and chat sources", () => {
+  const data = createInitialData();
+  const item = {
+    id: "calculus:textbooks:B001",
+    title: "我的课本",
+    subjectId: "calculus",
+  } as Material;
+  const source = {
+    materialId: item.id,
+    contentVersion: "example-1",
+    pageNumber: 2,
+  };
+  const index = new LearningRelations(
+    data,
+    courses,
+    [item],
+    new OfficialLibrary(makeSnapshot(), { ...data, materials: [item] }),
+  );
+  expect(index.material(source).readingLabel).toBe("我的课本 · 第 2 页");
+  expect(index.material(source).source).toEqual(source);
 });

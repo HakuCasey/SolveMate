@@ -1,7 +1,6 @@
 """导入原件、处理失败恢复与资料引用的接口验证，不调用真实模型。"""
 
 import io
-import json
 import time
 import zipfile
 from pathlib import Path
@@ -100,7 +99,7 @@ def test_import_deduplicate_read_and_reopen(tmp_path):
         )
     reopened = Materials(tmp_path / "materials")
     assert reopened.get(record["id"])["version"]["status"] == "ready"
-    assert len(reopened.list()) == 1
+    assert len([item for item in reopened.list() if item["source"] == "personal"]) == 1
 
 
 def test_rename_move_delete_preserve_files_and_history_after_restart(tmp_path):
@@ -136,10 +135,10 @@ def test_rename_move_delete_preserve_files_and_history_after_restart(tmp_path):
                 == 422
             )
         moved = client.patch(
-            base + "/course",
-            json={"courseId": "c-language", "expectedRevision": record["revision"]},
+            base + "/subject",
+            json={"subjectId": "c-language", "expectedRevision": record["revision"]},
         ).json()
-        assert moved["courseId"] == "c-language"
+        assert moved["subjectId"] == "c-language"
         deleted = client.request(
             "DELETE", base, json={"expectedRevision": moved["revision"]}
         )
@@ -155,8 +154,8 @@ def test_rename_move_delete_preserve_files_and_history_after_restart(tmp_path):
         )
         assert (
             client.patch(
-                base + "/course",
-                json={"courseId": None, "expectedRevision": record["revision"]},
+                base + "/subject",
+                json={"subjectId": None, "expectedRevision": record["revision"]},
             ).status_code
             == 409
         )
@@ -201,7 +200,7 @@ def test_processing_and_save_failure_do_not_overwrite_material_edits(
         def fail_replace(*args):
             raise OSError("Synthetic disk failure")
 
-        monkeypatch.setattr("solvemate_local.materials.os.replace", fail_replace)
+        monkeypatch.setattr(materials.repository, "put", fail_replace)
         with pytest.raises(OSError):
             materials.rename(active["id"], "未能保存", active["revision"])
         with pytest.raises(OSError):
@@ -296,9 +295,9 @@ def test_converter_missing_retry_and_interrupted_processing(tmp_path, monkeypatc
         )
         with pytest.raises(MaterialError):
             app.state.materials.validate_reference(bad)
-    path = tmp_path / "materials" / record["id"] / "record.json"
+    library = Materials(tmp_path / "materials")
     record["version"]["status"] = "processing"
-    path.write_text(json.dumps(record), encoding="utf-8")
+    library.save(record)
     recovered = Materials(tmp_path / "materials").get(record["id"])
     assert recovered["version"]["status"] == "failed"
     assert "中断" in recovered["version"]["error"]
@@ -343,8 +342,11 @@ def test_missing_reader_can_be_restored_by_importing_same_original(tmp_path):
         broken.mkdir()
         (broken / "record.json").write_text("{}", encoding="utf-8")
         response = client.get("/local-api/v1/materials")
-        assert len(response.json()) == 1
-        assert response.headers["X-SolveMate-Material-Errors"] == "1"
+        assert (
+            len([item for item in response.json() if item["source"] == "personal"]) == 1
+        )
+        # 不再读取散落的 record.json，唯一正式记录在 SQLite。
+        assert response.headers["X-SolveMate-Material-Errors"] == "0"
 
 
 def test_conversion_uses_own_profile_and_kills_only_its_process_group(
@@ -471,18 +473,18 @@ def test_same_file_can_belong_to_different_courses_without_moving_existing_recor
         math = put("calculus")
         assert c["id"] != math["id"]
         assert put("c-language")["id"] == c["id"]
-        assert app.state.materials.get(c["id"])["courseId"] == "c-language"
-        assert app.state.materials.get(math["id"])["courseId"] == "calculus"
+        assert app.state.materials.get(c["id"])["subjectId"] == "c-language"
+        assert app.state.materials.get(math["id"])["subjectId"] == "calculus"
 
 
 def test_assignment_keeps_original_identity_and_checks_revision(tmp_path):
     app = create_app(tmp_path / "ai", materials_directory=tmp_path / "materials")
     with TestClient(app, headers=HEADERS) as client:
         record = finished(client, upload(client).json()["id"])
-        path = f"/local-api/v1/materials/{record['id']}/course"
+        path = f"/local-api/v1/materials/{record['id']}/subject"
         response = client.patch(
             path,
-            json={"courseId": "c-language", "expectedRevision": record["revision"]},
+            json={"subjectId": "c-language", "expectedRevision": record["revision"]},
         )
         assert response.status_code == 200
         changed = response.json()
@@ -491,13 +493,13 @@ def test_assignment_keeps_original_identity_and_checks_revision(tmp_path):
             and changed["currentVersion"] == record["currentVersion"]
         )
         assert (
-            changed["courseId"] == "c-language"
+            changed["subjectId"] == "c-language"
             and changed["revision"] == record["revision"] + 1
         )
         assert (
             client.patch(
                 path,
-                json={"courseId": "calculus", "expectedRevision": record["revision"]},
+                json={"subjectId": "calculus", "expectedRevision": record["revision"]},
             ).status_code
             == 409
         )
@@ -505,7 +507,7 @@ def test_assignment_keeps_original_identity_and_checks_revision(tmp_path):
             client.patch(
                 path,
                 json={
-                    "courseId": "../invalid",
+                    "subjectId": "../invalid",
                     "expectedRevision": changed["revision"],
                 },
             ).status_code
@@ -513,8 +515,8 @@ def test_assignment_keeps_original_identity_and_checks_revision(tmp_path):
         )
         assert (
             client.patch(
-                path, json={"courseId": None, "expectedRevision": changed["revision"]}
-            ).json()["courseId"]
+                path, json={"subjectId": None, "expectedRevision": changed["revision"]}
+            ).json()["subjectId"]
             is None
         )
 
@@ -540,15 +542,15 @@ def test_assignment_during_processing_is_preserved(tmp_path, monkeypatch):
         record = upload(client, stream.getvalue(), "lesson.pptx").json()
         client.portal.call(entered.wait)
         response = client.patch(
-            f"/local-api/v1/materials/{record['id']}/course",
-            json={"courseId": "c-language", "expectedRevision": record["revision"]},
+            f"/local-api/v1/materials/{record['id']}/subject",
+            json={"subjectId": "c-language", "expectedRevision": record["revision"]},
         )
         assert response.status_code == 200
         client.portal.call(release.set)
         result = finished(client, record["id"])
         assert (
             result["version"]["status"] == "ready"
-            and result["courseId"] == "c-language"
+            and result["subjectId"] == "c-language"
         )
 
 
@@ -560,15 +562,23 @@ def test_refresh_reports_missing_files_without_changing_material_or_history(tmp_
         folder = service.folder(record)
         original = folder / record["version"]["originalAssetId"]
         raw = original.read_bytes()
-        metadata = (folder.parent / "record.json").read_bytes()
+        metadata = service.repository.get(record["id"])
         original.unlink()
-        listed = client.get("/local-api/v1/materials").json()[0]
+        listed = next(
+            item
+            for item in client.get("/local-api/v1/materials").json()
+            if item["id"] == record["id"]
+        )
         assert listed["availability"]["originalAvailable"] is False
         assert listed["revision"] == record["revision"]
         assert "缺失" in listed["availability"]["error"]
-        assert (folder.parent / "record.json").read_bytes() == metadata
+        assert service.repository.get(record["id"]) == metadata
         original.write_bytes(raw)
-        restored = client.get("/local-api/v1/materials").json()[0]
+        restored = next(
+            item
+            for item in client.get("/local-api/v1/materials").json()
+            if item["id"] == record["id"]
+        )
         assert restored["availability"]["originalAvailable"] is True
         assert restored["availability"]["readerAvailable"] is True
         assert restored["availability"]["error"] is None
@@ -582,9 +592,14 @@ def test_refresh_keeps_corrupt_metadata_for_repair_and_other_materials_available
     app = create_app(tmp_path / "ai", materials_directory=tmp_path / "materials")
     with TestClient(app, headers=HEADERS) as client:
         record = finished(client, upload(client).json()["id"])
-        metadata = app.state.materials.folder(record).parent / "record.json"
-        raw = metadata.read_bytes()
-        metadata.write_text("broken", encoding="utf-8")
+        db = app.state.user.db
+        raw = db.execute(
+            "SELECT value FROM materials WHERE id=?", (record["id"],)
+        ).fetchone()[0]
+        with db:
+            db.execute(
+                "UPDATE materials SET value='broken' WHERE id=?", (record["id"],)
+            )
         listing = client.get("/local-api/v1/materials")
         assert listing.status_code == 200
         assert listing.headers["X-SolveMate-Material-Errors"] == "1"
@@ -594,9 +609,18 @@ def test_refresh_keeps_corrupt_metadata_for_repair_and_other_materials_available
             ).status_code
             == 422
         )
-        assert metadata.read_text(encoding="utf-8") == "broken"
-        metadata.write_bytes(raw)
-        assert client.get("/local-api/v1/materials").json()[0]["id"] == record["id"]
+        assert (
+            db.execute(
+                "SELECT value FROM materials WHERE id=?", (record["id"],)
+            ).fetchone()[0]
+            == "broken"
+        )
+        with db:
+            db.execute("UPDATE materials SET value=? WHERE id=?", (raw, record["id"]))
+        assert any(
+            item["id"] == record["id"]
+            for item in client.get("/local-api/v1/materials").json()
+        )
 
 
 def test_retry_rebuilds_missing_reader_from_unchanged_original(tmp_path):

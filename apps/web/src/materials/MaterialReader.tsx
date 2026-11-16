@@ -1,8 +1,20 @@
+import { QuestionReader } from "./QuestionReader";
 import { ResourceUnavailable } from "../refresh/ResourceUnavailable";
 import { dataRefresh } from "../refresh/coordinator";
-import { useCallback, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+  type ReactNode,
+} from "react";
 import { ArrowLeft, FileText } from "lucide-react";
-import type { MaterialLocation, LearningLocation } from "@solvemate/contracts";
+import type {
+  Material,
+  MaterialLocation,
+  LearningLocation,
+} from "@solvemate/contracts";
 import type { PersonalMaterials } from "./useMaterials";
 import { makeMaterialReference } from "./reference";
 import type { ReadingPositionState, ReadingScroll } from "../reading/state";
@@ -22,11 +34,16 @@ export function MaterialReader({
   continuous,
   onContinuousChange,
   position,
+  onPositionChange,
   zoom,
   onZoomChange,
   relatedContent,
+  header,
+  fontSize = 14,
 }: {
+  fontSize?: number;
   relatedContent?: ReactNode;
+  header?: ReactNode;
   library: PersonalMaterials;
   location: MaterialLocation | null;
   onBack: () => void;
@@ -35,6 +52,7 @@ export function MaterialReader({
   continuous: boolean;
   onContinuousChange: (continuous: boolean) => void;
   position: ReadingPositionState;
+  onPositionChange: Dispatch<SetStateAction<ReadingPositionState>>;
   zoom: number;
   onZoomChange: (zoom: number) => void;
 }) {
@@ -45,9 +63,40 @@ export function MaterialReader({
       materialApi.reader({ materialId, contentVersion }, retry),
     [materialId, contentVersion],
   );
-  const selected = library.items.find(
+  const current = library.items.find(
     (item) => item.id === location?.materialId,
   );
+  const [historical, setHistorical] = useState<Material | null>(null);
+  const [versionError, setVersionError] = useState("");
+  useEffect(() => {
+    let alive = true;
+    if (current && current.currentVersion !== contentVersion) {
+      void materialApi
+        .version(materialId, contentVersion)
+        .then((record) => {
+          if (alive) {
+            setHistorical(record);
+            setVersionError("");
+          }
+        })
+        .catch((error: unknown) => {
+          if (alive)
+            setVersionError(
+              error instanceof Error ? error.message : "版本读取失败。",
+            );
+        });
+    }
+    return () => {
+      alive = false;
+    };
+  }, [materialId, contentVersion, current]);
+  const selected =
+    current?.currentVersion === contentVersion
+      ? current
+      : historical?.id === materialId &&
+          historical.version.contentVersion === contentVersion
+        ? historical
+        : undefined;
   const ready =
     selected?.version.status === "ready" &&
     selected.availability?.readerAvailable !== false;
@@ -55,7 +104,7 @@ export function MaterialReader({
   function quote(selection: SelectedText) {
     if (!selected || !location)
       throw new Error("资料不可用，请重新打开后再选择内容。");
-    const page = selection.pageNumber ?? location.pageNumber;
+    const page = selection.pageNumber ?? location.pageNumber!;
     const reference = makeMaterialReference(
       selected,
       { ...location, pageNumber: page },
@@ -66,31 +115,50 @@ export function MaterialReader({
     return reference;
   }
 
+  if (selected?.kind === "questions" && location)
+    return (
+      <QuestionReader
+        fontSize={fontSize}
+        material={selected}
+        location={location}
+        onChange={onChange}
+        onBack={onBack}
+        position={position}
+        onPositionChange={onPositionChange}
+        header={header}
+        relatedContent={relatedContent}
+      />
+    );
+
   return (
     <section
       className={styles.reader}
       aria-label="学习资料阅读栏"
       data-study-area="reading"
     >
-      <header className={styles.toolbar}>
-        <button
-          className={styles.back}
-          type="button"
-          aria-label="返回学习资料列表"
-          onClick={onBack}
-        >
-          <ArrowLeft aria-hidden="true" />
-          学习资料
-        </button>
-        <span className={styles.documentTitle} title={selected?.title}>
-          {selected?.title ?? "资料不可用"}
-        </span>
-        {relatedContent}
-      </header>
+      {header ?? (
+        <header className={styles.toolbar}>
+          <button
+            className={styles.back}
+            type="button"
+            aria-label="返回学习资料列表"
+            onClick={onBack}
+          >
+            <ArrowLeft aria-hidden="true" />
+            学习资料
+          </button>
+          <span className={styles.documentTitle} title={selected?.title}>
+            {selected?.title ?? "资料不可用"}
+          </span>
+          {relatedContent}
+        </header>
+      )}
       {!selected ? (
         <ResourceUnavailable
           message={
-            library.error || "资料不在当前列表中，请刷新数据或返回列表。"
+            versionError ||
+            library.error ||
+            "资料不在当前列表中，请刷新数据或返回列表。"
           }
           onBack={onBack}
         />
@@ -123,13 +191,19 @@ export function MaterialReader({
       ) : (
         location && (
           <>
+            {selected.deletedAt != null && (
+              <p role="status">该资料已从资料库删除，当前显示历史内容。</p>
+            )}
+            {selected.currentVersion !== contentVersion && (
+              <p role="status">正在阅读历史版本</p>
+            )}
             {selected.availability?.error && (
               <p role="alert">{selected.availability.error}</p>
             )}
             <PdfPage
               documentKey={readingDocumentKey(location)}
               positionKey={locationKey(location)}
-              pageNumber={location.pageNumber}
+              pageNumber={location.pageNumber!}
               load={loadPdf}
               zoom={zoom}
               onSelection={quote}
@@ -143,7 +217,7 @@ export function MaterialReader({
               }
             />
             <PdfControls
-              pageNumber={location.pageNumber}
+              pageNumber={location.pageNumber!}
               pageCount={pageCount}
               continuous={continuous}
               onContinuousChange={onContinuousChange}

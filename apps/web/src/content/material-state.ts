@@ -1,4 +1,4 @@
-import type { ReadingSelection } from "@solvemate/contracts";
+import type { Material, ReadingSelection } from "@solvemate/contracts";
 import type { ReleaseManifest, UpdateResponse } from "./contracts";
 import { storedVersion, type ContentSnapshot } from "./storage";
 
@@ -22,6 +22,7 @@ export function materialState(
   kind: ReadingSelection["kind"],
   version: string | null,
   update?: UpdateResponse,
+  material?: Material,
 ) {
   const head = storedVersion(snapshot, courseId);
   // 条目可保留旧版；查询仍需对应当前包指针或已经下载完成的同一最新版。
@@ -45,14 +46,22 @@ export function materialState(
       item.version === latestVersion &&
       item.available !== false,
   );
+  const publishedFile = update?.latest.files.find((file) =>
+    kind === "questions"
+      ? file.kind === "questions"
+      : file.kind === "textbook-pdf" &&
+        file.id === `${material?.publisher?.itemId}-pdf`,
+  );
   const current =
-    !!saved &&
     !!update &&
-    files(saved.manifest, kind) === files(update.latest, kind);
+    (saved
+      ? files(saved.manifest, kind) === files(update.latest, kind)
+      : !!material && publishedFile?.sha256 === material.version.sha256);
   const unknown =
     update?.status === "unknown_version" &&
     update.current_version === version &&
-    !current;
+    !current &&
+    !publishedFile;
   return {
     saved,
     local,
@@ -60,7 +69,7 @@ export function materialState(
     unknown,
     latestVersion,
     checked: !!update,
-    updateAvailable: !!saved && !!update && !unknown && !current,
+    updateAvailable: !!(saved || material) && !!update && !unknown && !current,
     canDownload: !!cachedLatest || (!!update && !unknown),
   };
 }

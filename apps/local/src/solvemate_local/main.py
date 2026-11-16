@@ -102,7 +102,9 @@ def create_app(
             app.state.user = UserData(user_root)
             app.state.ai = AiService(Store(directory), registry=registry)
             app.state.materials = Materials(
-                uploads, subject_check=app.state.user.require_subject
+                uploads,
+                subject_check=app.state.user.require_subject,
+                user=app.state.user,
             )
 
         app.state.open_resources = open_resources

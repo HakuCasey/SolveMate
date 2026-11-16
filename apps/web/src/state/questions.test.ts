@@ -284,13 +284,15 @@ describe("fixed linked-page snapshots", () => {
 it("preserves a question with an unsupported reference and does not queue an AI request", () => {
   const { data, input } = fixture();
   const selection = {
-    ...input.references[0].selection!,
+    courseId: "calculus",
+    version: "example-1",
+    itemId: "B001",
     kind: "textbooks" as const,
   };
-  delete selection.pageNumber;
   const readingContext = {
     ...input.references[0],
     selection,
+    material: undefined,
     content: "旧章节正文",
   };
   const result = recordQuestion(

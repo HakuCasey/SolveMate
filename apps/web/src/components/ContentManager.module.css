@@ -25,8 +25,17 @@
   color: var(--sm-soft);
   font-size: 12px;
 }
-.list {
+.body {
+  flex: 1;
+  min-height: 0;
   overflow: auto;
+}
+.sectionTitle {
+  margin: 20px 24px 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+.list {
   padding: 20px 24px;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

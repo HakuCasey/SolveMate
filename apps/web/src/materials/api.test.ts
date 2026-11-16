@@ -7,13 +7,15 @@ import { materialApi } from "./api";
 const original: Material = {
   id: "11111111-1111-4111-8111-111111111111",
   title: "C 语言讲义",
-  courseId: "c-language",
+  subjectId: "c-language",
   source: "personal",
+  kind: "textbooks",
   currentVersion: "a".repeat(64),
   revision: 1,
   createdAt: 1,
   updatedAt: 1,
   version: {
+    storagePath: "uploads/test/version",
     contentVersion: "a".repeat(64),
     mediaType: "application/pdf",
     originalAssetId: "original.pdf",
@@ -54,9 +56,9 @@ describe("material mutations and cache", () => {
         { title: "指针课堂讲义", expectedRevision: 1 },
       ],
       [
-        `/local-api/v1/materials/${original.id}/course`,
+        `/local-api/v1/materials/${original.id}/subject`,
         "PATCH",
-        { courseId: null, expectedRevision: 1 },
+        { subjectId: null, expectedRevision: 1 },
       ],
       [
         `/local-api/v1/materials/${original.id}`,

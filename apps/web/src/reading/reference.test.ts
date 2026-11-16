@@ -1,3 +1,4 @@
+import { locationKey } from "../materials/api";
 import { describe, expect, it } from "vitest";
 import { assertMetadata, assertUserData } from "@solvemate/contracts";
 import { createInitialData, getCurrentContent } from "../data/catalog";
@@ -8,7 +9,6 @@ import {
   messageReferences,
   referencePreview,
   makeReadingReference,
-  readingKey,
 } from "./reference";
 
 describe("reading quotes", () => {
@@ -25,10 +25,10 @@ describe("reading quotes", () => {
     expect(quote.content).toBe("这里只讨论约分");
     expect(quote.quoteKind).toBe("selection");
     selection.itemId = "M002";
-    expect(quote.selection?.itemId).toBe("M001");
-    expect(makeReadingReference(quote.selection!, content).content).toBe(
-      content.content,
-    );
+    expect(quote.material?.questionId).toBe("M001");
+    expect(
+      makeReadingReference({ ...selection, itemId: "M001" }, content).content,
+    ).toBe(content.content);
     expect(() => makeReadingReference(selection, content, " ", true)).toThrow(
       "没有可引用",
     );
@@ -90,9 +90,9 @@ describe("reading quotes", () => {
     ]);
     expect(messageReferences({ references: [] })).toEqual([]);
     expect(messageReferences({ references: [reference] })).toEqual([reference]);
-    expect(readingKey({ ...reference.selection!, version: "v2" })).not.toBe(
-      readingKey(reference.selection!),
-    );
+    expect(
+      locationKey({ ...reference.material!, contentVersion: "v2" }),
+    ).not.toBe(locationKey(reference.material!));
   });
 });
 

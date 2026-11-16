@@ -4,6 +4,7 @@ import {
   assertMetadata,
   type Material,
   type MaterialLocation,
+  type Question,
 } from "@solvemate/contracts";
 import { DataRequestError } from "../refresh/errors";
 import { dataRefresh } from "../refresh/coordinator";
@@ -11,15 +12,18 @@ import { dataRefresh } from "../refresh/coordinator";
 class MaterialCache extends Dexie {
   materials!: Table<Material, string>;
   files!: Table<{ key: string; blob: Blob }, string>;
+  versions!: Table<{ key: string; record: Material }, string>;
+  questions!: Table<{ key: string; items: Question[] }, string>;
   pages!: Table<{ key: string; text: string }, string>;
   constructor() {
     super("solvemate-materials");
     this.version(1).stores({ materials: "id", files: "key", pages: "key" });
+    this.version(2).stores({ versions: "key", questions: "key" });
   }
 }
 const cache = new MaterialCache();
 export const locationKey = (location: MaterialLocation) =>
-  `${location.materialId}/${location.contentVersion}/${location.pageNumber}`;
+  `${location.materialId}/${location.contentVersion}/${location.questionId ? `question:${location.questionId}` : location.pageNumber}`;
 const prefix = "/local-api/v1/materials";
 let cacheGeneration = 0;
 
@@ -62,8 +66,25 @@ function material(value: unknown): Material {
   assertMetadata("Material", value);
   return value as Material;
 }
-export const materialApi = {
-  cached: () => cache.materials.toArray(),
+const api = {
+  cached: async () => {
+    const items = await cache.materials.toArray();
+    return items.map((item) => {
+      // 浏览器只有缓存；正式记录由本机迁移。缓存更新前保留已下载文件的可读性。
+      const old = item as Material & { courseId?: string | null };
+      if (old.kind) return material(item);
+      const { courseId, ...value } = old;
+      return material({
+        ...value,
+        subjectId: courseId ?? null,
+        kind: "textbooks",
+        version: {
+          ...value.version,
+          storagePath: `uploads/${value.id}/${value.currentVersion}`,
+        },
+      });
+    });
+  },
   async remember(record: Material) {
     cacheGeneration++;
     try {
@@ -157,13 +178,47 @@ export const materialApi = {
   async assignCourse(item: Material, courseId: string | null) {
     return material(
       await (
-        await request(`/${encodeURIComponent(item.id)}/course`, {
+        await request(`/${encodeURIComponent(item.id)}/subject`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ courseId, expectedRevision: item.revision }),
+          body: JSON.stringify({
+            subjectId: courseId,
+            expectedRevision: item.revision,
+          }),
         })
       ).json(),
     );
+  },
+  async activate(item: Material, version: string) {
+    return material(
+      await (
+        await request(`/${encodeURIComponent(item.id)}/version`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ version, expectedRevision: item.revision }),
+        })
+      ).json(),
+    );
+  },
+  async version(id: string, version: string) {
+    const key = `${id}/${version}`;
+    try {
+      const record = material(
+        await (
+          await request(
+            `/${encodeURIComponent(id)}/${encodeURIComponent(version)}/metadata`,
+          )
+        ).json(),
+      );
+      await cache.versions.put({ key, record }).catch(() => undefined);
+      return record;
+    } catch (error) {
+      if (!(error instanceof DataRequestError) || error.code !== "unavailable")
+        throw error;
+      const saved = await cache.versions.get(key).catch(() => undefined);
+      if (!saved) throw error;
+      return saved.record;
+    }
   },
   async rename(item: Material, title: string) {
     return material(
@@ -218,8 +273,44 @@ export const materialApi = {
     }
     return { blob, warning };
   },
+  async questions(
+    location: Pick<MaterialLocation, "materialId" | "contentVersion">,
+  ) {
+    const key = `${location.materialId}/${location.contentVersion}`;
+    try {
+      const items = (await (
+        await request(
+          `/${encodeURIComponent(location.materialId)}/${encodeURIComponent(location.contentVersion)}/questions`,
+        )
+      ).json()) as Question[];
+      if (
+        !Array.isArray(items) ||
+        items.some(
+          (item) =>
+            typeof item.id !== "string" || typeof item.question !== "string",
+        )
+      )
+        throw new Error("题目文件格式无效，请重新下载。");
+      await cache.questions.put({ key, items }).catch(() => undefined);
+      return items;
+    } catch (error) {
+      if (!(error instanceof DataRequestError) || error.code !== "unavailable")
+        throw error;
+      const saved = await cache.questions.get(key).catch(() => undefined);
+      if (!saved) throw error;
+      return saved.items;
+    }
+  },
   async page(location: MaterialLocation) {
     const key = locationKey(location);
+    if (location.questionId) {
+      const questions = await api.questions(location);
+      const question = questions.find(
+        (item) => item.id === location.questionId,
+      );
+      if (!question) throw new Error("题目不存在，请重新选择。");
+      return question.question;
+    }
     try {
       const value = (await (
         await request(
@@ -249,3 +340,5 @@ export const materialApi = {
     }
   },
 };
+
+export const materialApi = api;

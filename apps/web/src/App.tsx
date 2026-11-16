@@ -1,3 +1,4 @@
+import { materialLocation as toMaterialLocation } from "./materials/location";
 import { activeSessionBinding, serviceSwitchKind } from "./ai/session-bindings";
 import { StudyProvider } from "./study/StudyProvider";
 import {
@@ -28,7 +29,6 @@ import {
 } from "react";
 import { OfficialLibrary } from "./content/library";
 import { OfficialLibraryService } from "./content/library-service";
-import { officialEntryId } from "./content/entries";
 import { NotebookPen, SquarePen } from "lucide-react";
 import { conversationMetadata, truncateNoteTitle } from "@solvemate/contracts";
 import type {
@@ -98,11 +98,11 @@ import { SubjectDialog, type SubjectAction } from "./components/SubjectDialog";
 import {
   addSubject,
   renameSubject,
+  removeSubject,
   createSubjectDirectory,
 } from "./state/subjects";
 import { SubjectContentList } from "./components/SubjectContentList";
 import { scopeForMaterial, type LibraryScope } from "./reading/library";
-import { Reader } from "./components/Reader";
 import { Markdown } from "./components/Markdown";
 import { ChatPanel } from "./components/ChatPanel";
 import { ResizableColumns } from "./components/ResizableColumns";
@@ -228,6 +228,14 @@ function Workspace({ content }: { content: OfficialContent }) {
     },
     [persistChanges],
   );
+  const readSubjects = useCallback(() => {
+    const current = readData();
+    if (!current) throw new Error("学科目录尚未读取完成，请稍后重试。");
+    return createSubjectDirectory(sourceCourses, current.subjects);
+  }, [sourceCourses, readData]);
+  const materials = useMaterials(readSubjects);
+  const materialsRef = useRef(materials);
+  materialsRef.current = materials;
   const checkpointRestored = useRef(false);
   const officialSaveState = useRef(readSaveState);
   officialSaveState.current = readSaveState;
@@ -243,7 +251,10 @@ function Workspace({ content }: { content: OfficialContent }) {
     () =>
       new OfficialLibrary(
         readSnapshot(),
-        readData() ?? {},
+        {
+          subjects: readData()?.subjects,
+          materials: materialsRef.current.readItems(),
+        },
         officialCatalog.current.remote,
         officialCatalog.current.updates,
       ),
@@ -254,16 +265,20 @@ function Workspace({ content }: { content: OfficialContent }) {
       new OfficialLibraryService({
         read: readOfficialLibrary,
         refresh: async () => {
-          if (!(await dataRefresh.refresh(["records", "content"], true)))
+          if (
+            !(await dataRefresh.refresh(
+              ["records", "content", "materials"],
+              true,
+            ))
+          )
             throw new Error("未能读取最新资料状态，请确认本机服务可用后重试。");
           if (officialSaveState.current() === "error")
             throw new Error("本机记录存在未保存修改，请先处理保存状态。");
         },
         load: reloadLocal,
         install,
-        save: saveChanges,
       }),
-    [readOfficialLibrary, reloadLocal, install, saveChanges],
+    [readOfficialLibrary, reloadLocal, install],
   );
   const officialOperation = useSyncExternalStore(
     officialService.subscribe,
@@ -276,7 +291,7 @@ function Workspace({ content }: { content: OfficialContent }) {
         content.snapshot,
         {
           subjects: data?.subjects,
-          officialMaterials: data?.officialMaterials,
+          materials: materials.items,
         },
         content.remote,
         content.updates,
@@ -284,7 +299,7 @@ function Workspace({ content }: { content: OfficialContent }) {
     [
       content.snapshot,
       data?.subjects,
-      data?.officialMaterials,
+      materials.items,
       content.remote,
       content.updates,
     ],
@@ -345,15 +360,17 @@ function Workspace({ content }: { content: OfficialContent }) {
       sourceAvailableCourses.map((item) => ({
         ...item,
         title: subjectDirectory.byId.get(item.id)?.title ?? item.title,
+        textbooks: item.textbooks.map((book) => ({
+          ...book,
+          title:
+            officialLibrary.entries.find(
+              (entry) => entry.id === `${item.id}:textbooks:${book.id}`,
+            )?.title ?? book.title,
+        })),
       })),
-    [sourceAvailableCourses, subjectDirectory],
+    [sourceAvailableCourses, subjectDirectory, officialLibrary],
   );
-  const readSubjects = useCallback(() => {
-    const current = readData();
-    if (!current) throw new Error("学科目录尚未读取完成，请稍后重试。");
-    return createSubjectDirectory(sourceCourses, current.subjects);
-  }, [sourceCourses, readData]);
-  const materials = useMaterials(readSubjects);
+
   const relationConversations = data?.conversations;
   const relationNotes = data?.noteLibrary;
   const relations = useMemo(
@@ -776,30 +793,14 @@ function Workspace({ content }: { content: OfficialContent }) {
     } else if (reference.selection) {
       updateData((previous) => ({
         ...previous,
-        selection: { ...reference.selection! },
+        materialSelection: toMaterialLocation(reference.selection!),
       }));
-      setView("reading");
+      setView("materials");
     }
   }
 
   function selectContent(next: ReadingSelection) {
-    const sameReader =
-      view === "reading" &&
-      data!.selection.courseId === next.courseId &&
-      data!.selection.version === next.version &&
-      data!.selection.kind === "textbooks" &&
-      next.kind === "textbooks" &&
-      data!.selection.itemId === next.itemId;
-    const conversation = conversationForReading(
-      data!.conversations,
-      next,
-      activeConversationId,
-    );
-    updateData((previous) => ({ ...previous, selection: next }));
-    setActiveConversationId(conversation?.id ?? null);
-    if (conversation || !sameReader)
-      setActiveRobotId(conversation?.robotId ?? null);
-    setView("reading");
+    selectMaterial(toMaterialLocation(next));
   }
 
   async function createSubject(title: string): Promise<Subject> {
@@ -817,14 +818,11 @@ function Workspace({ content }: { content: OfficialContent }) {
     showSaved("学科名称已保存");
   }
   async function deleteSubject(id: string) {
-    await officialService.removeSubject(id);
+    await saveChanges((previous) => removeSubject(previous, sourceCourses, id));
+    await materials.refresh();
     if (libraryScope.courseId === id)
       setLibraryScope({ courseId: null, kind: "textbooks" });
     showSaved("学科已删除");
-  }
-  async function deleteOfficial(id: string) {
-    await officialService.remove(id);
-    showSaved("资料已删除");
   }
   async function readOfficial(
     id: string,
@@ -1359,34 +1357,17 @@ function Workspace({ content }: { content: OfficialContent }) {
                 }))
               }
             >
-              {view === "reading" && (
-                <Reader
-                  key={`reader:${selection.courseId}:${selection.version}:${selection.kind}:${selection.itemId}:${selection.kind === "textbooks" ? "pdf" : selection.chapterIndex}`}
-                  availableCourses={availableCourses}
-                  loadPdf={content.readPdf}
-                  zoom={readingState.documents[documentKey]?.zoom ?? 1}
-                  onZoomChange={setReadingZoom}
-                  continuous={
-                    readingState.documents[documentKey]?.continuous ?? true
-                  }
-                  onContinuousChange={setReadingContinuous}
-                  onPageScroll={savePdfScroll}
-                  removed={!officialLibrary.scopeForSelection(selection)}
-                  historical={officialLibrary.isHistorical(selection)}
-                  selection={selection}
-                  fontSize={data.settings.fontSize}
-                  onChange={selectContent}
-                  onBack={returnToList}
-                  position={readingPosition}
-                  onPositionChange={setReadingPosition}
-                  relatedContent={relatedContent(selection)}
-                />
-              )}
-              {view === "materials" && (
+              {(view === "materials" || view === "reading") && (
                 <Suspense fallback={<p role="status">正在打开资料阅读器…</p>}>
                   <MaterialReader
+                    fontSize={data.settings.fontSize}
                     library={materials}
-                    location={data.materialSelection ?? null}
+                    onPositionChange={setReadingPosition}
+                    location={
+                      view === "reading"
+                        ? toMaterialLocation(selection)
+                        : (data.materialSelection ?? null)
+                    }
                     onChange={selectMaterial}
                     onBack={returnToList}
                     position={readingPosition}
@@ -1413,14 +1394,8 @@ function Workspace({ content }: { content: OfficialContent }) {
                   onUploaded={(courseId) =>
                     setLibraryScope({ courseId, kind: "textbooks" })
                   }
-                  official={officialLibrary}
-                  onRemoveOfficial={deleteOfficial}
                   library={materials}
-                  selection={selection}
                   materialSelection={data.materialSelection ?? null}
-                  onOpen={(location) =>
-                    void readOfficial(officialEntryId(location), location)
-                  }
                   onOpenMaterial={(location) =>
                     selectMaterial(
                       restoreReadingLocation(readingState, location),
@@ -1606,7 +1581,7 @@ function Workspace({ content }: { content: OfficialContent }) {
                 content={content}
                 library={officialLibrary}
                 operation={officialOperation}
-                onRemove={deleteOfficial}
+                materials={materials}
                 onInstall={async (id, update) => {
                   const saved = await officialService.acquire(id, update);
                   if (saved) showSaved("资料已保存");

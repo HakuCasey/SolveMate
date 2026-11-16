@@ -1,3 +1,5 @@
+import type { PersonalMaterials } from "../materials/useMaterials";
+import { materialFixtures } from "../content/library.test-support";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
@@ -12,6 +14,7 @@ import type { OfficialContent } from "../content/useOfficialContent";
 function render(
   snapshot = makeSnapshot(),
   updates: Record<string, UpdateResponse> = {},
+  hasLocalFiles = true,
 ) {
   const content: OfficialContent = {
     snapshot,
@@ -23,7 +26,6 @@ function render(
     updates,
     checking: false,
     checkedAt: 1,
-    readPdf: async () => ({ blob: new Blob(), warning: "" }),
     connectionError: "",
     transfer: null,
     refresh: async () => undefined,
@@ -33,11 +35,33 @@ function render(
   return renderToStaticMarkup(
     createElement(ContentManager, {
       content,
-      library: new OfficialLibrary(snapshot, {}, [], updates),
+      library: new OfficialLibrary(
+        snapshot,
+        {
+          materials: materialFixtures(snapshot.activeCourses).map((item) => ({
+            ...item,
+            availability: {
+              originalAvailable: hasLocalFiles,
+              readerAvailable: hasLocalFiles,
+              error: null,
+            },
+            updatedAt:
+              snapshot.installed.find(
+                (saved) => saved.courseId === item.subjectId,
+              )?.installedAt ?? 0,
+          })),
+        },
+        [],
+        updates,
+      ),
       operation: { busy: false, error: "" },
       onInstall: async () => false,
       onRead: async () => undefined,
-      onRemove: async () => undefined,
+      materials: {
+        items: materialFixtures(snapshot.activeCourses),
+        busy: "",
+        error: "",
+      } as PersonalMaterials,
     }),
   );
 }
@@ -68,7 +92,7 @@ describe("official material cards", () => {
         update_available: true,
       },
     });
-    expect(html).toContain("有 1 项资料可更新，仍可阅读本地版本。");
+    expect(html).toContain("有 1 项内容可更新，仍可使用本地版本。");
     expect(html).toContain("有新版可更新");
     expect(html).toContain(">阅读</button>");
     expect(html).toContain(">更新</button>");
@@ -78,7 +102,7 @@ describe("official material cards", () => {
   });
 
   it("shows material names and subject tags, with download actions before saving", () => {
-    const html = render();
+    const html = render(makeSnapshot(), {}, false);
     expect(html).toContain('aria-label="高等数学示例教材"');
     expect(html).toContain('aria-label="C 语言示例教材"');
     expect(html).toContain('aria-label="高等数学题目"');
@@ -115,7 +139,7 @@ describe("official material cards", () => {
     expect(html).toContain("更新日期");
     expect(html).toContain("2026/11/12");
     expect(html).toContain(">阅读</button>");
-    expect(html.match(/尚未下载/g)).toHaveLength(2);
+    expect(html.match(/>阅读<\/button>/g)).toHaveLength(4);
     expect(html).not.toContain(manifest.version.slice(0, 8));
     expect(html).not.toContain(manifest.course.release);
   });

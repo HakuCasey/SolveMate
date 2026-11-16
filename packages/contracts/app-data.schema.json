@@ -253,63 +253,6 @@
         "type": "string",
         "maxLength": 10000
       }
-    },
-    "officialMaterials": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 300
-          },
-          "subjectId": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "version": {
-            "anyOf": [
-              {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 200
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "updatedAt": {
-            "type": "number",
-            "minimum": 0
-          },
-          "deletedAt": {
-            "anyOf": [
-              {
-                "type": "number",
-                "minimum": 0
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "id",
-          "subjectId",
-          "deletedAt"
-        ],
-        "additionalProperties": false
-      }
     }
   },
   "required": [

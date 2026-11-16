@@ -78,6 +78,15 @@ export type ModelSelection =
     };
 export type RobotAiDefaults = null | AiSelection;
 export type ConversationAiConfig = AiSelection;
+export type MaterialLocation = {
+  materialId: string;
+  contentVersion: string;
+  pageNumber?: number;
+  questionId?: string;
+} & MaterialLocation1;
+export type MaterialLocation1 = {
+  [k: string]: unknown;
+};
 
 /**
  * Connection, model and optional reasoning effort. Missing reasoning retains existing defaults; an explicit empty string may be a native default option.
@@ -118,11 +127,6 @@ export interface ReadingReference {
   material?: MaterialLocation;
   quoteKind?: "page" | "selection";
   message?: MessageSource;
-}
-export interface MaterialLocation {
-  materialId: string;
-  contentVersion: string;
-  pageNumber: number;
 }
 export interface MessageSource {
   conversationId: string;
@@ -409,8 +413,7 @@ export interface SupportedReadingReference {
 export interface Material {
   id: string;
   title: string;
-  courseId: string | null;
-  source: "personal";
+  source: "personal" | "community";
   currentVersion: string;
   revision: number;
   createdAt: number;
@@ -422,14 +425,21 @@ export interface Material {
     readerAvailable: boolean;
     error: string | null;
   };
+  subjectId: string | null;
+  kind: "textbooks" | "questions";
+  publisher?: {
+    courseId: string;
+    itemId: string;
+  };
 }
 export interface MaterialVersion {
   contentVersion: string;
   mediaType:
     | "application/pdf"
-    | "application/vnd.openxmlformats-officedocument.presentationml.presentation";
-  originalAssetId: "original.pdf" | "original.pptx";
-  readerAssetId: "original.pdf" | "reader.pdf" | null;
+    | "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+    | "application/json";
+  originalAssetId: string;
+  readerAssetId: string | null;
   filename: string;
   sizeBytes: number;
   sha256: string;
@@ -438,4 +448,5 @@ export interface MaterialVersion {
   error: string | null;
   processor: string | null;
   processorVersion: string | null;
+  storagePath: string;
 }

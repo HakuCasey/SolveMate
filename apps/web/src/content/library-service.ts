@@ -1,7 +1,7 @@
-import type { AppData, ReadingSelection } from "@solvemate/contracts";
+import type { ReadingSelection } from "@solvemate/contracts";
 import type { InstalledCourse, InstallOptions } from "./storage";
 import type { OfficialLibrary } from "./library";
-import { removeSubject } from "../state/subjects";
+import { materialApi } from "../materials/api";
 import { DataRequestError } from "../refresh/errors";
 
 interface Ports {
@@ -13,7 +13,6 @@ interface Ports {
     update?: boolean,
     options?: InstallOptions,
   ): Promise<InstalledCourse | null>;
-  save(change: (data: AppData) => AppData): Promise<AppData>;
 }
 
 /** 修改规则不属于页面；保存失败保留条目状态，已经下载的包不回滚或删除。 */
@@ -51,6 +50,14 @@ export class OfficialLibraryService {
     this.run(async () => {
       await this.ports.refresh();
       const before = this.ports.read().get(id);
+      if (!update && before.metadata?.availability?.readerAvailable === true) {
+        await materialApi.activate(
+          before.metadata,
+          before.metadata.currentVersion,
+        );
+        await this.ports.refresh();
+        return true;
+      }
       let target = before.packageState.saved;
       if (update || !target || target.available === false) {
         const desiredVersion =
@@ -67,17 +74,6 @@ export class OfficialLibraryService {
           );
         if (cached && (!update || before.packageState.checked)) target = cached;
         else {
-          // 先固定各条目原来的版本，再写入课程包，避免下载期间其他条目切换版本。
-          await this.ports.save((data) => {
-            const library = this.ports.read().withData(data);
-            if (library.get(id).membershipKey !== before.membershipKey)
-              throw new DataRequestError(
-                "资料状态已变化，请重新选择后下载。",
-                "official_material_changed",
-                409,
-              );
-            return library.pinVersions(data, before.source.id);
-          });
           const repairVersion =
             !update && target?.available === false ? target.version : undefined;
           const installed = await this.ports.install(before.source.id, update, {
@@ -102,31 +98,22 @@ export class OfficialLibraryService {
       }
       if (!target) return false;
       const version = target.version;
-      await this.ports.save((data) => {
-        const library = this.ports.read().withData(data);
-        if (library.get(id).membershipKey !== before.membershipKey)
-          throw new DataRequestError(
-            "下载期间资料归属、版本或删除状态已变化，请核对后重新添加。",
-            "official_material_changed",
-            409,
-          );
-        return library.restore(data, id, version, Date.now());
-      });
+      await this.ports.refresh();
+      const current = this.ports.read().get(id);
+      if (
+        before.metadata &&
+        current.metadata?.revision !== before.metadata.revision
+      )
+        throw new DataRequestError(
+          "资料已变化，请刷新后重新选择。",
+          "material_conflict",
+          409,
+        );
+      if (!current.metadata)
+        throw new Error("资料记录尚未建立，请重新读取后重试。");
+      await materialApi.activate(current.metadata, version);
+      await this.ports.refresh();
       return true;
-    });
-  remove = (id: string) =>
-    this.run(async () => {
-      await this.ports.refresh();
-      await this.ports.save((data) =>
-        this.ports.read().withData(data).remove(data, id),
-      );
-    });
-  removeSubject = (id: string) =>
-    this.run(async () => {
-      await this.ports.refresh();
-      await this.ports.save((data) =>
-        removeSubject(data, this.ports.read().snapshot.activeCourses, id),
-      );
     });
   read = async (
     id: string,

@@ -1,11 +1,12 @@
-"""本机资料接口沿用本机浏览器访问限制，不经过官方内容服务。"""
+"""本机资料接口沿用本机浏览器访问限制，不经过社区内容服务。"""
 
 import asyncio
 
 from fastapi import APIRouter, Request, Response
 from fastapi.responses import FileResponse
+from pydantic import Field
 
-from .models import MaterialCourseChange, MaterialDelete, MaterialRename
+from .models import MaterialCourseChange, MaterialDelete, MaterialRename, RequestModel
 
 router = APIRouter(prefix="/local-api/v1/materials", tags=["materials"])
 
@@ -41,10 +42,10 @@ async def retry_material(ident: str, request: Request):
     return request.app.state.materials.retry(ident)
 
 
-@router.patch("/{ident}/course")
+@router.patch("/{ident}/subject")
 async def assign_course(ident: str, body: MaterialCourseChange, request: Request):
     return request.app.state.materials.assign_course(
-        ident, body.courseId, body.expectedRevision
+        ident, body.subjectId, body.expectedRevision
     )
 
 
@@ -56,6 +57,28 @@ async def rename_material(ident: str, body: MaterialRename, request: Request):
 @router.delete("/{ident}")
 async def delete_material(ident: str, body: MaterialDelete, request: Request):
     return request.app.state.materials.delete(ident, body.expectedRevision)
+
+
+class VersionSelection(RequestModel):
+    version: str
+    expectedRevision: int = Field(ge=1)
+
+
+@router.post("/{ident}/version")
+def select_version(ident: str, body: VersionSelection, request: Request):
+    return request.app.state.materials.activate(
+        ident, body.version, body.expectedRevision
+    )
+
+
+@router.get("/{ident}/{version}/metadata")
+def version_metadata(ident: str, version: str, request: Request):
+    return request.app.state.materials.get(ident, version)
+
+
+@router.get("/{ident}/{version}/questions")
+def questions(ident: str, version: str, request: Request):
+    return request.app.state.materials.questions(ident, version)
 
 
 @router.get("/{ident}/{version}/reader")

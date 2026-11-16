@@ -356,7 +356,11 @@ def test_restore_into_another_configured_data_directory(tmp_path):
         assert client.get(route + "/reader").content == pdf_bytes()
         assert (tmp_path / "external-ai/state.sqlite3").is_file()
         assert (
-            tmp_path / "external-uploads" / material["id"] / "record.json"
+            tmp_path
+            / "external-uploads"
+            / material["id"]
+            / material["currentVersion"]
+            / "original.pdf"
         ).is_file()
 
 

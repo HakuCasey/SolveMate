@@ -21,8 +21,8 @@ export function materialMembership(
   directory: SubjectDirectory,
 ): MaterialMembership {
   if (material?.deletedAt != null) return { state: "removed", subjectId: null };
-  const subject = material?.courseId
-    ? directory.byId.get(material.courseId)
+  const subject = material?.subjectId
+    ? directory.byId.get(material.subjectId)
     : undefined;
   if (subject?.deleted && subject.materialsDeleted)
     return { state: "removed", subjectId: null };
@@ -56,6 +56,6 @@ export function scopeForMaterial(
       items.find((item) => item.id === location.materialId),
       directory,
     ),
-    kind: "textbooks",
+    kind: location.questionId ? "questions" : "textbooks",
   };
 }

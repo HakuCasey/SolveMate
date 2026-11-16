@@ -17,12 +17,15 @@ import {
   UNSUPPORTED_READING_REFERENCE,
 } from "./reference";
 import { locationForOrigin } from "@solvemate/contracts";
+import { materialLocation } from "../materials/location";
 import { officialEntryId } from "../content/entries";
 
 /** 资料身份不含学科名称、页码或版本；位置与版本仍由原记录各自保留。 */
 export function learningMaterialId(source: LearningLocation): string {
   return "materialId" in source
-    ? source.materialId
+    ? source.questionId
+      ? `${source.materialId}:${source.questionId}`
+      : source.materialId
     : source.kind === "questions"
       ? `${officialEntryId(source)}:${source.itemId}`
       : officialEntryId(source);
@@ -51,61 +54,32 @@ export class LearningMaterial {
   readonly subjectTitle: string;
   readonly available: boolean;
   readonly removed: boolean;
-  private readonly pageText?: string;
   constructor(
     readonly source: LearningLocation,
-    courses: Course[],
+    _courses: Course[],
     materials: Material[],
     official: OfficialLibrary,
   ) {
     this.id = learningMaterialId(source);
-    if ("materialId" in source) {
-      const material = materials.find((item) => item.id === source.materialId);
-      const membership = materialMembership(material, official.directory);
-      this.title = material?.title ?? "原资料不可用";
-      this.position = `第 ${source.pageNumber} 页`;
-      this.subjectId = membership.subjectId;
-      this.subjectTitle =
-        official.directory.byId.get(material?.courseId ?? "")?.title ??
-        "未分类";
-      // 历史文件按固定版本请求，是否可读由现有阅读器在读取时核实。
-      this.available = !!material;
-      this.removed = !!material && membership.state === "removed";
-    } else {
-      const course = courses.find(
-        (item) =>
-          item.id === source.courseId && item.version === source.version,
-      );
-      const book =
-        source.kind === "textbooks"
-          ? course?.textbooks.find((item) => item.id === source.itemId)
-          : undefined;
-      const question =
-        source.kind === "questions"
-          ? course?.questions.find((item) => item.id === source.itemId)
-          : undefined;
-      this.title = book?.title ?? question?.title ?? "原资料不可用";
-      this.position = !isSupportedReadingLocation(source)
-        ? UNSUPPORTED_READING_REFERENCE
-        : source.kind === "textbooks"
-          ? `第 ${source.pageNumber} 页`
-          : source.itemId;
-      this.pageText =
-        question?.question ??
-        (book?.pdf && source.pageNumber
-          ? book.pdf.pages[source.pageNumber - 1]
-          : undefined);
-      this.available = !!question || this.pageText !== undefined;
-      const scope = official.scopeForSelection(source);
-      this.subjectId = scope?.courseId ?? null;
-      this.subjectTitle =
-        official.entries.find((item) => item.id === officialEntryId(source))
-          ?.subjectTitle ??
-        course?.title ??
-        "学科不可用";
-      this.removed = scope === null;
-    }
+    // 已知旧位置只转换标识，不再从课程包另建一份资料对象。
+    this.source =
+      "materialId" in source || !isSupportedReadingLocation(source)
+        ? source
+        : materialLocation(source);
+    const location = "materialId" in this.source ? this.source : null;
+    const material = materials.find((item) => item.id === location?.materialId);
+    const membership = materialMembership(material, official.directory);
+    this.title = material?.title ?? "原资料不可用";
+    this.position = location
+      ? (location.questionId ?? `第 ${location.pageNumber} 页`)
+      : UNSUPPORTED_READING_REFERENCE;
+    this.subjectId = membership.subjectId;
+    this.subjectTitle =
+      official.directory.byId.get(material?.subjectId ?? "")?.title ?? "未分类";
+    this.available = !!material;
+    this.removed = !!material && membership.state === "removed";
   }
+
   get readingLabel() {
     if (!isSupportedReadingLocation(this.source))
       return UNSUPPORTED_READING_REFERENCE;
@@ -132,7 +106,7 @@ export class LearningMaterial {
         "关联资料或版本暂不可用，问题和原位置已保留，请刷新资料后重试。",
       );
     const text =
-      "materialId" in this.source ? await readPage(this.source) : this.pageText;
+      "materialId" in this.source ? await readPage(this.source) : undefined;
     if (!text?.trim())
       throw new Error(
         "关联内容没有可读取的文字，当前暂不支持图片识别。问题已保留，请补充文字或在普通对话中继续。",

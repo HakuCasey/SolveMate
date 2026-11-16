@@ -9,10 +9,7 @@ export function makeMaterialReference(
   text: string,
   quoteKind: "page" | "selection",
 ): ReadingReference {
-  if (
-    material.id !== location.materialId ||
-    material.currentVersion !== location.contentVersion
-  )
+  if (material.id !== location.materialId || !location.contentVersion)
     throw new Error("引用的资料版本不一致，请重新选择。");
   if (!text.trim())
     throw new Error(
@@ -21,7 +18,7 @@ export function makeMaterialReference(
   if (text.length > 100000)
     throw new Error("引用内容过长，请选择较短的段落后提问。");
   return {
-    title: `${material.title} · 第 ${location.pageNumber} 页`,
+    title: `${material.title} · ${location.questionId ?? `第 ${location.pageNumber} 页`}`,
     selection: null,
     material: { ...location },
     quoteKind,

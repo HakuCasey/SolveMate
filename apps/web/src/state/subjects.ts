@@ -37,7 +37,7 @@ export function requireActiveSubject(
   return subject;
 }
 
-/** 未保存过学科设置的旧数据沿用官方分类；删除的分类不会因刷新或下载更新重新出现。 */
+/** 未保存过学科设置的旧数据沿用社区分类；删除的分类不会因刷新或下载更新重新出现。 */
 export function subjectCatalog(
   official: OfficialSubject[],
   saved: Subject[] = [],

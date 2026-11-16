@@ -1,6 +1,5 @@
-import type { OfficialLibrary, OfficialMaterial } from "../content/library";
-import { OfficialContentActions } from "./OfficialContentActions";
-import { useState } from "react";
+import { materialApi } from "../materials/api";
+import { useEffect, useState } from "react";
 import {
   BookOpen,
   ChevronRight,
@@ -13,7 +12,7 @@ import type {
   Subject,
   Material,
   MaterialLocation,
-  ReadingSelection,
+  Question,
 } from "@solvemate/contracts";
 import { MaterialActions } from "../materials/MaterialActions";
 import { MaterialUploadDialog } from "../materials/MaterialUploadDialog";
@@ -29,24 +28,16 @@ export function SubjectContentList({
   directory,
   onCreateSubject,
   onUploaded,
-  official,
-  onRemoveOfficial,
   library,
-  selection,
   materialSelection,
-  onOpen,
   onOpenMaterial,
 }: {
   scope: LibraryScope;
   directory: SubjectDirectory;
   onCreateSubject: (title: string) => Promise<Subject>;
   onUploaded: (courseId: string | null) => void;
-  official: OfficialLibrary;
-  onRemoveOfficial: (id: string) => Promise<void>;
   library: PersonalMaterials;
-  selection: ReadingSelection;
   materialSelection: MaterialLocation | null;
-  onOpen: (selection: ReadingSelection) => void;
   onOpenMaterial: (location: MaterialLocation) => void;
 }) {
   const [pendingFiles, setPendingFiles] = useState<File[] | null>(null);
@@ -57,27 +48,55 @@ export function SubjectContentList({
   const activeSubjects = directory.active;
   const subject = activeSubjects.find((item) => item.id === scope.courseId);
   const questions = scope.kind === "questions";
+  const scoped = materialsInCourse(library.items, scope.courseId, directory);
   const files = questions
     ? []
-    : materialsInCourse(library.items, scope.courseId, directory);
-  const officialItems =
-    subject || scope.courseId === null
-      ? official.forSubject(scope.courseId, scope.kind)
-      : [];
-  const books = questions ? [] : officialItems;
-  const items = questions
-    ? officialItems.flatMap((entry) =>
-        (entry.course?.questions ?? []).map((question) => ({
-          entry,
-          question,
-        })),
-      )
+    : scoped.filter((item) => item.kind === "textbooks");
+  const groups = questions
+    ? scoped.filter((item) => item.kind === "questions")
     : [];
-  const count = files.length + books.length + items.length;
-  function openItem(entry: OfficialMaterial, questionId?: string) {
-    const target = entry.selection(selection);
-    onOpen(questionId ? { ...target, itemId: questionId } : target);
-  }
+  const groupKey = JSON.stringify(
+    groups.map((item) => [item.id, item.currentVersion]),
+  );
+  const [questionSets, setQuestionSets] = useState<{
+    key: string;
+    items: { materialId: string; question: Question }[];
+  }>({ key: "", items: [] });
+  useEffect(() => {
+    let alive = true;
+    void Promise.all(
+      (JSON.parse(groupKey) as [string, string][]).map(
+        async ([materialId, contentVersion]) =>
+          (await materialApi.questions({ materialId, contentVersion })).map(
+            (question) => ({ materialId, question }),
+          ),
+      ),
+    )
+      .then((values) => {
+        if (alive) setQuestionSets({ key: groupKey, items: values.flat() });
+      })
+      .catch((error: unknown) => {
+        if (alive)
+          setNotice(
+            error instanceof Error
+              ? error.message
+              : "题目读取失败，请刷新列表。",
+          );
+      });
+    return () => {
+      alive = false;
+    };
+  }, [groupKey]);
+  const items =
+    questionSets.key === groupKey
+      ? questionSets.items.flatMap((item) => {
+          const material = groups.find(
+            (material) => material.id === item.materialId,
+          );
+          return material ? [{ material, question: item.question }] : [];
+        })
+      : [];
+  const count = files.length + items.length;
   function chooseFiles(values: File[]) {
     if (!values.length) return;
     setNotice("");
@@ -203,33 +222,6 @@ export function SubjectContentList({
             {!questions && <small>单个文件最大 100 MiB</small>}
           </div>
         )}
-        {books.map((book) => (
-          <OfficialContentActions
-            key={book.id}
-            item={book}
-            onRemove={onRemoveOfficial}
-          >
-            <button
-              className={styles.courseItem}
-              onClick={() => openItem(book)}
-            >
-              <span className={styles.icon}>
-                <BookOpen aria-hidden="true" />
-              </span>
-              <span className={styles.copy}>
-                <strong>{book.title}</strong>
-                <small>
-                  课程资料 ·{" "}
-                  {book.course?.textbooks.find(
-                    (item) => item.id === book.entry.selection?.itemId,
-                  )?.chapters.length ?? 0}{" "}
-                  节
-                </small>
-              </span>
-              <ChevronRight aria-hidden="true" />
-            </button>
-          </OfficialContentActions>
-        ))}
         {files.map((item) => (
           <MaterialActions
             key={item.id}
@@ -273,16 +265,23 @@ export function SubjectContentList({
             </div>
           </MaterialActions>
         ))}
-        {items.map(({ entry, question: item }) => (
-          <OfficialContentActions
-            key={`${entry.id}:${item.id}`}
-            item={entry}
-            onRemove={onRemoveOfficial}
+        {items.map(({ material, question: item }) => (
+          <MaterialActions
+            key={`${material.id}:${item.id}`}
+            item={material}
+            library={library}
+            directory={directory}
           >
             <button
-              key={`${entry.id}:${item.id}`}
+              key={`${material.id}:${item.id}`}
               className={styles.courseItem}
-              onClick={() => openItem(entry, item.id)}
+              onClick={() =>
+                onOpenMaterial({
+                  materialId: material.id,
+                  contentVersion: material.currentVersion,
+                  questionId: item.id,
+                })
+              }
             >
               <span className={styles.icon}>
                 <ListChecks aria-hidden="true" />
@@ -295,7 +294,7 @@ export function SubjectContentList({
               </span>
               <ChevronRight aria-hidden="true" />
             </button>
-          </OfficialContentActions>
+          </MaterialActions>
         ))}
       </div>
       {pendingFiles && (

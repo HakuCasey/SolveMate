@@ -15,13 +15,15 @@ const entry: UploadEntry = {
 const record: Material = {
   id: "material",
   title: "课件",
-  courseId: null,
+  subjectId: null,
   source: "personal",
+  kind: "textbooks",
   currentVersion: "a".repeat(64),
   revision: 1,
   createdAt: 1,
   updatedAt: 1,
   version: {
+    storagePath: "uploads/test/version",
     contentVersion: "a".repeat(64),
     mediaType:
       "application/vnd.openxmlformats-officedocument.presentationml.presentation",
@@ -55,7 +57,13 @@ it("distinguishes sent bytes, acknowledged upload, conversion and completed read
   expect(uploadEntryState(entries[0], []).phase).toBe("processing");
   expect(
     uploadEntryState(entries[0], [
-      { ...record, version: { ...record.version, status: "ready" } },
+      {
+        ...record,
+        version: {
+          ...record.version,
+          status: "ready",
+        },
+      },
     ]).phase,
   ).toBe("ready");
   expect(entry.loaded).toBe(0);
@@ -78,7 +86,10 @@ it("shows conversion failures and a retry using the same material record", () =>
   expect(uploadEntryState(uploaded, [record]).phase).toBe("processing");
   const missing = {
     ...failed,
-    version: { ...failed.version, status: "ready" as const },
+    version: {
+      ...failed.version,
+      status: "ready" as const,
+    },
     availability: {
       originalAvailable: false,
       readerAvailable: false,

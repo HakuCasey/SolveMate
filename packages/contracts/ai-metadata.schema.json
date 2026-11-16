@@ -1915,48 +1915,71 @@
       "properties": {
         "materialId": {
           "type": "string",
-          "pattern": "^[a-f0-9-]{36}$"
+          "minLength": 1
         },
         "contentVersion": {
           "type": "string",
-          "pattern": "^[a-f0-9]{64}$"
+          "minLength": 1
         },
         "pageNumber": {
           "type": "integer",
           "minimum": 1
+        },
+        "questionId": {
+          "type": "string",
+          "minLength": 1
         }
       },
       "required": [
         "materialId",
-        "contentVersion",
-        "pageNumber"
+        "contentVersion"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "oneOf": [
+        {
+          "required": [
+            "pageNumber"
+          ],
+          "not": {
+            "required": [
+              "questionId"
+            ]
+          }
+        },
+        {
+          "required": [
+            "questionId"
+          ],
+          "not": {
+            "required": [
+              "pageNumber"
+            ]
+          }
+        }
+      ]
     },
     "MaterialVersion": {
       "type": "object",
       "properties": {
         "contentVersion": {
           "type": "string",
-          "pattern": "^[a-f0-9]{64}$"
+          "minLength": 1
         },
         "mediaType": {
           "enum": [
             "application/pdf",
-            "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            "application/json"
           ]
         },
         "originalAssetId": {
-          "enum": [
-            "original.pdf",
-            "original.pptx"
-          ]
+          "type": "string",
+          "minLength": 1
         },
         "readerAssetId": {
-          "enum": [
-            "original.pdf",
-            "reader.pdf",
-            null
+          "type": [
+            "string",
+            "null"
           ]
         },
         "filename": {
@@ -2002,6 +2025,10 @@
             "string",
             "null"
           ]
+        },
+        "storagePath": {
+          "type": "string",
+          "minLength": 1
         }
       },
       "required": [
@@ -2016,7 +2043,8 @@
         "status",
         "error",
         "processor",
-        "processorVersion"
+        "processorVersion",
+        "storagePath"
       ],
       "additionalProperties": false,
       "title": "MaterialVersion",
@@ -2033,14 +2061,8 @@
       "then": {
         "properties": {
           "readerAssetId": {
-            "enum": [
-              "original.pdf",
-              "reader.pdf"
-            ]
-          },
-          "pageCount": {
-            "type": "integer",
-            "minimum": 1
+            "type": "string",
+            "minLength": 1
           }
         }
       }
@@ -2050,24 +2072,22 @@
       "properties": {
         "id": {
           "type": "string",
-          "pattern": "^[a-f0-9-]{36}$"
+          "minLength": 1,
+          "maxLength": 240
         },
         "title": {
           "type": "string",
           "minLength": 1
         },
-        "courseId": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
         "source": {
-          "const": "personal"
+          "enum": [
+            "personal",
+            "community"
+          ]
         },
         "currentVersion": {
           "type": "string",
-          "pattern": "^[a-f0-9]{64}$"
+          "minLength": 1
         },
         "revision": {
           "type": "integer",
@@ -2113,18 +2133,47 @@
             "readerAvailable",
             "error"
           ]
+        },
+        "subjectId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "kind": {
+          "enum": [
+            "textbooks",
+            "questions"
+          ]
+        },
+        "publisher": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "courseId": {
+              "type": "string"
+            },
+            "itemId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "courseId",
+            "itemId"
+          ]
         }
       },
       "required": [
         "id",
         "title",
-        "courseId",
+        "subjectId",
         "source",
         "currentVersion",
         "revision",
         "createdAt",
         "updatedAt",
-        "version"
+        "version",
+        "kind"
       ],
       "additionalProperties": false,
       "title": "Material"

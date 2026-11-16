@@ -77,16 +77,6 @@ export interface Subject {
   materialsDeleted?: boolean;
 }
 
-/** 官方来源编号保持不变；本地归属和删除状态与版本文件分开保存。 */
-export interface OfficialMaterialMetadata {
-  id: string;
-  subjectId: CourseId | null;
-  deletedAt: number | null;
-  /** 缺少字段表示旧记录；null 表示尚未添加，字符串固定这份资料使用的版本。 */
-  version?: string | null;
-  updatedAt?: number;
-}
-
 export type * from "./ai-metadata.generated";
 export {
   assertMetadata,
@@ -211,7 +201,6 @@ export interface AppData {
   selection: ReadingSelection;
   materialSelection?: MaterialLocation | null;
   subjects?: Subject[];
-  officialMaterials?: OfficialMaterialMetadata[];
   noteLibrary?: NoteLibrary;
   readingProgress?: ReadingProgress;
   drafts?: Record<string, string>;

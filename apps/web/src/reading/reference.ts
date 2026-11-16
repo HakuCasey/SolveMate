@@ -1,3 +1,4 @@
+import { materialLocation } from "../materials/location";
 import { aiMetadataSchema, assertMetadata } from "@solvemate/contracts";
 import type {
   CurrentContent,
@@ -54,8 +55,9 @@ export function makeReadingReference(
   return {
     title: `${content.topic} · ${content.title}`,
     content: text,
-    selection: { ...selection },
-    ...(selected ? { quoteKind: "selection" as const } : {}),
+    selection: null,
+    material: materialLocation(selection),
+    quoteKind: selected ? "selection" : "page",
   };
 }
 

@@ -1,19 +1,14 @@
-import { useDraftBackup } from "../refresh/drafts";
-import { useEditRevision } from "../refresh/useEditRevision";
-import { useRef, useState, type ReactElement } from "react";
-import { ContextMenu, Dialog } from "radix-ui";
-import { FolderInput, Pencil, Trash2 } from "lucide-react";
+import { useState, type ReactElement } from "react";
 import type { Material } from "@solvemate/contracts";
 import type { SubjectDirectory } from "../state/subjects";
 import { materialCourse } from "../reading/library";
-import { SettingsSelect } from "../components/SettingsSelect";
-import { useSaveFeedback } from "../components/SaveFeedback";
+import { useEditRevision } from "../refresh/useEditRevision";
 import type { PersonalMaterials } from "./useMaterials";
-import styles from "./MaterialActions.module.css";
-
-type Action = "rename" | "move" | "delete";
-const labels = { rename: "重命名", move: "移动", delete: "删除" };
-const unclassified = "__unclassified__";
+import {
+  MaterialActionMenu,
+  MaterialActionDialog,
+  type MaterialAction,
+} from "./MaterialActionControls";
 
 export function MaterialActions({
   item,
@@ -27,43 +22,22 @@ export function MaterialActions({
   children: ReactElement;
 }) {
   // 打开窗口时保留修订号，后台处理或其他页面的更新不能绕过冲突检查。
-  const [action, setAction] = useState<{ kind: Action; item: Material } | null>(
-    null,
-  );
+  const [action, setAction] = useState<{
+    kind: MaterialAction;
+    item: Material;
+  } | null>(null);
   return (
     <>
-      <ContextMenu.Root>
-        <ContextMenu.Trigger asChild>{children}</ContextMenu.Trigger>
-        <ContextMenu.Portal>
-          <ContextMenu.Content
-            className={styles.menu}
-            collisionPadding={12}
-            onCloseAutoFocus={(event) => event.preventDefault()}
-          >
-            {(["rename", "move", "delete"] as const).map((kind) => {
-              const Icon =
-                kind === "rename"
-                  ? Pencil
-                  : kind === "move"
-                    ? FolderInput
-                    : Trash2;
-              return (
-                <ContextMenu.Item
-                  key={kind}
-                  className={`${styles.menuItem} ${kind === "delete" ? styles.dangerText : ""}`}
-                  disabled={!!action}
-                  onSelect={() => setAction({ kind, item })}
-                >
-                  <Icon aria-hidden="true" />
-                  {labels[kind]}
-                </ContextMenu.Item>
-              );
-            })}
-          </ContextMenu.Content>
-        </ContextMenu.Portal>
-      </ContextMenu.Root>
+      <MaterialActionMenu
+        listed={item.deletedAt == null}
+        unit={item.kind === "questions" ? "题目集" : "资料"}
+        disabled={!!action}
+        onAction={(kind) => setAction({ kind, item })}
+      >
+        {children}
+      </MaterialActionMenu>
       {action && (
-        <MaterialActionDialog
+        <SavedMaterialDialog
           action={action}
           directory={directory}
           library={library}
@@ -74,175 +48,39 @@ export function MaterialActions({
   );
 }
 
-function MaterialActionDialog({
+function SavedMaterialDialog({
   action,
   directory,
   library,
-  onClose: finish,
+  onClose,
 }: {
-  action: { kind: Action; item: Material };
+  action: { kind: MaterialAction; item: Material };
   directory: SubjectDirectory;
   library: PersonalMaterials;
   onClose: () => void;
 }) {
-  const [title, setTitle] = useState(action.item.title);
-  const [courseId, setCourseId] = useState(
-    materialCourse(action.item, directory) ?? unclassified,
-  );
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const saved = useSaveFeedback();
-  const cancel = useRef<HTMLButtonElement>(null);
-  const deleting = action.kind === "delete";
-  const release = useDraftBackup(
-    `material:${action.kind}:${action.item.id}`,
-    "资料修改草稿",
-    { title, courseId },
-    !deleting &&
-      (title !== action.item.title ||
-        courseId !== (materialCourse(action.item, directory) ?? unclassified)),
-  );
-  const onClose = () => {
-    release();
-    finish();
-  };
   const getRevision = useEditRevision(
     action.item,
-    library.items.find((item) => item.id === action.item.id && !item.deletedAt),
+    library.items.find(
+      (item) => item.id === action.item.id && item.deletedAt == null,
+    ),
   );
-  async function submit() {
-    if (saving) return;
-    if (
-      action.kind === "rename" &&
-      (!title.trim() || [...title].some((char) => char.charCodeAt(0) < 32))
-    ) {
-      setError("请输入有效的资料名称，不能包含控制字符。");
-      return;
-    }
-    setSaving(true);
-    setError("");
-    try {
-      const item = { ...action.item, revision: getRevision() };
-      if (action.kind === "rename") await library.rename(item, title.trim());
-      else if (action.kind === "move")
-        await library.assignCourse(
-          item,
-          courseId === unclassified ? null : courseId,
-        );
-      else await library.remove(item);
-      saved(
-        action.kind === "rename"
-          ? "资料已重命名"
-          : action.kind === "move"
-            ? "资料已移动"
-            : "资料已删除",
-      );
-      onClose();
-    } catch (failure) {
-      setError(
-        failure instanceof Error ? failure.message : "操作未能完成，请重试。",
-      );
-      setSaving(false);
-    }
-  }
   return (
-    <Dialog.Root
-      open
-      onOpenChange={(open) => {
-        if (!open && !saving) onClose();
+    <MaterialActionDialog
+      unit={action.item.kind === "questions" ? "题目集" : "资料"}
+      action={action.kind}
+      id={action.item.id}
+      initialTitle={action.item.title}
+      initialSubjectId={materialCourse(action.item, directory)}
+      directory={directory}
+      onClose={onClose}
+      onSubmit={async (title, subjectId) => {
+        const item = { ...action.item, revision: getRevision() };
+        if (action.kind === "rename") await library.rename(item, title);
+        else if (action.kind === "move")
+          await library.assignCourse(item, subjectId);
+        else await library.remove(item);
       }}
-    >
-      <Dialog.Portal>
-        <Dialog.Overlay className={styles.overlay} />
-        <Dialog.Content
-          className={styles.dialog}
-          role={deleting ? "alertdialog" : "dialog"}
-          onOpenAutoFocus={(event) => {
-            if (deleting) {
-              event.preventDefault();
-              cancel.current?.focus();
-            }
-          }}
-        >
-          <Dialog.Title>{labels[action.kind]}资料</Dialog.Title>
-          <Dialog.Description>
-            {deleting
-              ? "该资料将从列表中删除，文件和历史对话保留。"
-              : action.kind === "move"
-                ? "选择目标学科。"
-                : "修改资料名称。"}
-          </Dialog.Description>
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              void submit();
-            }}
-          >
-            {action.kind === "rename" && (
-              <label>
-                资料名称
-                <input
-                  value={title}
-                  maxLength={240}
-                  disabled={saving}
-                  aria-invalid={!!error}
-                  onFocus={(event) => event.currentTarget.select()}
-                  onChange={(event) => {
-                    setTitle(event.target.value);
-                    setError("");
-                  }}
-                />
-              </label>
-            )}
-            {action.kind === "move" && (
-              <SettingsSelect
-                className={styles.destination}
-                label="目标学科"
-                value={courseId}
-                disabled={saving}
-                options={[
-                  { value: unclassified, name: "未分类" },
-                  ...directory.active.map((subject) => ({
-                    value: subject.id,
-                    name: subject.title,
-                  })),
-                ]}
-                onValueChange={setCourseId}
-              />
-            )}
-            {error && (
-              <p className={styles.error} role="alert">
-                {error}
-              </p>
-            )}
-            <div className={styles.actions}>
-              <button
-                ref={cancel}
-                type="button"
-                disabled={saving}
-                onClick={onClose}
-              >
-                取消
-              </button>
-              <button
-                type="submit"
-                disabled={saving || (action.kind === "rename" && !title.trim())}
-                className={deleting ? styles.danger : styles.primary}
-              >
-                {saving
-                  ? deleting
-                    ? "正在删除…"
-                    : "正在保存…"
-                  : deleting
-                    ? "确认删除"
-                    : action.kind === "move"
-                      ? "移动"
-                      : "保存"}
-              </button>
-            </div>
-          </form>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+    />
   );
 }

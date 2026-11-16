@@ -56,6 +56,9 @@
   box-shadow: var(--sm-shadow-dialog);
 }
 .dialog h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin: 0 0 12px;
   font-size: 18px;
   font-weight: 600;
@@ -116,4 +119,10 @@
 .actions button:disabled {
   opacity: 0.5;
   cursor: default;
+}
+
+.dialog h2 svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
 }

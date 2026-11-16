@@ -335,11 +335,6 @@ class Backups:
                     if not key.endswith(".sqlite3"):
                         (folder / key).mkdir(parents=True, exist_ok=True)
             self.validate_databases(folder)
-            for path in (folder / "uploads").glob("*/record.json"):
-                value = json.loads(path.read_text(encoding="utf-8"))
-                validate_metadata("Material", value)
-                if value["id"] != path.parent.name:
-                    raise invalid()
             return {
                 "createdAt": manifest["createdAt"],
                 "files": len(files),
@@ -371,6 +366,22 @@ class Backups:
                     row = db.execute("SELECT value FROM state WHERE id=1").fetchone()
                     if row:
                         validate_data(migrate_note_metadata(json.loads(row[0])))
+                    if db.execute(
+                        "SELECT 1 FROM sqlite_master WHERE name='materials'"
+                    ).fetchone():
+                        for (raw,) in db.execute("SELECT value FROM materials"):
+                            item = json.loads(raw)
+                            version = db.execute(
+                                "SELECT value FROM material_versions WHERE material=? AND version=?",
+                                (item["id"], item["currentVersion"]),
+                            ).fetchone()
+                            if not version:
+                                raise invalid("备份缺少资料版本记录。")
+                            validate_metadata(
+                                "Material", {**item, "version": json.loads(version[0])}
+                            )
+                        for (raw,) in db.execute("SELECT value FROM material_versions"):
+                            validate_metadata("MaterialVersion", json.loads(raw))
                 else:
                     # 检查全部 JSON，避免恢复后才发现配置或执行记录无法读取。
                     for table in ("config", "connections", "turns"):
@@ -478,10 +489,20 @@ class Backups:
                     )
             db.execute("DELETE FROM probes")
         records = {r["id"]: r["revision"] for r in app.state.materials.list()}
-        for path in (folder / "uploads").glob("*/record.json"):
-            value = json.loads(path.read_text(encoding="utf-8"))
-            value["revision"] = max(value["revision"], records.get(value["id"], 0)) + 1
-            path.write_text(json.dumps(value, ensure_ascii=False), encoding="utf-8")
+        from .material_migration import migrate_materials
+        from .user_data import UserData
+
+        user = UserData(folder)
+        try:
+            repository = migrate_materials(user, folder / "uploads")
+            with repository.transaction():
+                for item in repository.list():
+                    item["revision"] = (
+                        max(item["revision"], records.get(item["id"], 0)) + 1
+                    )
+                    repository.put(item)
+        finally:
+            user.close()
 
     async def restore(self, app, token):
         folder = self.token(token) / "data"

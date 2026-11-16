@@ -700,7 +700,11 @@ def test_multiple_reference_fragments_keep_text_and_page_in_prompt(tmp_path):
         )
         assert imported.status_code == 202
         for _ in range(200):
-            material = client.get("/local-api/v1/materials").json()[0]
+            material = next(
+                item
+                for item in client.get("/local-api/v1/materials").json()
+                if item["id"] == imported.json()["id"]
+            )
             if material["version"]["status"] != "processing":
                 break
             sleep(0.01)

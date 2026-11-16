@@ -42,7 +42,7 @@ class PreferenceChange(RequestModel):
 
 
 class MaterialCourseChange(RequestModel):
-    courseId: str | None
+    subjectId: str | None = Field(pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
     expectedRevision: int = Field(ge=1)
 
 

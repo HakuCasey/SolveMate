@@ -100,7 +100,9 @@ export function rememberReadingLocation(
   if (
     last &&
     ("materialId" in last
-      ? "materialId" in location && last.pageNumber === location.pageNumber
+      ? "materialId" in location &&
+        last.pageNumber === location.pageNumber &&
+        last.questionId === location.questionId
       : !("materialId" in location) && last.pageNumber === location.pageNumber)
   )
     return state;

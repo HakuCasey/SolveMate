@@ -11,7 +11,7 @@ import type {
   ReadingReference,
 } from "./index";
 
-/** 资料位置与笔记来源互相转换；官方编号沿用现有内容目录规则。 */
+/** 资料位置与笔记来源互相转换；社区编号沿用现有内容目录规则。 */
 export function originsFromReading(
   source: LearningLocation | null,
   excerpt?: ReadingReference,
@@ -41,14 +41,23 @@ export function originsFromReading(
   const location = source ?? cited;
   if (!location) return [];
   if ("materialId" in location)
-    return [
-      {
-        kind: "document",
-        materialId: location.materialId,
-        version: location.contentVersion,
-        pageNumber: location.pageNumber,
-      },
-    ];
+    return location.questionId
+      ? [
+          {
+            kind: "question",
+            materialId: location.materialId,
+            version: location.contentVersion,
+            questionId: location.questionId,
+          },
+        ]
+      : [
+          {
+            kind: "document",
+            materialId: location.materialId,
+            version: location.contentVersion,
+            pageNumber: location.pageNumber!,
+          },
+        ];
   const version = location.version ?? "example-1";
   return location.kind === "questions"
     ? [
@@ -71,27 +80,13 @@ export function originsFromReading(
 
 export function locationForOrigin(origin: NoteOrigin): LearningLocation | null {
   if (origin.kind === "conversation") return null;
-  if (origin.kind === "question")
-    return {
-      courseId: origin.materialId.slice(0, -":questions".length),
-      kind: "questions",
-      version: origin.version,
-      itemId: origin.questionId,
-    };
-  const split = origin.materialId.indexOf(":textbooks:");
-  return split < 0
-    ? {
-        materialId: origin.materialId,
-        contentVersion: origin.version,
-        pageNumber: origin.pageNumber,
-      }
-    : {
-        courseId: origin.materialId.slice(0, split),
-        kind: "textbooks",
-        itemId: origin.materialId.slice(split + ":textbooks:".length),
-        version: origin.version,
-        pageNumber: origin.pageNumber,
-      };
+  return {
+    materialId: origin.materialId,
+    contentVersion: origin.version,
+    ...(origin.kind === "question"
+      ? { questionId: origin.questionId }
+      : { pageNumber: origin.pageNumber }),
+  };
 }
 
 export function uniqueNoteOrigins(origins: NoteOrigin[]): NoteOrigin[] {

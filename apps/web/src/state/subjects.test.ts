@@ -53,7 +53,7 @@ describe("subject metadata", () => {
     );
     const file = {
       id: "file",
-      courseId: "subject-physics",
+      subjectId: "subject-physics",
       currentVersion: "a".repeat(64),
     } as Material;
     const location = {
@@ -71,8 +71,8 @@ describe("subject metadata", () => {
     expect(file).toEqual(fileBefore);
     expect(data.conversations).toBe(history);
     expect(location.pageNumber).toBe(14);
-    const moved = { ...file, id: "moved", courseId: "c-language" };
-    const unclassified = { ...file, id: "unclassified", courseId: null };
+    const moved = { ...file, id: "moved", subjectId: "c-language" };
+    const unclassified = { ...file, id: "unclassified", subjectId: null };
     expect(
       materialsInCourse([file, moved, unclassified], "c-language", catalog),
     ).toEqual([moved]);
@@ -98,7 +98,7 @@ describe("subject metadata", () => {
   });
   it("preserves the meaning of older classification-only deletions", () => {
     const catalog = [{ id: "old", title: "旧学科", deleted: true }];
-    const file = { id: "old-file", courseId: "old" } as Material;
+    const file = { id: "old-file", subjectId: "old" } as Material;
     expect(
       materialsInCourse([file], null, createSubjectDirectory([], catalog)),
     ).toEqual([file]);
