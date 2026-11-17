@@ -22,7 +22,6 @@ import styles from "../components/Reader.module.css";
 
 /** 题目按内容格式显示，不区分资料来源。 */
 export function QuestionReader({
-  fontSize,
   material,
   location,
   onChange,
@@ -32,7 +31,6 @@ export function QuestionReader({
   header,
   relatedContent,
 }: {
-  fontSize: number;
   material: Material;
   location: MaterialLocation;
   onChange: (location: MaterialLocation) => void;
@@ -129,7 +127,7 @@ export function QuestionReader({
               {question.topic} · {question.difficulty}
             </div>
             <h1 className={styles.title}>{question.title}</h1>
-            <div className={styles.question} style={{ fontSize }}>
+            <div className={styles.question}>
               <Markdown>{question.question}</Markdown>
             </div>
             <section className={styles.answerArea} aria-label="参考答案">
@@ -147,7 +145,7 @@ export function QuestionReader({
                 显示参考答案
               </label>
               {position.answerVisible && (
-                <div className={styles.answerBody} style={{ fontSize }}>
+                <div className={styles.answerBody}>
                   <Markdown>{question.answer}</Markdown>
                   <div className={styles.answerLabel}>讲解要点</div>
                   <Markdown>{question.explanation}</Markdown>

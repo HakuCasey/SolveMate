@@ -27,6 +27,7 @@ import {
   useRef,
   useState,
   useSyncExternalStore,
+  type CSSProperties,
 } from "react";
 import { OfficialLibrary } from "./content/library";
 import { OfficialLibraryService } from "./content/library-service";
@@ -1465,7 +1466,15 @@ function Workspace({ content }: { content: OfficialContent }) {
               }
             />
           </StudyProvider>
-          <section className={styles.workspace} aria-label="学习工作区">
+          <section
+            className={styles.workspace}
+            aria-label="学习工作区"
+            style={
+              {
+                "--sm-reading-font-size": `${data.settings.fontSize}px`,
+              } as CSSProperties
+            }
+          >
             <ResizableColumns
               key={resizable ? "split" : "static"}
               className={styles.columns}
@@ -1516,7 +1525,6 @@ function Workspace({ content }: { content: OfficialContent }) {
                         fallback={<p role="status">正在打开资料阅读器…</p>}
                       >
                         <MaterialReader
-                          fontSize={data.settings.fontSize}
                           onPositionChange={setReadingPosition}
                           header={header}
                           library={materials}
@@ -1549,7 +1557,6 @@ function Workspace({ content }: { content: OfficialContent }) {
               {(view === "materials" || view === "reading") && (
                 <Suspense fallback={<p role="status">正在打开资料阅读器…</p>}>
                   <MaterialReader
-                    fontSize={data.settings.fontSize}
                     library={materials}
                     onPositionChange={setReadingPosition}
                     location={
@@ -1702,7 +1709,6 @@ function Workspace({ content }: { content: OfficialContent }) {
                       <article
                         className={styles.notePaper}
                         aria-label="笔记正文"
-                        style={{ fontSize: data.settings.fontSize }}
                       >
                         <header className={styles.noteHeading}>
                           <h1>{note.title}</h1>

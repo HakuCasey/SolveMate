@@ -111,7 +111,7 @@
   letter-spacing: -0.4px;
 }
 .welcome p {
-  font-size: 13px;
+  font-size: var(--sm-reading-font-size, 14px);
   color: var(--sm-soft);
   margin: 0;
   max-width: 30em;
@@ -125,7 +125,7 @@
 .assistantMessage {
   max-width: 88%;
   min-width: 0;
-  font-size: 13px;
+  font-size: var(--sm-reading-font-size, 14px);
   flex-shrink: 0;
   overflow-wrap: anywhere;
 }
@@ -342,7 +342,7 @@
   max-height: 160px;
   width: 100%;
   padding: 2px 3px;
-  font-size: 13px;
+  font-size: var(--sm-reading-font-size, 14px);
   background: transparent;
 }
 .compose textarea:focus-visible {
@@ -458,7 +458,7 @@
     padding: 20px 12px 12px;
   }
   .compose textarea {
-    font-size: 16px;
+    font-size: max(16px, var(--sm-reading-font-size, 14px));
   }
 }
 

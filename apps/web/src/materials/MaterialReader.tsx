@@ -39,9 +39,7 @@ export function MaterialReader({
   onZoomChange,
   relatedContent,
   header,
-  fontSize = 14,
 }: {
-  fontSize?: number;
   relatedContent?: ReactNode;
   header?: ReactNode;
   library: PersonalMaterials;
@@ -118,7 +116,6 @@ export function MaterialReader({
   if (selected?.kind === "questions" && location)
     return (
       <QuestionReader
-        fontSize={fontSize}
         material={selected}
         location={location}
         onChange={onChange}

@@ -87,6 +87,7 @@
   box-shadow:
     0 3px 16px var(--sm-shadow-soft-color),
     inset 0 0 24px var(--sm-note-inset);
+  font-size: var(--sm-reading-font-size, 14px);
   overflow-wrap: anywhere;
 }
 .notePaper::before,
