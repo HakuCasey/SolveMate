@@ -19,6 +19,9 @@ def acp_update(callback):
             if content.get("type") != "text":
                 return
             event.update(kind="text", text=content.get("text", ""))
+            metadata = native.get("_meta") or {}
+            if (metadata.get("solvemate") or {}).get("textMode") == "snapshot":
+                event["replace"] = True
         elif kind == "agent_thought_chunk":
             event["kind"] = "thinking"
         elif kind in {"tool_call", "tool_call_update"}:
@@ -173,7 +176,8 @@ class AcpAdapter(HarnessAdapter):
         result = await process.call(
             "session/prompt",
             {"sessionId": sid, "prompt": [{"type": "text", "text": text}]},
-            timeout=300,
+            # 生成的无进展期限由公共执行层管理；RPC 仍等待原生结束结果。
+            timeout=None,
         )
         reason = result.get("stopReason")
         return (

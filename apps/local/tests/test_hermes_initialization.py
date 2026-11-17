@@ -271,3 +271,56 @@ def test_missing_load_capability_rejects_creation_before_native_call():
         assert not FakeHermes.calls
 
     asyncio.run(exercise())
+
+
+def test_handshake_only_reports_capabilities_and_inherits_native_session_operations(
+    monkeypatch,
+):
+    from solvemate_local.adapters.hermes_acp import agent_class
+
+    class Native:
+        async def initialize(self, **kwargs):
+            raise AssertionError(
+                "Default model credentials must not be resolved during handshake"
+            )
+
+        async def load_session(self, **kwargs):
+            pass
+
+        async def prompt(self, **kwargs):
+            pass
+
+        async def cancel(self, **kwargs):
+            pass
+
+        async def aclose(self):
+            pass
+
+    monkeypatch.setitem(sys.modules, "acp", SimpleNamespace(PROTOCOL_VERSION=1))
+    names = [
+        "AgentCapabilities",
+        "Implementation",
+        "InitializeResponse",
+        "PromptCapabilities",
+        "SessionCapabilities",
+        "SessionForkCapabilities",
+        "SessionListCapabilities",
+        "SessionResumeCapabilities",
+    ]
+    monkeypatch.setitem(
+        sys.modules,
+        "acp.schema",
+        SimpleNamespace(**{name: SimpleNamespace for name in names}),
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "acp_adapter.gateway_server",
+        SimpleNamespace(GatewayACPAgent=Native),
+    )
+    monkeypatch.setitem(sys.modules, "hermes_cli", SimpleNamespace(__version__="test"))
+    cls = agent_class()
+    response = asyncio.run(cls().initialize())
+    assert response.protocol_version == 1 and response.auth_methods == []
+    assert response.agent_capabilities.load_session
+    for name in ["load_session", "prompt", "cancel", "aclose"]:
+        assert getattr(cls, name) is getattr(Native, name)

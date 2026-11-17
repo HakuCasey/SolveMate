@@ -1,4 +1,4 @@
-import { useDraftBackup } from "../refresh/drafts";
+import { useUnsavedForm } from "../refresh/drafts";
 import { useEditRevision } from "../refresh/useEditRevision";
 import { useId, useRef, useState } from "react";
 import { Dialog } from "radix-ui";
@@ -70,10 +70,8 @@ export function NoteManagementDialog({
     target.kind === "tags" ? target.item.tagIds : [],
   );
 
-  const release = useDraftBackup(
+  const release = useUnsavedForm(
     `note:${target.kind}:${target.item.id}`,
-    headings[target.kind] + "草稿",
-    { name, tagIds, newNames, tagName, destination },
     !deleting &&
       (name !== target.item.title ||
         newNames.length > 0 ||

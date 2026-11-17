@@ -217,7 +217,7 @@ async function main() {
       "build",
     ]);
     await manager.run(
-      "Publishing official content",
+      "Publishing community content",
       python,
       ["-m", "solvemate_server.publish"],
       { cwd: serverDirectory },

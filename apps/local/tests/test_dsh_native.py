@@ -651,7 +651,7 @@ def test_native_permission_cancellation_removes_pending_choice(tmp_path):
     asyncio.run(exercise())
 
 
-def test_thinking_notifications_are_only_sent_when_phase_changes():
+def test_every_thinking_delta_reports_progress_without_disclosing_thought_text():
     updates = []
     fold = DshStream(SID, updates.append)
     fold.snapshot(snapshot())
@@ -665,7 +665,7 @@ def test_thinking_notifications_are_only_sent_when_phase_changes():
                 chunk={"type": "thinking-delta", "text": "private"},
             )
         )
-    assert updates == [{"sessionId": SID, "kind": "thinking"}]
+    assert updates == [{"sessionId": SID, "kind": "thinking"}] * 100
 
 
 def test_successful_native_rpc_may_have_no_return_value():

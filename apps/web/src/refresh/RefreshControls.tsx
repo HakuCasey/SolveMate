@@ -1,14 +1,15 @@
 import { UserStorageRecovery } from "../storage/UserStorageGate";
-import { useEffect, useState } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { Dialog } from "radix-ui";
 import type { AppData } from "@solvemate/contracts";
-import type { UnsavedRecord } from "../storage";
 import type { DataConflict } from "./merge";
 import { useDataRefresh } from "./useDataRefresh";
-import { formDrafts, useFormDrafts } from "./drafts";
-import { useSaveFeedback } from "../components/SaveFeedback";
-import { Check, CircleAlert, LoaderCircle, Pencil } from "lucide-react";
-import { recordStatus } from "../status/state";
+import { Check, CircleAlert, ListChecks, LoaderCircle } from "lucide-react";
+import { operations, operationStatus } from "../operations/store";
+import {
+  exportOperationDiagnostics,
+  retainOperationDiagnostics,
+} from "../operations/diagnostics";
 import { StatusPopover } from "../status/StatusPopover";
 import statusStyles from "../status/StatusBar.module.css";
 import styles from "./RefreshControls.module.css";
@@ -58,22 +59,11 @@ const display = (value: unknown) =>
     : typeof value === "string"
       ? value
       : JSON.stringify(value, null, 2);
-function download(value: unknown) {
-  const url = URL.createObjectURL(
-    new Blob([JSON.stringify(value, null, 2)], { type: "application/json" }),
-  );
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = "solvemate-unsaved.json";
-  link.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
+
 export function RefreshControls({
   data,
   conflicts,
-  recoveries,
   onResolve,
-  chatDrafts,
   saveState,
   loadFailure = null,
   loadingRecords = false,
@@ -82,9 +72,7 @@ export function RefreshControls({
   onOpenBackup,
   conflict,
   online,
-  errors,
   onRetry,
-  onRestoreRecovery,
   detailsOpen,
   onDetailsOpenChange,
   unsavedOpen,
@@ -92,9 +80,7 @@ export function RefreshControls({
 }: {
   data: AppData | null;
   conflicts: DataConflict[];
-  recoveries: UnsavedRecord[];
   onResolve: (index: number, choice: "local" | "remote") => void;
-  chatDrafts: Record<string, string>;
   saveState: "saving" | "saved" | "error";
   loadFailure?: unknown;
   loadingRecords?: boolean;
@@ -103,268 +89,216 @@ export function RefreshControls({
   onOpenBackup: () => void;
   conflict: boolean;
   online: boolean;
-  errors: string[];
-  onRetry: () => void;
-  onRestoreRecovery: (id: string) => Promise<boolean>;
+  onRetry: (key?: string) => void;
   unsavedOpen: boolean;
   onUnsavedOpenChange: (open: boolean) => void;
   detailsOpen: boolean;
   onDetailsOpenChange: (open: boolean) => void;
 }) {
-  const saved = useSaveFeedback();
-  const state = useDataRefresh();
-  const drafts = useFormDrafts();
-  const [restoringId, setRestoringId] = useState<string | null>(null);
-  const [restoreError, setRestoreError] = useState("");
-
+  const refresh = useDataRefresh();
   useEffect(() => {
-    void formDrafts.restore();
+    let disposed = false;
+    let unsubscribe: (() => void) | undefined;
+    void retainOperationDiagnostics().then((stop) => {
+      if (disposed) stop();
+      else unsubscribe = stop;
+    });
+    return () => {
+      disposed = true;
+      unsubscribe?.();
+    };
   }, []);
-  const hasPending =
-    saveState === "error" || conflict || drafts.activeCount > 0;
-  const hasRetained = drafts.items.length > 0 || recoveries.length > 0;
-  const hasDetails = hasPending || hasRetained;
-  const loadMessage =
-    loadFailure instanceof Error
-      ? loadFailure.message
-      : loadFailure
-        ? "记录未能读取，原数据已保留。"
-        : "";
-  const messages = [
-    ...new Set(
-      [loadMessage, readError, ...errors, state.error, drafts.error].filter(
-        Boolean,
-      ),
-    ),
-  ];
-  const status = recordStatus({
-    saveState,
-    conflict,
-    online,
-    unsaved: drafts.activeCount > 0,
-    reading: loadingRecords,
-    readError: loadMessage || readError || state.error || drafts.error,
-  });
-  const Icon = status.attention
-    ? status.label === "有未保存修改"
-      ? Pencil
-      : CircleAlert
-    : saveState === "saving" || loadingRecords
-      ? LoaderCircle
-      : Check;
-  const tone =
-    status.label === "有未保存修改"
-      ? "active"
-      : status.attention
-        ? "danger"
-        : saveState === "saving"
-          ? "active"
-          : "neutral";
-  const saving =
-    (saveState === "saving" || loadingRecords) && !status.attention;
-  const needsRefresh =
-    !!loadFailure ||
-    !!readError ||
-    conflict ||
-    !online ||
-    !!(state.error || drafts.error);
-  const hasActions =
-    (saveState === "error" && !conflict) || needsRefresh || hasDetails;
+  const snapshot = useSyncExternalStore(
+    operations.subscribe,
+    operations.snapshot,
+    operations.snapshot,
+  );
+  const status = operationStatus(snapshot);
+  const busy = !status.attention && (status.busy || loadingRecords);
+  const label = status.attention ? "操作失败" : busy ? "操作中…" : status.label;
+  const result = status.result;
+  const text = status.attention
+    ? `${result?.label ?? "操作"}失败`
+    : busy
+      ? `${result?.status === "running" ? result.label : "读取本机数据"}…`
+      : result
+        ? `${result.label}完成`
+        : "暂无正在执行的操作。";
+  const needsRead = !!loadFailure || !!readError || !online || !!refresh.error;
+  const failedRecords = snapshot.failures.some((item) =>
+    item.key.startsWith("records:"),
+  );
+  const errorText = status.attention ? result?.error : "";
   return (
     <>
       <StatusPopover
-        category="记录保存"
-        value={status.label}
-        icon={Icon}
-        tone={tone}
-        busy={saving}
+        category="操作状态"
+        value={label}
+        status={text}
+        icon={status.attention ? CircleAlert : busy ? LoaderCircle : Check}
+        tone={status.attention ? "danger" : busy ? "active" : "neutral"}
+        busy={busy}
         open={detailsOpen}
         onOpenChange={onDetailsOpenChange}
       >
-        {conflict && (
-          <div
-            className={`${statusStyles.alert} ${statusStyles.error}`}
-            role="alert"
-          >
-            存在修改冲突，请选择要保留的内容。
-          </div>
+        {result?.targetName && <p>{result.targetName}</p>}
+        {result?.failures?.length ? (
+          <ul>
+            {result.failures.map((failure) => (
+              <li key={failure.label}>{failure.label}</li>
+            ))}
+          </ul>
+        ) : (
+          errorText && <p role="alert">{errorText}</p>
         )}
-        {messages.map((message) => (
-          <div
-            className={`${statusStyles.alert} ${status.attention ? statusStyles.error : ""}`}
-            key={message}
-            role={status.attention ? "alert" : "status"}
-          >
-            {message}
-          </div>
-        ))}
+        {status.attention && result?.guidance && <p>{result.guidance}</p>}
         <UserStorageRecovery failure={loadFailure} onReload={onRetryRead} />
-        {hasActions && (
-          <div className={statusStyles.actions}>
-            {saveState === "error" && !conflict && !loadFailure && (
-              <button className={statusStyles.primary} onClick={onRetry}>
-                重试保存
-              </button>
-            )}
-            {needsRefresh && (
+        <div className={statusStyles.actions}>
+          {(saveState === "error" || failedRecords) &&
+            result?.key.startsWith("records:") &&
+            !conflict &&
+            !loadFailure && (
               <button
-                disabled={state.refreshing}
-                onClick={() => void state.refresh(undefined, false, true)}
+                className={statusStyles.primary}
+                onClick={() => onRetry(result?.key)}
               >
-                {state.refreshing
-                  ? "正在读取…"
-                  : loadFailure
-                    ? "重新读取"
-                    : "刷新数据"}
+                重试
               </button>
             )}
-            {!!loadFailure && (
-              <button onClick={onOpenBackup}>备份与恢复</button>
-            )}
-            {hasDetails && (
-              <button
-                className={conflict ? statusStyles.primary : undefined}
-                onClick={() => {
-                  onDetailsOpenChange(false);
-                  onUnsavedOpenChange(true);
-                }}
-              >
-                {conflicts.length
-                  ? `处理修改冲突（${conflicts.length} 项）`
-                  : hasPending
-                    ? "处理未保存内容"
-                    : "恢复记录"}
-              </button>
-            )}
-          </div>
-        )}
+          {needsRead && (
+            <button
+              disabled={refresh.refreshing || loadingRecords}
+              onClick={() => {
+                void refresh.refresh(undefined, false, true);
+              }}
+            >
+              重新读取
+            </button>
+          )}
+          {conflict && (
+            <button
+              className={statusStyles.primary}
+              onClick={() => {
+                onDetailsOpenChange(false);
+                onUnsavedOpenChange(true);
+              }}
+            >
+              处理修改冲突
+            </button>
+          )}
+          {!!loadFailure && online && (
+            <button onClick={onOpenBackup}>备份与恢复</button>
+          )}
+          <button
+            onClick={() => {
+              onDetailsOpenChange(false);
+              onUnsavedOpenChange(true);
+            }}
+          >
+            查看详情
+          </button>
+        </div>
       </StatusPopover>
       <Dialog.Root open={unsavedOpen} onOpenChange={onUnsavedOpenChange}>
         <Dialog.Portal>
           <Dialog.Overlay className={styles.overlay} />
           <Dialog.Content className={styles.dialog}>
-            <Dialog.Title>
-              {hasPending ? "未保存内容" : "草稿与保存备份"}
-            </Dialog.Title>
-            <Dialog.Description>
-              保存失败的记录可以重新保存；有冲突时选择要保留的内容。未提交的表单需返回编辑窗口保存，提问草稿不会自动发送。
-            </Dialog.Description>
-            {conflicts.map((item, index) => (
-              <section key={JSON.stringify(item.path)}>
-                <h3>{titleOf(item.path, data)}</h3>
-                <label>
-                  本页修改
-                  <textarea readOnly value={display(item.local)} />
-                </label>
-                <label>
-                  最新记录
-                  <textarea readOnly value={display(item.remote)} />
-                </label>
-                <div className={styles.actions}>
-                  {!item.deleted && (
-                    <button onClick={() => onResolve(index, "local")}>
-                      保留本页修改
+            <header className={styles.header}>
+              <Dialog.Title>
+                <ListChecks aria-hidden="true" />
+                {conflicts.length ? "处理修改冲突" : "操作详情"}
+              </Dialog.Title>
+              <Dialog.Description>
+                {conflicts.length
+                  ? "同一内容在其他窗口发生了修改，请选择要保留的内容。"
+                  : "当前未解决的失败操作，重试成功后自动移除。"}
+              </Dialog.Description>
+            </header>
+            <div
+              className={styles.records}
+              role="region"
+              aria-label="操作详情列表"
+              tabIndex={0}
+            >
+              {conflicts.map((item, index) => (
+                <section key={JSON.stringify(item.path)}>
+                  <h3>{titleOf(item.path, data)}</h3>
+                  <label>
+                    本页修改
+                    <textarea readOnly value={display(item.local)} />
+                  </label>
+                  <label>
+                    最新记录
+                    <textarea readOnly value={display(item.remote)} />
+                  </label>
+                  <div className={styles.actions}>
+                    {!item.deleted && (
+                      <button onClick={() => onResolve(index, "local")}>
+                        保留本页修改
+                      </button>
+                    )}
+                    <button onClick={() => onResolve(index, "remote")}>
+                      {item.deleted ? "确认条目已删除" : "使用最新内容"}
+                    </button>
+                  </div>
+                </section>
+              ))}
+              {snapshot.failures.map((item) => (
+                <details key={item.id}>
+                  <summary>
+                    <span>
+                      {item.label}失败
+                      {item.targetName ? ` · ${item.targetName}` : ""}
+                    </span>
+                    <time>
+                      {new Date(
+                        item.finishedAt ?? item.startedAt,
+                      ).toLocaleString()}
+                    </time>
+                  </summary>
+                  {item.targetName && <p>{item.targetName}</p>}
+                  {item.failures?.length ? (
+                    <ul>
+                      {item.failures.map((failure) => (
+                        <li key={failure.label}>
+                          <strong>{failure.label}</strong>
+                          {failure.message ? `：${failure.message}` : ""}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p>{item.error}</p>
+                  )}
+                  {item.guidance && <p>{item.guidance}</p>}
+                  {item.key.startsWith("records:") &&
+                    !conflict &&
+                    !loadFailure && (
+                      <button onClick={() => onRetry(item.key)}>重试</button>
+                    )}
+                  {item.key === "refresh:data" && (
+                    <button
+                      disabled={refresh.refreshing}
+                      onClick={() =>
+                        void refresh.refresh(undefined, false, true)
+                      }
+                    >
+                      重试刷新
                     </button>
                   )}
-                  <button onClick={() => onResolve(index, "remote")}>
-                    {item.deleted ? "保留备份，移除已删除条目" : "使用最新内容"}
-                  </button>
-                </div>
-              </section>
-            ))}
-            {restoreError && (
-              <p role="alert" className={styles.error}>
-                {restoreError}
-              </p>
-            )}
-            {drafts.items.map((item) => (
-              <details key={item.id}>
-                <summary>{item.title}</summary>
-                <textarea
-                  aria-label={item.title}
-                  readOnly
-                  value={display(item.value)}
-                />
-                <button onClick={() => download(item)}>导出草稿</button>
-                {formDrafts.isActive(item.id) && (
-                  <button onClick={() => onUnsavedOpenChange(false)}>
-                    返回编辑
-                  </button>
-                )}
-              </details>
-            ))}
-            {Object.entries(chatDrafts)
-              .filter(
-                ([key, value]) =>
-                  !!value && hasPending && data?.drafts?.[key] !== value,
-              )
-              .map(([key, value]) => (
-                <details key={key}>
-                  <summary>
-                    提问草稿
-                    {key.startsWith("conversation:")
-                      ? ` · ${data?.conversations.find((item) => `conversation:${item.id}` === key)?.title ?? "原对话"}`
-                      : ""}
-                  </summary>
-                  <textarea
-                    aria-label="保留的提问草稿"
-                    readOnly
-                    value={value}
-                  />
                 </details>
               ))}
-            {recoveries.map((item) => (
-              <details key={item.id}>
-                <summary>
-                  保存失败时保留的记录 ·{" "}
-                  {new Date(item.createdAt).toLocaleString()}
-                </summary>
-                <p>
-                  包含当时未保存的修改。重新保存时与当前记录合并，有冲突会要求确认。
-                </p>
-                <button
-                  disabled={
-                    restoringId !== null || saveState === "saving" || conflict
-                  }
-                  onClick={async () => {
-                    setRestoringId(item.id);
-                    setRestoreError("");
-                    try {
-                      if (await onRestoreRecovery(item.id)) saved("记录已保存");
-                    } catch (error) {
-                      setRestoreError(
-                        error instanceof Error
-                          ? error.message
-                          : "记录未能保存，请重试。",
-                      );
-                    } finally {
-                      setRestoringId(null);
-                    }
-                  }}
-                >
-                  {restoringId === item.id ? "正在保存…" : "重新保存这份记录"}
-                </button>
-                <button onClick={() => download(item)}>导出这份记录</button>
-              </details>
-            ))}
-            <div className={styles.actions}>
-              {saveState === "error" && !conflict && !loadFailure && (
-                <button onClick={onRetry}>重试保存</button>
+              {!conflicts.length && !snapshot.failures.length && (
+                <p>当前没有未解决的失败操作。</p>
               )}
-              <button
-                onClick={() =>
-                  download({
-                    conflicts,
-                    recoveries,
-                    forms: drafts.items,
-                    chatDrafts,
-                  })
-                }
-              >
-                导出这些记录
-              </button>
-              <Dialog.Close>关闭</Dialog.Close>
             </div>
+            <footer className={`${styles.actions} ${styles.footer}`}>
+              {snapshot.diagnostics.length > 0 && (
+                <button onClick={exportOperationDiagnostics}>
+                  导出诊断日志
+                </button>
+              )}
+              <Dialog.Close>关闭</Dialog.Close>
+            </footer>
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog.Root>

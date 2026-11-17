@@ -200,17 +200,11 @@ class DshProcess:
             )
         state.task = asyncio.current_task()
         try:
-            async with asyncio.timeout(300):
-                return await self.follow(state, sid, text, request_id or str(uuid4()))
+            return await self.follow(state, sid, text, request_id or str(uuid4()))
         except (ValueError, KeyError, TypeError) as error:
             raise ConnectionError(
                 "DSH 实时数据格式不受支持，请检查 Harness 版本；已有正文仍保留。",
                 "protocol_invalid",
-            ) from error
-        except TimeoutError as error:
-            raise ConnectionError(
-                "等待 DSH 回复超时，已有内容仍保留，可恢复原会话后继续。",
-                "execution_unconfirmed",
             ) from error
         finally:
             state.finished.set()

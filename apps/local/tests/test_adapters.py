@@ -256,8 +256,23 @@ def test_hermes_launcher_keeps_paths_and_arguments_separate(
     launcher.touch()
     launcher.chmod(0o700)
     executable = find_hermes(str(launcher))
+    from solvemate_local.adapters import hermes_reasoning
+
+    async def runtime(argv, env):
+        assert argv == [executable, "--print-runtime-command", "--module", "site"]
+        return json.dumps(
+            [
+                str(tmp_path / "Python 中文.exe"),
+                "-I",
+                "-c",
+                "import runpy, sys; runpy.run_module('site')",
+            ]
+        )
+
+    monkeypatch.setattr(hermes_reasoning, "_run", runtime)
     argv, env = asyncio.run(HermesProcess(executable, str(tmp_path)).prepare_launch())
-    assert argv == [str(launcher.resolve()), "acp"]
+    assert argv[1:3] == ["-I", "-c"]
+    assert argv[-1].endswith("hermes_acp.py")
     assert env["HERMES_HOME"] == str(tmp_path / "配置 空格")
     assert "ELECTRON_RUN_AS_NODE" not in env
 

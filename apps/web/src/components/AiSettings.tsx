@@ -1,5 +1,5 @@
 import { useEditValue } from "../refresh/useEditRevision";
-import { useDraftBackup } from "../refresh/drafts";
+import { useUnsavedForm } from "../refresh/drafts";
 import { useEffect, useRef, useState } from "react";
 import { Check, LoaderCircle, RefreshCw, Star, Trash2 } from "lucide-react";
 import { AlertDialog } from "radix-ui";
@@ -102,7 +102,7 @@ export function AiSettings({
     isDefault: boolean;
   } | null>(null);
   const [deleteError, setDeleteError] = useState("");
-  useDraftBackup(`ai-settings:${provider}`, "AI 连接配置草稿", draft, dirty);
+  useUnsavedForm(`ai-settings:${provider}`, dirty);
   const deleteTrigger = useRef<HTMLButtonElement>(null);
   const settingsRoot = useRef<HTMLElement>(null);
 

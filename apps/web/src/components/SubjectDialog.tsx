@@ -1,5 +1,5 @@
 import { useEditValue } from "../refresh/useEditRevision";
-import { useDraftBackup } from "../refresh/drafts";
+import { useUnsavedForm } from "../refresh/drafts";
 import { useId, useState } from "react";
 import { AlertDialog, Dialog } from "radix-ui";
 import type { Subject } from "@solvemate/contracts";
@@ -55,10 +55,8 @@ function EditSubject({
       ? undefined
       : subjects.find((item) => item.id === action.subject.id),
   );
-  const release = useDraftBackup(
+  const release = useUnsavedForm(
     `subject:${action.kind === "create" ? "new" : action.subject.id}`,
-    "学科名称草稿",
-    { title },
     title !== (action.kind === "create" ? "" : action.subject.title),
   );
   const onClose = () => {

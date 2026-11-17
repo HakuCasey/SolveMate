@@ -325,7 +325,10 @@ class Store:
             "SELECT kind,receipt_key FROM session_receipts WHERE connection_id=? AND external_id=?",
             (connection_id, external_id),
         ):
-            result[row["kind"]].add(row["receipt_key"])
+            if row["kind"] in {"skill", "template"}:
+                result.setdefault("instructions", {})[row["kind"]] = row["receipt_key"]
+            else:
+                result[row["kind"]].add(row["receipt_key"])
         return result
 
     def confirm_receipts(
@@ -341,6 +344,20 @@ class Store:
                 ],
             )
             if turn is not None:
+                # 指令保留最后一次确认值，而不是历史集合；与确认时间一并提交。
+                for kind, key in (
+                    turn.get("dispatch", {}).get("instructionKeys", {}).items()
+                ):
+                    if kind not in {"skill", "template"}:
+                        raise ValueError("Unknown instruction receipt kind.")
+                    self.db.execute(
+                        "DELETE FROM session_receipts WHERE connection_id=? AND external_id=? AND kind=?",
+                        (connection_id, external_id, kind),
+                    )
+                    self.db.execute(
+                        "INSERT INTO session_receipts VALUES (?,?,?,?)",
+                        (connection_id, external_id, kind, key),
+                    )
                 # 收件记录与执行中的确认时间在同一事务中保存。
                 saved = {key: value for key, value in turn.items() if key != "task"}
                 self.save_turn(saved)

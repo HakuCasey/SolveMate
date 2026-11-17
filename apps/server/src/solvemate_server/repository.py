@@ -6,7 +6,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, ValidationError
 
-from .models import CatalogEntry, PublishedCatalog, ReleaseManifest
+from .models import CatalogEntry, PublishedCatalog, ReleaseManifest, TeachingTool
 
 
 def json_bytes(value: BaseModel | dict) -> bytes:
@@ -93,9 +93,25 @@ class ContentRepository:
         except (OSError, ValidationError) as error:
             raise RepositoryError("Published content manifest is invalid.") from error
 
+    def tool_release(self, ident: str, version: str) -> tuple[TeachingTool, bytes]:
+        entry = next((item for item in self.catalog().tools if item.id == ident), None)
+        if not entry or version not in entry.versions:
+            raise ContentNotFound("Tool version was not found.")
+        try:
+            payload = self._path("tools", ident, f"{version}.json").read_bytes()
+            tool = TeachingTool.model_validate_json(payload)
+            if tool.id != ident or hashlib.sha256(payload).hexdigest() != version:
+                raise RepositoryError("Tool checksum or ID does not match.")
+            return tool, payload
+        except (OSError, ValidationError) as error:
+            raise RepositoryError("Published tool is invalid.") from error
+
     def validate(self) -> PublishedCatalog:
         catalog = self.catalog()
         for course in catalog.courses:
             for version in course.versions:
                 self.release(course, version)
+        for tool in catalog.tools:
+            for version in tool.versions:
+                self.tool_release(tool.id, version)
         return catalog

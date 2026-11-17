@@ -1,5 +1,6 @@
 import type { PersonalMaterials } from "../materials/useMaterials";
 import { materialFixtures } from "../content/library.test-support";
+import { createInitialData } from "../data/catalog";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
@@ -35,6 +36,20 @@ function render(
   return renderToStaticMarkup(
     createElement(ContentManager, {
       content,
+      tools: {
+        items: [],
+        remote: [],
+        checking: false,
+        error: "",
+        busy: null,
+        refresh: async () => {},
+        save: async () => createInitialData(),
+        select: async () => createInitialData(),
+        rename: async () => createInitialData(),
+        remove: async () => createInitialData(),
+        download: async () => createInitialData(),
+      },
+      onUseTool: async () => {},
       library: new OfficialLibrary(
         snapshot,
         {

@@ -96,12 +96,21 @@ export function QuestionReader({
     >
       {header ?? (
         <header className={styles.toolbar}>
-          <button onClick={onBack}>
-            <ArrowLeft aria-hidden="true" />
-            题目
-          </button>
-          <strong>{material.title}</strong>
-          {relatedContent}
+          <div className={styles.titleRow}>
+            <button
+              className={styles.back}
+              type="button"
+              aria-label="返回题目列表"
+              onClick={onBack}
+            >
+              <ArrowLeft aria-hidden="true" />
+              题目
+            </button>
+            <strong className={styles.documentTitle} title={material.title}>
+              {material.title}
+            </strong>
+            {relatedContent}
+          </div>
         </header>
       )}
       {material.deletedAt != null && (

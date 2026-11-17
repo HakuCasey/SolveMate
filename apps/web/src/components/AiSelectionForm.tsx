@@ -1,4 +1,4 @@
-import { useDraftBackup } from "../refresh/drafts";
+import { useUnsavedForm } from "../refresh/drafts";
 import { useEditValue } from "../refresh/useEditRevision";
 import { useState } from "react";
 import type { Robot, RobotAiDefaults } from "@solvemate/contracts";
@@ -35,12 +35,7 @@ export function AiSelectionForm({
   const [status, setStatus] = useState("");
   const [saving, setSaving] = useState(false);
   const changed = JSON.stringify(saved) !== JSON.stringify(config);
-  const release = useDraftBackup(
-    `ai-selection:${scopeId}`,
-    `${robot.name}的 AI 选择草稿`,
-    config,
-    changed,
-  );
+  const release = useUnsavedForm(`ai-selection:${scopeId}`, changed);
   const error = robotAiError(config, settings);
   return (
     <section className={styles.settings} aria-label="AI 选择">

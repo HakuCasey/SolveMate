@@ -2,7 +2,7 @@
 
 ## 接入方式
 
-使用 `codex app-server --listen stdio://`。本机已安装的 Codex CLI 为 0.162.1，模型、登录状态与配置由该进程提供；SolveMate 不读取凭据文件。官方文档与安装版本生成的 JSON Schema 共同用于核对请求和事件。
+使用 `codex app-server --listen stdio://`。本机已安装的 Codex CLI 为 0.162.1，模型、登录状态与配置由该进程提供；SolveMate 不读取凭据文件。社区文档与安装版本生成的 JSON Schema 共同用于核对请求和事件。
 
 ## 适配边界
 
@@ -24,7 +24,7 @@ Codex 的连接编号为 `codex-local`，绑定协议为 `codex-app-server`。�
 
 ## 参考
 
-- [Codex App Server 官方文档](https://learn.chatgpt.com/docs/app-server)
+- [Codex App Server 社区文档](https://learn.chatgpt.com/docs/app-server)
 - 本机 `codex app-server generate-json-schema` 生成的 0.162.1 协议定义。
 
 ## 变更范围
@@ -37,7 +37,7 @@ Codex 的连接编号为 `codex-local`，绑定协议为 `codex-app-server`。�
 | 传输       | `transport.py` 共用 JSON-RPC 收发与生命周期，ACP、app-server 分别初始化和处理原生客户端请求；读任务结束后不复用失效连接 |
 | 注册与兼容 | 注册 Codex，声明服务类型；旧格式迁移只处理 DSH，不把新服务写成 DSH 连接                                                 |
 | 前端       | 仅调整 `ai/local-api.ts`、`ai/robot-config.ts`、`ai/state.ts`，声明服务并保存原生协议与执行编号                         |
-| 业务页面   | 聊天页面、教师配置页面、AI 配置气泡、服务切换确认及列宽布局均复用现有代码，无文件改动                                   |
+| 业务页面   | 聊天页面、机器人配置页面、AI 配置气泡、服务切换确认及列宽布局均复用现有代码，无文件改动                                 |
 
 公共接口补充了提问、停止、权限、事件和运行状态检查。DSH、Hermes 的协议转换放在 ACP 适配器中；新服务通过注册适配器与声明类型加入。对现有接口无法表达的操作，应明确扩展公共接口并验证已有服务。
 

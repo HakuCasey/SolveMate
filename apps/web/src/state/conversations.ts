@@ -58,7 +58,9 @@ export function conversationForReading(
 ) {
   const matching = conversations.filter(
     (item) =>
-      item.status === "active" && sameContent(item.selection, selection),
+      item.status === "active" &&
+      !item.research &&
+      sameContent(item.selection, selection),
   );
   // 用户从条目返回某个旧会话时保留该选择；科目入口则取最近一条。
   return (
@@ -300,8 +302,10 @@ export function conversationForMaterial(
   const matching = conversations.filter(
     (item) =>
       item.status === "active" &&
+      !item.research &&
       item.material?.materialId === location.materialId &&
-      item.material.contentVersion === location.contentVersion,
+      item.material.contentVersion === location.contentVersion &&
+      item.material.questionId === location.questionId,
   );
   return (
     matching.find((item) => item.id === preferredId) ??

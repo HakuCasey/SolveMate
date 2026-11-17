@@ -77,5 +77,10 @@
         }
       ]
     }
+  ],
+  "tools": [
+    "lecture-development",
+    "question-development",
+    "question-explanation"
   ]
 }

@@ -4,7 +4,7 @@
 
 ## 运行与检查
 
-网页安装与启动见 [README](README.md#本地启动与访问)，Python 服务见[官方内容服务](apps/server/README.md)和[本机 AI 服务](apps/local/README.md)。前端使用 Node.js 24、npm 11 验证，后端支持 Python 3.12 及以上，当前验证环境为 Python 3.14。
+网页安装与启动见 [README](README.md#本地启动与访问)，Python 服务见[社区内容服务](apps/server/README.md)和[本机 AI 服务](apps/local/README.md)。前端使用 Node.js 24、npm 11 验证，后端支持 Python 3.12 及以上，当前验证环境为 Python 3.14。
 
 修改网页代码后，在仓库根目录执行：
 
@@ -32,7 +32,7 @@ python -m build --wheel --no-isolation
 
 修改 AI 配置与对话的共享字段时，先更新 `packages/contracts/ai-metadata.schema.json`，运行 `npm run contracts:generate`，同步两端转换逻辑和共享测试样例；`npm run check` 会检查生成文件是否同步。
 
-改动官方内容接口后，从 `create_app().openapi()` 重新生成 `packages/contracts/content-api.openapi.json`，同步客户端校验与接口说明。修改内容资产时检查题号、章节锚点和记忆来源引用，并运行发布测试。
+改动社区内容接口后，从 `create_app().openapi()` 重新生成 `packages/contracts/content-api.openapi.json`，同步客户端校验与接口说明。修改内容资产时检查题号、章节锚点和记忆来源引用，并运行发布测试。
 
 ## 提交改动
 

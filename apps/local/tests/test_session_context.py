@@ -147,7 +147,7 @@ def test_a_b_a_keeps_two_sessions_and_only_catches_up_unreceived_messages(tmp_pa
             )
             assert resumed["dispatch"]["contentKeys"] == []
             assert resumed["dispatch"]["receivedAt"] > 0
-            assert resumed["dispatch"]["templateVersion"] == "learning-discussion-v2"
+            assert resumed["dispatch"]["templateVersion"] == "learning-discussion-v6"
         finally:
             await service.close()
             store.close()
@@ -214,12 +214,19 @@ def test_no_receipt_is_inferred_when_prompt_disconnects_without_acknowledgment(
         service = AiService(store, registry=fake_registry(dsh_factory=Silent))
         try:
             await configure(service)
-            req = question("not acknowledged", readingContext=page())
+            from test_prompting import research_context
+
+            req = question(
+                "not acknowledged", readingContext=page(), research=research_context()
+            )
             service.create_turn(req)
             turn = await completed(service, req.id)
             assert turn["status"] == "failed"
             assert turn["submissionStatus"] == "uncertain"
             assert "receivedAt" not in turn["dispatch"]
+            assert not store.receipts("deepseek-local", turn["externalSessionId"]).get(
+                "instructions"
+            )
             assert (
                 store.receipts("deepseek-local", turn["externalSessionId"])["content"]
                 == set()
@@ -362,3 +369,46 @@ def test_v3_binding_migration_preserves_all_columns_and_can_add_another_service(
         assert restored.db.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
     finally:
         restored.close()
+
+
+def test_tool_instructions_follow_each_native_session_and_survive_restart(tmp_path):
+    from copy import deepcopy
+
+    from test_prompting import research_context
+
+    async def exercise():
+        store = Store(tmp_path)
+        service = AiService(store, registry=fake_registry(FakeHermes))
+        try:
+            await configure(service, hermes=True)
+            original = research_context()
+            first = await run(service, question("use A", research=original))
+            sid = first["externalSessionId"]
+            assert set(first["dispatch"]["instructionKeys"]) == {"skill", "template"}
+            same = await run(service, question("continue A", research=original))
+            assert same["dispatch"]["instructionKeys"] == {}
+            changed = deepcopy(original)
+            changed["template"]["content"] = "模板 B"
+            b = await run(service, question("use B", research=changed))
+            assert set(b["dispatch"]["instructionKeys"]) == {"template"}
+            await service.close()
+            store.close()
+            store = Store(tmp_path)
+            service = AiService(store, registry=fake_registry(FakeHermes))
+            back = await run(service, question("return A", research=original))
+            assert back["externalSessionId"] == sid
+            assert set(back["dispatch"]["instructionKeys"]) == {"template"}
+            other = await run(
+                service, question("other service", "hermes-local", research=original)
+            )
+            assert set(other["dispatch"]["instructionKeys"]) == {"skill", "template"}
+            again = await run(
+                service, question("back to first service", research=original)
+            )
+            assert again["externalSessionId"] == sid
+            assert again["dispatch"]["instructionKeys"] == {}
+        finally:
+            await service.close()
+            store.close()
+
+    asyncio.run(exercise())

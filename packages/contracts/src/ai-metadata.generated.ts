@@ -36,7 +36,8 @@ export type AiMetadataContract =
   | AiSelection
   | ConnectionCheck
   | Material
-  | MaterialVersion;
+  | MaterialVersion
+  | TeachingTool;
 export type ProviderId = "deepseek-harness" | "hermes" | "codex";
 export type HarnessProtocol =
   | "acp"
@@ -123,6 +124,11 @@ export interface ReadingSelection {
 export interface ReadingReference {
   title: string;
   content: string;
+  /**
+   * @minItems 1
+   * @maxItems 200
+   */
+  pageNumbers?: [number, ...number[]];
   selection: ReadingSelection | null;
   material?: MaterialLocation;
   quoteKind?: "page" | "selection";
@@ -253,6 +259,19 @@ export interface ConversationMetadata {
   selection: ReadingSelection | null;
   aiConfig: ConversationAiConfig;
   material?: MaterialLocation | null;
+  research?: QuestionResearchContext;
+}
+export interface QuestionResearchContext {
+  kind: "question-research";
+  template: ResearchResource;
+  skill: ResearchResource;
+  toolId?: string;
+  toolTitle?: string;
+}
+export interface ResearchResource {
+  id: string;
+  title: string;
+  content: string;
 }
 export interface SessionBinding {
   conversationId: string;
@@ -289,6 +308,10 @@ export interface TurnDispatch {
   contentKeys?: string[];
   messageIds?: string[];
   receivedAt?: number;
+  instructionKeys?: {
+    skill?: string;
+    template?: string;
+  };
 }
 export interface PermissionOption {
   optionId: string;
@@ -342,6 +365,7 @@ export interface AiTurn {
    */
   references?: ReadingReference[];
   readingContext?: ReadingReference;
+  research?: QuestionResearchContext;
 }
 export interface SessionTurn {
   id: string;
@@ -389,6 +413,7 @@ export interface TurnInput {
      * @maxItems 20
      */
     references?: ReadingReference[];
+    research?: QuestionResearchContext;
   }[];
   conversationSnapshot?: ConversationMetadata;
   connectionRevision?: number;
@@ -401,10 +426,16 @@ export interface TurnInput {
   readingContext?: SupportedReadingReference;
   restartSession?: boolean;
   bindingRevision?: number;
+  research?: QuestionResearchContext;
 }
 export interface SupportedReadingReference {
   title: string;
   content: string;
+  /**
+   * @minItems 1
+   * @maxItems 200
+   */
+  pageNumbers?: [number, ...number[]];
   selection: ReadingSelection | null;
   material?: MaterialLocation;
   quoteKind?: "page" | "selection";
@@ -449,4 +480,19 @@ export interface MaterialVersion {
   processor: string | null;
   processorVersion: string | null;
   storagePath: string;
+}
+export interface TeachingTool {
+  id: string;
+  title: string;
+  description: string;
+  skill: ResearchResource;
+  template: ResearchResource;
+  source: "official" | "user";
+  version?: string;
+  updatedAt: number;
+  /**
+   * @maxItems 2
+   */
+  suggestions?: string[];
+  customTitle?: string;
 }

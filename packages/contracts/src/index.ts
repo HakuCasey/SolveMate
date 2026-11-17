@@ -68,7 +68,7 @@ export interface Course {
   };
 }
 
-/** 学科分类独立于官方课程包；删除标记用于保留原资料和历史记录的关联。 */
+/** 学科分类独立于社区课程包；删除标记用于保留原资料和历史记录的关联。 */
 export interface Subject {
   id: CourseId;
   title: string;
@@ -95,9 +95,13 @@ import type {
   SessionTurn,
   ReadingReference,
   MaterialLocation,
+  QuestionResearchContext,
+  ResearchResource,
+  TeachingTool,
 } from "./ai-metadata.generated";
 
 export interface Message {
+  research?: QuestionResearchContext;
   id: string;
   role: "user" | "assistant";
   content: string;
@@ -191,7 +195,18 @@ export interface Settings {
   readingPaneRatio?: number;
 }
 
+export interface QuestionResearchWorkspace {
+  source: LearningLocation | null;
+  conversationId: string | null;
+  context: QuestionResearchContext;
+  /** 仅用于读取早期自定义模板，新工具统一保存在 tools 中。 */
+  templates: ResearchResource[];
+  tools?: TeachingTool[];
+  selectedToolId?: string | null;
+}
+
 export interface AppData {
+  questionResearch?: QuestionResearchWorkspace;
   schemaVersion: 3;
   robotCatalogVersion?: 1;
   robots: Robot[];

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Dialog } from "radix-ui";
 import type { NoteLibrary, ReadingReference } from "@solvemate/contracts";
 import { unclassifiedNotebookId, type NoteDestination } from "../state/notes";
-import { useDraftBackup } from "../refresh/drafts";
+import { useUnsavedForm } from "../refresh/drafts";
 import { NotebookDestinationSelect } from "./NotebookDestinationSelect";
 import styles from "./NoteManagement.module.css";
 
@@ -25,12 +25,7 @@ export function SelectionNoteDialog({
   });
   const [saving, setSaving] = useState(false),
     [error, setError] = useState("");
-  const release = useDraftBackup(
-    `selection-note:${id}`,
-    "选段笔记草稿",
-    { reference, destination },
-    true,
-  );
+  const release = useUnsavedForm(`selection-note:${id}`, true);
   function close() {
     if (!saving) {
       release();

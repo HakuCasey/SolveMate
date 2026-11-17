@@ -279,6 +279,25 @@ def test_converter_missing_retry_and_interrupted_processing(tmp_path, monkeypatc
             quoteKind="selection",
         )
         app.state.materials.validate_reference(reference)
+        page_reference = ReadingReference(
+            title="课件 · 第 1 页",
+            content="",
+            pageNumbers=[1],
+            selection=None,
+            material={
+                "materialId": record["id"],
+                "contentVersion": record["currentVersion"],
+                "pageNumber": 1,
+            },
+            quoteKind="page",
+        )
+        app.state.materials.prepare_reference(page_reference)
+        assert page_reference._resource_path == str(
+            app.state.materials.reader_path(record["id"], record["currentVersion"])[
+                1
+            ].resolve()
+        )
+        assert "_resource_path" not in page_reference.model_dump()
         request = TurnRequest(
             id="test-turn",
             conversationId="test-session",

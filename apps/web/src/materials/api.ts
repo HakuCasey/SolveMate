@@ -1,3 +1,4 @@
+import { trackOperation } from "../operations/store";
 import { uploadRequest } from "./upload-request";
 import Dexie, { type Table } from "dexie";
 import {
@@ -341,4 +342,36 @@ const api = {
   },
 };
 
-export const materialApi = api;
+export const materialApi = {
+  ...api,
+  rename: trackOperation(
+    ([item]) => ({
+      key: `materials:rename:${item.id}`,
+      label: "重命名资料",
+      targetId: item.id,
+      targetName: item.title,
+      guidance: "请返回资料列表，核对名称后重试。",
+    }),
+    api.rename,
+  ),
+  remove: trackOperation(
+    ([item]) => ({
+      key: `materials:remove:${item.id}`,
+      label: "删除资料",
+      targetId: item.id,
+      targetName: item.title,
+      guidance: "请返回资料列表，核对资料是否仍存在后重试。",
+    }),
+    api.remove,
+  ),
+  assignCourse: trackOperation(
+    ([item]) => ({
+      key: `materials:move:${item.id}`,
+      label: "移动资料",
+      targetId: item.id,
+      targetName: item.title,
+      guidance: "请返回资料列表，重新选择目标学科。",
+    }),
+    api.assignCourse,
+  ),
+};

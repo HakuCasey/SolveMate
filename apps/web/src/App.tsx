@@ -1,3 +1,4 @@
+import { operations } from "./operations/store";
 import { materialLocation as toMaterialLocation } from "./materials/location";
 import { activeSessionBinding, serviceSwitchKind } from "./ai/session-bindings";
 import { StudyProvider } from "./study/StudyProvider";
@@ -35,7 +36,6 @@ import type {
   AppData,
   Subject,
   Conversation,
-  CourseId,
   ReadingSelection,
   Robot,
   MaterialLocation,
@@ -142,7 +142,15 @@ import {
 import type { SetStateAction } from "react";
 import { applyTheme } from "./theme/theme";
 import { findTheme } from "./theme/presets";
-import { teachingActivities, type TeachingActivityId } from "./data/teaching";
+import { useTeachingTools } from "./research/useTeachingTools";
+import { QuestionResearchPanel } from "./research/QuestionResearchPanel";
+import {
+  researchWorkspace,
+  toolContext,
+  changeResearch,
+  restoreResearch,
+  researchConversation,
+} from "./research/state";
 import styles from "./App.module.css";
 import { clientRuntime } from "./version";
 import {
@@ -151,7 +159,12 @@ import {
   clearReloadCheckpoint,
 } from "./pwa/reload-checkpoint";
 import { RefreshControls } from "./refresh/RefreshControls";
-import { useDraftBackup, formDrafts } from "./refresh/drafts";
+import {
+  useUnsavedForm,
+  unsavedForms,
+  removeStoredFormDrafts,
+} from "./refresh/drafts";
+import { logError } from "./logger";
 import { useSaveFeedback } from "./components/SaveFeedback";
 import { useUserStorageStatus } from "./storage/UserStorageGate";
 
@@ -186,6 +199,7 @@ function Workspace({ content }: { content: OfficialContent }) {
     updatePosition,
     updateDocument,
     updateReferences,
+    updateContextPages,
     rememberLocation,
     restoreProgress,
   } = useReadingState(reloadCheckpoint.value?.reading);
@@ -201,14 +215,11 @@ function Workspace({ content }: { content: OfficialContent }) {
     saveState,
     conflict,
     retrySave,
-    restoreRecovery,
     saveChanges: persistChanges,
     readData,
     readSaveState,
-    refreshError,
     saveError,
     conflicts,
-    recoveries,
     resolveConflict,
   } = useLocalData(sourceAvailableCourses);
   const [conversationLimitOpen, setConversationLimitOpen] = useState(false);
@@ -236,6 +247,7 @@ function Workspace({ content }: { content: OfficialContent }) {
   const materials = useMaterials(readSubjects);
   const materialsRef = useRef(materials);
   materialsRef.current = materials;
+  const teachingTools = useTeachingTools(data, saveChanges);
   const checkpointRestored = useRef(false);
   const officialSaveState = useRef(readSaveState);
   officialSaveState.current = readSaveState;
@@ -305,6 +317,11 @@ function Workspace({ content }: { content: OfficialContent }) {
     ],
   );
   const progressRestored = useRef(false);
+  useEffect(() => {
+    void removeStoredFormDrafts().catch((error) =>
+      logError("Failed to remove obsolete form drafts.", error),
+    );
+  }, []);
   useEffect(() => {
     if (!data || progressRestored.current) return;
     progressRestored.current = true;
@@ -404,12 +421,9 @@ function Workspace({ content }: { content: OfficialContent }) {
     null,
   );
   const [view, setView] = useState<View>("conversations");
-  const [teachingActivity, setTeachingActivity] = useState<TeachingActivityId>(
-    teachingActivities[0].id,
-  );
-  const selectedTeachingActivity = teachingActivities.find(
-    (activity) => activity.id === teachingActivity,
-  )!;
+  const isResearchView = view === "teaching";
+  const research = researchWorkspace(data);
+  const researchSource = isResearchView ? research.source : null;
   const [libraryScope, setLibraryScope] = useState<LibraryScope>({
     courseId: "calculus",
     kind: "textbooks",
@@ -419,14 +433,15 @@ function Workspace({ content }: { content: OfficialContent }) {
   >(reloadCheckpoint.value?.conversationId ?? null);
   const [activeRobotId, setActiveRobotId] = useState<string | null>(null);
   const [robotDrafts, setRobotDrafts] = useState<Record<string, Robot>>({});
-  useDraftBackup(
-    "robot-configurations",
-    "机器人配置草稿",
-    robotDrafts,
-    Object.keys(robotDrafts).length > 0,
-  );
+  useUnsavedForm("robot-configurations", Object.keys(robotDrafts).length > 0);
   const submitting = useRef(false);
-  const [commandError, setCommandError] = useState("");
+  function reportFailure(label: string, error: unknown) {
+    const operation = operations.start({ key: `workspace:${label}`, label });
+    operations.finish(
+      operation,
+      error instanceof Error ? error : new Error(String(error)),
+    );
+  }
   const [pendingSwitch, setPendingSwitch] = useState<ConversationSwitch | null>(
     null,
   );
@@ -441,14 +456,18 @@ function Workspace({ content }: { content: OfficialContent }) {
   const restoreAiConversation = ai.restore;
   const rawSelection = data?.selection;
   const resolvedSelection = rawSelection;
-  const quoteKey =
-    view === "materials" && data?.materialSelection
+  const quoteKey = researchSource
+    ? "materialId" in researchSource
+      ? locationKey(researchSource)
+      : readingKey(researchSource)
+    : view === "materials" && data?.materialSelection
       ? locationKey(data.materialSelection)
       : view === "reading" && data?.selection
         ? readingKey(resolvedSelection!)
         : "";
-  const documentKey =
-    view === "materials" && data?.materialSelection
+  const documentKey = researchSource
+    ? readingDocumentKey(researchSource)
+    : view === "materials" && data?.materialSelection
       ? readingDocumentKey(data.materialSelection)
       : view === "reading" && data?.selection
         ? readingDocumentKey(data.selection)
@@ -486,49 +505,60 @@ function Workspace({ content }: { content: OfficialContent }) {
   );
   useEffect(() => {
     const location =
-      view === "materials"
+      researchSource ??
+      (view === "materials"
         ? data?.materialSelection
         : view === "reading"
           ? data?.selection
-          : null;
+          : null);
     if (location) rememberLocation(location);
-  }, [view, data?.materialSelection, data?.selection, rememberLocation]);
+  }, [
+    view,
+    data?.materialSelection,
+    data?.selection,
+    rememberLocation,
+    researchSource,
+  ]);
 
   const currentConversation = data
-    ? view === "library"
-      ? undefined
-      : view === "materials"
-        ? data.materialSelection
-          ? conversationForMaterial(
-              data.conversations,
-              data.materialSelection,
-              activeConversationId,
-            )
-          : undefined
-        : view === "reading"
-          ? conversationForReading(
-              data.conversations,
-              data.selection,
-              activeConversationId,
-            )
-          : (data.conversations.find(
-              (item) =>
-                item.status !== "deleted" && item.id === activeConversationId,
-            ) ??
-            (view === "conversations" && activeConversationId === null
-              ? latestConversation(data.conversations)
-              : undefined))
+    ? isResearchView
+      ? researchConversation(data)
+      : view === "library"
+        ? undefined
+        : view === "materials"
+          ? data.materialSelection
+            ? conversationForMaterial(
+                data.conversations,
+                data.materialSelection,
+                activeConversationId,
+              )
+            : undefined
+          : view === "reading"
+            ? conversationForReading(
+                data.conversations,
+                data.selection,
+                activeConversationId,
+              )
+            : (data.conversations.find(
+                (item) =>
+                  item.status !== "deleted" && item.id === activeConversationId,
+              ) ??
+              (view === "conversations" && activeConversationId === null
+                ? latestConversation(data.conversations)
+                : undefined))
     : undefined;
-  const legacyReferenceKey = currentConversation?.material
-    ? readingDocumentKey(currentConversation.material)
-    : currentConversation?.selection
-      ? currentConversation.selection.kind === "textbooks"
-        ? readingDocumentKey(currentConversation.selection)
-        : readingKey(currentConversation.selection)
-      : view === "materials" ||
-          (view === "reading" && data?.selection.kind === "textbooks")
-        ? documentKey
-        : quoteKey;
+  const legacyReferenceKey = isResearchView
+    ? "question-research"
+    : currentConversation?.material
+      ? readingDocumentKey(currentConversation.material)
+      : currentConversation?.selection
+        ? currentConversation.selection.kind === "textbooks"
+          ? readingDocumentKey(currentConversation.selection)
+          : readingKey(currentConversation.selection)
+        : view === "materials" ||
+            (view === "reading" && data?.selection.kind === "textbooks")
+          ? documentKey
+          : quoteKey;
   const conversationReferenceKey = currentConversation
     ? `conversation:${currentConversation.id}`
     : legacyReferenceKey;
@@ -565,7 +595,7 @@ function Workspace({ content }: { content: OfficialContent }) {
   const [recordDetailsOpen, setRecordDetailsOpen] = useState(false);
   const [unsavedRecordsOpen, setUnsavedRecordsOpen] = useState(false);
   const [noteId, setNoteId] = useState<string | null>(null);
-  const [recommendationsExpanded, setRecommendationsExpanded] = useState(true);
+  const [recommendationsExpanded, setRecommendationsExpanded] = useState(false);
 
   const appearance = data?.settings.appearance;
   const themeId = data?.settings.themeId;
@@ -585,7 +615,8 @@ function Workspace({ content }: { content: OfficialContent }) {
     view === "conversations" ||
     view === "notes" ||
     view === "materials" ||
-    view === "library";
+    view === "library" ||
+    isResearchView;
   const currentRobotId =
     currentConversation?.robotId ?? activeRobotId ?? data.defaultRobotId;
   const currentRobot =
@@ -632,8 +663,18 @@ function Workspace({ content }: { content: OfficialContent }) {
     );
   }
   // 对话页与阅读页共用明确的页码，不推断旧章节位置。
-  const linkedLocation =
-    view === "conversations" && currentConversation
+  const linkedLocation = isResearchView
+    ? {
+        selection:
+          researchSource && !("materialId" in researchSource)
+            ? researchSource
+            : null,
+        material:
+          researchSource && "materialId" in researchSource
+            ? researchSource
+            : null,
+      }
+    : view === "conversations" && currentConversation
       ? readingLocationForConversation(readingState, currentConversation)
       : {
           selection: view === "reading" ? selection : null,
@@ -654,16 +695,28 @@ function Workspace({ content }: { content: OfficialContent }) {
   const selectedMaterial = materials.items.find(
     (item) => item.id === materialLocation?.materialId,
   );
+  const contextDocumentKey = materialLocation
+    ? readingDocumentKey(materialLocation)
+    : "";
+  const customizedContextPages = contextDocumentKey
+    ? readingState.contextPages[contextDocumentKey]
+    : undefined;
+  const contextPages = materialLocation?.pageNumber
+    ? (customizedContextPages ?? [materialLocation.pageNumber])
+    : [];
   const draftConversationId =
     currentConversation?.id ??
     (view === "conversations" ? activeConversationId : null);
-  const chatDraftKey = draftConversationId
-    ? `conversation:${draftConversationId}`
-    : chatSelection
-      ? readingKey(chatSelection)
-      : materialLocation
-        ? readingDocumentKey(materialLocation)
-        : "ordinary-chat";
+  const chatDraftKey =
+    isResearchView && !draftConversationId
+      ? "question-research"
+      : draftConversationId
+        ? `conversation:${draftConversationId}`
+        : chatSelection
+          ? readingKey(chatSelection)
+          : materialLocation
+            ? readingDocumentKey(materialLocation)
+            : "ordinary-chat";
   async function manageConversation(
     id: string,
     change: ConversationChange,
@@ -676,7 +729,6 @@ function Workspace({ content }: { content: OfficialContent }) {
     );
     if (change.title !== undefined) {
       if (!binding?.externalSessionId) {
-        showSaved("名称已保存");
         return;
       }
       try {
@@ -722,7 +774,7 @@ function Workspace({ content }: { content: OfficialContent }) {
       )
     )
       throw new Error("机器人配置尚未保存，请先保存或取消修改，再更新应用。");
-    if (formDrafts.snapshot().activeCount > 0)
+    if (unsavedForms.snapshot().activeCount > 0)
       throw new Error("表单内容尚未保存，请先保存或取消修改，再更新应用。");
     saveReloadCheckpoint({
       schemaVersion: 1,
@@ -731,7 +783,24 @@ function Workspace({ content }: { content: OfficialContent }) {
       reading: readingState,
     });
   }
-  const contextLabel = linkedReading?.readingLabel ?? null;
+  const contextLabel = linkedReading
+    ? customizedContextPages?.length
+      ? linkedReading.readingLabelForPages(customizedContextPages)
+      : linkedReading.readingLabel
+    : null;
+  const contextPageSelection =
+    materialLocation?.pageNumber &&
+    selectedMaterial?.kind === "textbooks" &&
+    selectedMaterial.version.pageCount
+      ? {
+          currentPage: materialLocation.pageNumber,
+          pageCount: selectedMaterial.version.pageCount,
+          pages: contextPages,
+          customized: !!customizedContextPages?.length,
+          onChange: (pages: number[] | null) =>
+            updateContextPages(contextDocumentKey, pages),
+        }
+      : undefined;
 
   function selectMaterial(next: MaterialLocation) {
     const sameReader =
@@ -764,7 +833,7 @@ function Workspace({ content }: { content: OfficialContent }) {
         original.messages.some((item) => item.id === id),
       )
     ) {
-      setCommandError("原对话或消息已删除，无法打开来源。");
+      reportFailure("打开笔记的对话来源", "原对话或消息已删除，无法打开来源。");
       return;
     }
     openConversation(original);
@@ -781,7 +850,11 @@ function Workspace({ content }: { content: OfficialContent }) {
     }
     const location = reference.material ?? reference.selection;
     if (!location || !isSupportedReadingLocation(location)) {
-      setCommandError(UNSUPPORTED_READING_REFERENCE);
+      reportFailure("打开引用资料", UNSUPPORTED_READING_REFERENCE);
+      return;
+    }
+    if (isResearchView) {
+      updateData((previous) => changeResearch(previous, { source: location }));
       return;
     }
     if (reference.material) {
@@ -833,18 +906,8 @@ function Workspace({ content }: { content: OfficialContent }) {
       const target = await officialService.read(id, previous, requireDownload);
       selectContent(restoreReadingLocation(readingState, target));
     } catch (error) {
-      setCommandError(
-        error instanceof Error ? error.message : "无法打开资料，请刷新后重试。",
-      );
+      reportFailure("打开社区资料", error);
     }
-  }
-
-  function selectCourse(
-    courseId: CourseId | null,
-    kind: ReadingSelection["kind"],
-  ) {
-    setLibraryScope({ courseId, kind });
-    setView("library");
   }
 
   function returnToList() {
@@ -890,15 +953,32 @@ function Workspace({ content }: { content: OfficialContent }) {
       saved.status === "deleted" ||
       (returnToReading && saved.status !== "active")
     ) {
-      setCommandError("此对话已删除或归档，请重新选择。");
+      reportFailure("返回对话", "此对话已删除或归档，请重新选择。");
       return;
     }
     const source = saved.material ?? saved.selection;
     if (returnToReading && source && !isSupportedReadingLocation(source)) {
-      setCommandError(UNSUPPORTED_READING_REFERENCE);
+      reportFailure("返回对话的阅读位置", UNSUPPORTED_READING_REFERENCE);
       return;
     }
     conversation = saved;
+    if (returnToReading && conversation.research) {
+      const location = readingLocationForConversation(
+        readingState,
+        conversation,
+      );
+      updateData((previous) =>
+        restoreResearch(
+          previous,
+          conversation,
+          location.material ?? location.selection ?? null,
+        ),
+      );
+      setActiveConversationId(conversation.id);
+      setActiveRobotId(conversation.robotId);
+      setView("teaching");
+      return;
+    }
     const target = returnToReading
       ? readingLocationForConversation(readingState, conversation)
       : conversation;
@@ -961,7 +1041,23 @@ function Workspace({ content }: { content: OfficialContent }) {
       );
       return {
         ...previous,
-        conversations: [conversation, ...previous.conversations],
+        conversations: [
+          {
+            ...conversation,
+            ...(isResearchView
+              ? { research: structuredClone(research.context) }
+              : {}),
+          },
+          ...previous.conversations,
+        ],
+        ...(isResearchView
+          ? {
+              questionResearch: {
+                ...researchWorkspace(previous),
+                conversationId: conversation.id,
+              },
+            }
+          : {}),
       };
     });
     setActiveConversationId(saved.conversations[0].id);
@@ -986,6 +1082,10 @@ function Workspace({ content }: { content: OfficialContent }) {
     restartBinding?: SessionBinding,
   ) {
     if (!currentRobot) throw new Error("请先选择机器人。");
+    if (isResearchView && !research.selectedToolId && !retryMessageId)
+      throw new Error("请先选择教研工具。");
+    if (isResearchView && !researchSource && !retryMessageId)
+      throw new Error("请先选择资料。");
     if (submitting.current) throw new Error("消息正在保存，请稍后重试。");
     if (currentConversation?.status === "archived")
       throw new Error("对话已归档，请先移回进行中。");
@@ -1018,10 +1118,14 @@ function Workspace({ content }: { content: OfficialContent }) {
         : undefined;
       let readingContext = retryMessageId
         ? original?.readingContext
-        : linkedReading?.contextReference();
+        : linkedReading?.contextReference(
+            "",
+            customizedContextPages?.length ? customizedContextPages : undefined,
+          );
       let contextError = "";
       if (
         readingContext &&
+        !readingContext.pageNumbers?.length &&
         (!retryMessageId || !readingContext.content.trim())
       ) {
         const location = readingContext.material ?? readingContext.selection;
@@ -1038,11 +1142,22 @@ function Workspace({ content }: { content: OfficialContent }) {
               : "关联内容读取失败，请重试。";
         }
       }
-      const saved = await saveChanges((previous) =>
-        recordQuestion(
+      const taskContext = retryMessageId
+        ? original?.research
+        : isResearchView
+          ? research.context
+          : (() => {
+              const tool = teachingTools.items.find(
+                (t) => t.id === currentConversation?.research?.toolId,
+              );
+              return tool ? toolContext(tool) : currentConversation?.research;
+            })();
+      const saved = await saveChanges((previous) => {
+        const recorded = recordQuestion(
           previous,
           {
             conversation: selected,
+            ...(taskContext ? { research: taskContext } : {}),
             robotId: currentRobot.id,
             messageId,
             turnId,
@@ -1056,8 +1171,11 @@ function Workspace({ content }: { content: OfficialContent }) {
             expectedBinding: restartBinding,
           },
           ai.settings,
-        ),
-      );
+        );
+        return isResearchView
+          ? changeResearch(recorded, { conversationId: selected.id })
+          : recorded;
+      });
       const sentIds = new Set(draftReferences.map((item) => item.id));
       if (!retryMessageId && sentIds.size)
         updateReferences(referenceDraftKey, (previous) =>
@@ -1102,6 +1220,7 @@ function Workspace({ content }: { content: OfficialContent }) {
             userMessageId: messageId,
             ...(restartBinding ? { restartSession: true } : {}),
             text: question.content,
+            ...(question.research ? { research: question.research } : {}),
             teacher: {
               id: teacher.id,
               name: teacher.name,
@@ -1127,6 +1246,7 @@ function Workspace({ content }: { content: OfficialContent }) {
                 id: item.id,
                 role: item.role,
                 content: item.content.slice(-5000),
+                ...(item.research ? { research: item.research } : {}),
                 ...(item.readingContext &&
                 isSupportedReadingReference(item.readingContext)
                   ? { readingContext: item.readingContext }
@@ -1136,11 +1256,7 @@ function Workspace({ content }: { content: OfficialContent }) {
                 ),
               })),
           })
-          .catch((error) =>
-            setCommandError(
-              error instanceof Error ? error.message : "读取 AI 执行结果失败。",
-            ),
-          );
+          .catch((error) => reportFailure("读取 AI 回复", error));
     } catch (error) {
       if (isConversationLimitError(error)) setConversationLimitOpen(true);
       throw error;
@@ -1236,34 +1352,38 @@ function Workspace({ content }: { content: OfficialContent }) {
     ai.turns,
     ai.connectionErrors,
   );
-  const studyAllowed =
-    studyActivities({
-      view,
-      readingKind: selection.kind,
-      readingAvailable: !!availableCourses.find(
-        (course) =>
-          course.id === selection.courseId &&
-          course.version === (selection.version ?? "example-1") &&
-          (selection.kind === "questions"
-            ? course.questions
-            : course.textbooks
-          ).some(
-            (item) =>
-              item.id === selection.itemId &&
-              (selection.kind === "questions" || ("pdf" in item && !!item.pdf)),
-          ),
-      ),
-      materialAvailable:
-        !!selectedMaterial &&
-        selectedMaterial.version.status === "ready" &&
-        selectedMaterial.availability?.readerAvailable !== false,
-      conversationAvailable: !!currentConversation?.messages.length,
-      questionDraft:
-        !!chatDrafts[chatDraftKey]?.trim() || draftReferences.length > 0,
-      noteAvailable: !!note,
-      noteEditing: !!noteEditor || !!selectionNote,
-      generating: !!generationId,
-    }).length > 0;
+  const studyAllowed = isResearchView
+    ? !!linkedReading?.available ||
+      !!currentConversation?.messages.length ||
+      !!chatDrafts[chatDraftKey]?.trim()
+    : studyActivities({
+        view,
+        readingKind: selection.kind,
+        readingAvailable: !!availableCourses.find(
+          (course) =>
+            course.id === selection.courseId &&
+            course.version === (selection.version ?? "example-1") &&
+            (selection.kind === "questions"
+              ? course.questions
+              : course.textbooks
+            ).some(
+              (item) =>
+                item.id === selection.itemId &&
+                (selection.kind === "questions" ||
+                  ("pdf" in item && !!item.pdf)),
+            ),
+        ),
+        materialAvailable:
+          !!selectedMaterial &&
+          selectedMaterial.version.status === "ready" &&
+          selectedMaterial.availability?.readerAvailable !== false,
+        conversationAvailable: !!currentConversation?.messages.length,
+        questionDraft:
+          !!chatDrafts[chatDraftKey]?.trim() || draftReferences.length > 0,
+        noteAvailable: !!note,
+        noteEditing: !!noteEditor || !!selectionNote,
+        generating: !!generationId,
+      }).length > 0;
 
   return (
     <SelectionActionsProvider
@@ -1305,17 +1425,25 @@ function Workspace({ content }: { content: OfficialContent }) {
             aiEvent={aiStudyEvent(ai.turns, Date.now())}
           >
             <Sidebar
-              subjects={subjects}
               onRefreshData={() => dataRefresh.refresh(undefined, false, true)}
               onOpenBackup={() => setBackupOpen(true)}
-              onSubjectAction={setSubjectAction}
               ai={ai}
               view={view}
-              activeScope={sidebarScope}
               settings={data.settings}
-              teachingActivity={teachingActivity}
-              onSelectTeachingActivity={setTeachingActivity}
               onNavigate={(next) => {
+                if (next === "library") {
+                  const requested = sidebarScope ?? libraryScope;
+                  const courseId =
+                    requested.courseId === null ||
+                    subjectDirectory.active.some(
+                      (subject) => subject.id === requested.courseId,
+                    )
+                      ? requested.courseId
+                      : (subjectDirectory.active[0]?.id ?? null);
+                  setLibraryScope({ ...requested, courseId });
+                  setView("library");
+                  return;
+                }
                 if (next === "conversations") {
                   const conversation =
                     currentConversation ??
@@ -1332,7 +1460,6 @@ function Workspace({ content }: { content: OfficialContent }) {
                 }
                 setView(next);
               }}
-              onSelectContent={selectCourse}
               onSettingsChange={(settings) =>
                 updateData((previous) => ({ ...previous, settings }))
               }
@@ -1342,9 +1469,7 @@ function Workspace({ content }: { content: OfficialContent }) {
             <ResizableColumns
               key={resizable ? "split" : "static"}
               className={styles.columns}
-              hidden={
-                view === "robots" || view === "content" || view === "teaching"
-              }
+              hidden={view === "robots" || view === "content"}
               enabled={resizable}
               separatorLabel={
                 view === "notes" ? "调整笔记列表与正文宽度" : undefined
@@ -1357,6 +1482,70 @@ function Workspace({ content }: { content: OfficialContent }) {
                 }))
               }
             >
+              {isResearchView && (
+                <QuestionResearchPanel
+                  workspace={research}
+                  directory={subjectDirectory}
+                  sourceTitle={linkedReading?.title ?? ""}
+                  subjectId={linkedReading?.subjectId ?? null}
+                  onChange={(patch) =>
+                    updateData((previous) => changeResearch(previous, patch))
+                  }
+                  tools={teachingTools}
+                  onOfficial={() => setView("content")}
+                  renderSourceList={(courseId, open, uploaded) => (
+                    <SubjectContentList
+                      scope={{ courseId, kind: "textbooks" }}
+                      directory={subjectDirectory}
+                      onCreateSubject={createSubject}
+                      onUploaded={uploaded}
+                      library={materials}
+                      materialSelection={null}
+                      subjectPicker={{
+                        onChange: uploaded,
+                        onSubjectAction: setSubjectAction,
+                      }}
+                      onOpenMaterial={(location) =>
+                        open(restoreReadingLocation(readingState, location))
+                      }
+                    />
+                  )}
+                  renderReader={(header) =>
+                    researchSource ? (
+                      <Suspense
+                        fallback={<p role="status">正在打开资料阅读器…</p>}
+                      >
+                        <MaterialReader
+                          fontSize={data.settings.fontSize}
+                          onPositionChange={setReadingPosition}
+                          header={header}
+                          library={materials}
+                          location={
+                            "materialId" in researchSource
+                              ? researchSource
+                              : toMaterialLocation(researchSource)
+                          }
+                          onChange={(source) =>
+                            updateData((previous) =>
+                              changeResearch(previous, { source }),
+                            )
+                          }
+                          onBack={() => {}}
+                          position={readingPosition}
+                          onPageScroll={savePdfScroll}
+                          continuous={
+                            readingState.documents[documentKey]?.continuous ??
+                            true
+                          }
+                          onContinuousChange={setReadingContinuous}
+                          zoom={readingState.documents[documentKey]?.zoom ?? 1}
+                          onZoomChange={setReadingZoom}
+                        />
+                      </Suspense>
+                    ) : null
+                  }
+                />
+              )}
               {(view === "materials" || view === "reading") && (
                 <Suspense fallback={<p role="status">正在打开资料阅读器…</p>}>
                   <MaterialReader
@@ -1388,6 +1577,7 @@ function Workspace({ content }: { content: OfficialContent }) {
               )}
               {view === "library" && (
                 <SubjectContentList
+                  pickerTitle="资料选择"
                   scope={libraryScope}
                   directory={subjectDirectory}
                   onCreateSubject={createSubject}
@@ -1396,6 +1586,16 @@ function Workspace({ content }: { content: OfficialContent }) {
                   }
                   library={materials}
                   materialSelection={data.materialSelection ?? null}
+                  subjectPicker={{
+                    onChange: (courseId) =>
+                      setLibraryScope((current) => ({
+                        ...current,
+                        courseId,
+                      })),
+                    onKindChange: (kind) =>
+                      setLibraryScope((current) => ({ ...current, kind })),
+                    onSubjectAction: setSubjectAction,
+                  }}
                   onOpenMaterial={(location) =>
                     selectMaterial(
                       restoreReadingLocation(readingState, location),
@@ -1436,7 +1636,7 @@ function Workspace({ content }: { content: OfficialContent }) {
                   onNew={() =>
                     void newConversation().catch((error) => {
                       if (!isConversationLimitError(error))
-                        setCommandError(String(error));
+                        reportFailure("新建对话", error);
                     })
                   }
                   onUpdate={manageConversation}
@@ -1534,9 +1734,27 @@ function Workspace({ content }: { content: OfficialContent }) {
               )}
               {(view === "reading" ||
                 view === "conversations" ||
-                view === "materials") && (
+                view === "materials" ||
+                isResearchView) && (
                 <ChatPanel
                   key={`chat:${chatDraftKey}`}
+                  researchMode={
+                    isResearchView || !!currentConversation?.research
+                  }
+                  suggestions={
+                    isResearchView || currentConversation?.research
+                      ? (teachingTools.items.find(
+                          (t) =>
+                            t.id ===
+                            (isResearchView
+                              ? research.selectedToolId
+                              : currentConversation?.research?.toolId),
+                        )?.suggestions ?? [
+                          "根据当前资料完成任务。",
+                          "调整刚才的结果，补充必要说明。",
+                        ])
+                      : undefined
+                  }
                   draft={chatDrafts[chatDraftKey] ?? ""}
                   onDraftChange={(draft) => {
                     setChatDrafts((previous) => ({
@@ -1560,6 +1778,7 @@ function Workspace({ content }: { content: OfficialContent }) {
                     setRecommendationsExpanded((expanded) => !expanded)
                   }
                   contextLabel={contextLabel}
+                  pageSelection={contextPageSelection}
                   onRobotChange={changeRobot}
                   onSend={saveQuestion}
                   onRetryMessage={retryQuestion}
@@ -1579,6 +1798,8 @@ function Workspace({ content }: { content: OfficialContent }) {
             {view === "content" && (
               <ContentManager
                 content={content}
+                tools={teachingTools}
+                onUseTool={() => setView("teaching")}
                 library={officialLibrary}
                 operation={officialOperation}
                 materials={materials}
@@ -1589,14 +1810,6 @@ function Workspace({ content }: { content: OfficialContent }) {
                 }}
                 onRead={(id) => readOfficial(id, selection, true)}
               />
-            )}
-            {view === "teaching" && (
-              <section
-                className={styles.teachingRoom}
-                aria-label={selectedTeachingActivity.title}
-              >
-                <h1>{selectedTeachingActivity.title}</h1>
-              </section>
             )}
             <div className={styles.robots} hidden={view !== "robots"}>
               <RobotsPage
@@ -1720,22 +1933,13 @@ function Workspace({ content }: { content: OfficialContent }) {
             }}
             conflict={conflict}
             online={storageStatus.online}
-            errors={[
-              commandError,
-              saveError,
-              refreshError,
-              storageStatus.warning,
-              reloadCheckpoint.error ?? "",
-            ]}
             unsavedOpen={unsavedRecordsOpen}
             onUnsavedOpenChange={setUnsavedRecordsOpen}
             detailsOpen={recordDetailsOpen}
             onDetailsOpenChange={setRecordDetailsOpen}
-            onRestoreRecovery={restoreRecovery}
             onRetry={retrySave}
             data={data}
             conflicts={conflicts}
-            recoveries={recoveries}
             onResolve={(index, choice) => {
               const item = conflicts[index];
               resolveConflict(index, choice);
@@ -1752,7 +1956,6 @@ function Workspace({ content }: { content: OfficialContent }) {
                 });
               }
             }}
-            chatDrafts={chatDrafts}
           />
           <PwaControls
             prepareReload={prepareReload}

@@ -1,3 +1,4 @@
+import { parseTools, decodeTool, type RemoteTool } from "../research/catalog";
 import {
   ContentError,
   MAX_PACKAGE_BYTES,
@@ -38,8 +39,8 @@ export class ContentApi {
       if (!response.ok)
         throw new ContentError(
           response.status === 503
-            ? "官方内容暂时不可用，请稍后重试。"
-            : "无法获取官方内容，请稍后重试。",
+            ? "社区内容暂时不可用，请稍后重试。"
+            : "无法获取社区内容，请稍后重试。",
         );
       const declared = response.headers.get("Content-Length");
       if (declared && Number(declared) > limit)
@@ -80,6 +81,17 @@ export class ContentApi {
         await this.bytes(path, 512 * 1024, signal),
       ),
     );
+  }
+  async tools(signal?: AbortSignal) {
+    return parseTools(await this.json("/tools", signal));
+  }
+  async downloadTool(entry: RemoteTool, signal?: AbortSignal) {
+    const bytes = await this.bytes(
+      `/tools/${encodeURIComponent(entry.id)}/versions/${entry.latest_version}/download`,
+      256 * 1024,
+      signal,
+    );
+    return decodeTool(bytes, entry);
   }
   async catalog(signal?: AbortSignal) {
     return parseCatalog(await this.json("/courses", signal));

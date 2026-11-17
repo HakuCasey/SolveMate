@@ -22,6 +22,19 @@ export interface ReadingState {
   positions: Record<string, ReadingPositionState>;
   documents: Record<string, ReadingDocumentState>;
   references: Record<string, DraftReference[]>;
+  contextPages: Record<string, number[]>;
+}
+
+/** 没有自定义页码时删除记录，使参考范围继续跟随当前阅读页。 */
+export function updateReadingContextPages(
+  state: ReadingState,
+  key: string,
+  pages: number[] | null,
+): ReadingState {
+  const contextPages = { ...state.contextPages };
+  if (pages?.length) contextPages[key] = [...pages];
+  else delete contextPages[key];
+  return { ...state, contextPages };
 }
 export type ReadingChange<T> = T | ((previous: T) => T);
 

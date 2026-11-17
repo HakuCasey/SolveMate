@@ -11,7 +11,7 @@ user/
 └── backups/
 ```
 
-沿用已有 `AppData` 格式 3 和稳定编号，通过可选的 `readingProgress`、`drafts` 保存阅读进度和提问草稿。`packages/contracts/app-data.schema.json` 与 AI 共享 Schema 共同校验前后端边界；生成脚本同步 Python 包中的副本，CI 检查其一致性。对象关联、重复编号与默认教师另外检查，不从名称或文件位置重建关联。
+沿用已有 `AppData` 格式 3 和稳定编号，通过可选的 `readingProgress`、`drafts` 保存阅读进度和尚未发送的提问。`packages/contracts/app-data.schema.json` 与 AI 共享 Schema 共同校验前后端边界；生成脚本同步 Python 包中的副本，CI 检查其一致性。对象关联、重复编号与默认机器人另外检查，不从名称或文件位置重建关联。
 
 `app.sqlite3` 的 `state` 表保存应用快照与修订号，`metadata` 保存数据目录标识；`versions`、`heads` 保存课程版本索引和当前指针，`migrations` 记录已处理的来源与内容摘要。沿用应用快照以保留现有业务操作，不在此次迁移中重写会话和笔记的数据组织方式。长会话的分页与增量存储继续单独安排。教研工具及其选择保存于同一应用快照的 `questionResearch`，工具字段和历史消息快照的区别见 [019](../019-question-research/design.md)。
 

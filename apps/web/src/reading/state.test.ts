@@ -11,6 +11,7 @@ import {
   readingScrollFromElement,
   readingScrollToElement,
   updateReadingDocument,
+  updateReadingContextPages,
   updateReadingReferences,
   updateReadingPosition,
   type ReadingState,
@@ -20,6 +21,7 @@ const empty = (): ReadingState => ({
   positions: {},
   documents: {},
   references: {},
+  contextPages: {},
 });
 
 describe("reading state", () => {
@@ -166,6 +168,17 @@ describe("reading state", () => {
     expect(state.references[key]).toEqual([]);
     expect((state.documents[key].location as typeof page)?.pageNumber).toBe(2);
     expect(state.documents[key].zoom).toBe(1.5);
+  });
+
+  it("keeps custom reference pages by document and removes them when following resumes", () => {
+    const page = { materialId: "book", contentVersion: "v1", pageNumber: 12 };
+    const key = readingDocumentKey(page);
+    let state = updateReadingContextPages(empty(), key, [12, 15, 17]);
+    expect(state.contextPages[key]).toEqual([12, 15, 17]);
+    state = rememberReadingLocation(state, { ...page, pageNumber: 20 });
+    expect(state.contextPages[key]).toEqual([12, 15, 17]);
+    state = updateReadingContextPages(state, key, null);
+    expect(state.contextPages[key]).toBeUndefined();
   });
 
   it("restores normalized PDF offsets after zoom and clamps to available space", () => {

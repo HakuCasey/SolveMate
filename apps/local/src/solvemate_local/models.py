@@ -109,12 +109,19 @@ class Teacher(RequestModel):
 class ReadingReference(RequestModel):
     title: str = Field(max_length=500)
     content: str = Field(max_length=100000)
+    pageNumbers: list[int] | None = Field(
+        default=None,
+        min_length=1,
+        max_length=200,
+        exclude_if=lambda value: value is None,
+    )
     selection: dict | None
     material: dict | None = Field(default=None, exclude_if=lambda value: value is None)
     message: dict | None = Field(default=None, exclude_if=lambda value: value is None)
     quoteKind: Literal["page", "selection"] | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
+    _resource_path: str | None = PrivateAttr(default=None)
 
     @model_validator(mode="after")
     def shared_reference(self):
@@ -122,10 +129,24 @@ class ReadingReference(RequestModel):
             validate_metadata("SupportedReadingReference", self.model_dump())
         except ValueError as error:
             raise ValueError("当前版本已不支持该引用方式") from error
+        if self.pageNumbers:
+            if self.pageNumbers != sorted(set(self.pageNumbers)):
+                raise ValueError("参考页码必须按升序保存且不能重复。")
+            if (
+                not self.material
+                or self.material.get("pageNumber") != self.pageNumbers[0]
+            ):
+                raise ValueError("参考页码与返回位置不一致。")
+            if self.content:
+                raise ValueError("指定页码时不重复保存提取文字。")
         return self
+
+    def bind_resource(self, path):
+        self._resource_path = str(path)
 
 
 class HistoryMessage(RequestModel):
+    research: dict | None = Field(default=None, exclude_if=lambda value: value is None)
     id: str | None = Field(
         default=None, max_length=200, exclude_if=lambda value: value is None
     )
@@ -140,6 +161,7 @@ class HistoryMessage(RequestModel):
 
 
 class TurnRequest(RequestModel):
+    research: dict | None = Field(default=None, exclude_if=lambda value: value is None)
     _legacy_conversation_snapshot: dict | None = PrivateAttr(default=None)
     conversationSnapshot: dict | None = None
     connectionRevision: int | None = Field(default=None, ge=1)
@@ -176,7 +198,11 @@ class TurnRequest(RequestModel):
             self.conversationSnapshot = upgrade_conversation_metadata(
                 self.conversationSnapshot
             )
-        if self.readingContext and not self.readingContext.content.strip():
+        if (
+            self.readingContext
+            and not self.readingContext.content.strip()
+            and not self.readingContext.pageNumbers
+        ):
             raise ValueError("关联内容尚未读取，不能提交只有位置的上下文。")
         if self.references and self.reference:
             raise ValueError("不能同时提交单条引用和引用列表。")

@@ -253,6 +253,68 @@
         "type": "string",
         "maxLength": 10000
       }
+    },
+    "questionResearch": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "anyOf": [
+            {
+              "$ref": "urn:solvemate:ai-metadata:3#/$defs/ReadingSelection"
+            },
+            {
+              "$ref": "urn:solvemate:ai-metadata:3#/$defs/MaterialLocation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "conversationId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "context": {
+          "$ref": "urn:solvemate:ai-metadata:3#/$defs/QuestionResearchContext"
+        },
+        "templates": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:solvemate:ai-metadata:3#/$defs/ResearchResource"
+          }
+        },
+        "tools": {
+          "type": "array",
+          "items": {
+            "$ref": "urn:solvemate:ai-metadata:3#/$defs/TeachingTool"
+          }
+        },
+        "selectedToolId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "source",
+        "conversationId",
+        "context",
+        "templates"
+      ],
+      "additionalProperties": false
     }
   },
   "required": [
@@ -329,6 +391,9 @@
         },
         "readingContext": {
           "$ref": "urn:solvemate:ai-metadata:3#/$defs/ReadingReference"
+        },
+        "research": {
+          "$ref": "urn:solvemate:ai-metadata:3#/$defs/QuestionResearchContext"
         }
       },
       "required": [

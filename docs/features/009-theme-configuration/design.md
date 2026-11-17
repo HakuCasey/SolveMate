@@ -55,7 +55,7 @@
 | 边框 | `border` |
 | 强调区域与按钮 | `accent`、`accentBackground`、`onAccent` |
 | 错误、危险操作与成功提示 | `danger`、`dangerBackground`、`onDanger`、`success` |
-| 学生消息与教师消息 | `userMessageBackground`、`userMessageBorder`、`assistantMessageBackground` |
+| 用户消息与机器人消息 | `userMessageBackground`、`userMessageBorder`、`assistantMessageBackground` |
 | 代码区域 | `codeBackground`、`codeText` |
 | 阅读选段 | `selection` |
 | 笔记纸页与装饰 | `notePaper`、`noteDot`、`noteMargin`、`noteHole`、`noteInset` |

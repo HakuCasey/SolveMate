@@ -34,11 +34,17 @@ import {
 import { useReadingSelection } from "../reading/useReadingSelection";
 import { ReplyActivity } from "./ReplyActivity";
 import { Markdown } from "./Markdown";
+import {
+  ReadingContextControl,
+  type ReadingPageSelection,
+} from "./ReadingContextControl";
 import styles from "./ChatPanel.module.css";
 
 const stoppedReplyNote = "已停止生成，内容可能不完整。";
 
 interface ChatPanelProps extends ConversationActionsProps {
+  researchMode?: boolean;
+  suggestions?: string[];
   focusMessage?: { id: string; request: number; conversationId: string };
   draft: string;
   onDraftChange: (draft: string) => void;
@@ -46,6 +52,7 @@ interface ChatPanelProps extends ConversationActionsProps {
   robotId: string | null;
   conversation?: Conversation;
   contextLabel: string | null;
+  pageSelection?: ReadingPageSelection;
   recommendationsExpanded: boolean;
   onToggleRecommendations: () => void;
   onRobotChange: (id: string) => void;
@@ -60,6 +67,8 @@ interface ChatPanelProps extends ConversationActionsProps {
 }
 
 export function ChatPanel({
+  researchMode = false,
+  suggestions,
   focusMessage,
   draft,
   onDraftChange: setDraft,
@@ -67,6 +76,7 @@ export function ChatPanel({
   robotId,
   conversation,
   contextLabel,
+  pageSelection,
   conversations,
   onUpdate,
   onDelete,
@@ -129,7 +139,7 @@ export function ChatPanel({
             message.turnId === lastTurn.id),
       )
     : undefined;
-  const prompts = [
+  const prompts = suggestions ?? [
     "可以把这里的推导过程详细讲一下吗？",
     "如何理解这段话，能举一个例子吗？",
   ];
@@ -441,11 +451,19 @@ export function ChatPanel({
         >
           {!messages.length && !archived && (
             <div className={styles.welcome}>
-              <h3>{!robot ? "请先选择机器人" : "你好，有什么疑问吗？"}</h3>
+              <h3>
+                {!robot
+                  ? "请先选择机器人"
+                  : researchMode
+                    ? "需要完成什么任务？"
+                    : "有什么想讨论的？"}
+              </h3>
               <p>
                 {!robot
                   ? "在左侧“机器人”中新建一个机器人，就可以记录想讨论的问题。"
-                  : "大胆的和我讲吧，无论是没想明白的事，还是你自己的看法，都可以和我聊聊。我会认真回应，把理由和来龙去脉讲清楚。"}
+                  : researchMode
+                    ? "说明内容范围和具体要求，生成后可以继续提出修改意见。"
+                    : "可以提出问题，也可以说说你的理解和想法。"}
               </p>
             </div>
           )}
@@ -520,7 +538,13 @@ export function ChatPanel({
                       >
                         {reference.message ? "返回原消息" : "返回原文"}
                       </button>
-                      <pre>{reference.content || "关联内容未能读取。"}</pre>
+                      {reference.content ? (
+                        <pre>{reference.content}</pre>
+                      ) : reference.pageNumbers?.length ? (
+                        <p>已关联原 PDF 的指定页码。</p>
+                      ) : (
+                        <pre>关联内容未能读取。</pre>
+                      )}
                     </details>
                   ))}
                   <div data-message-content={message.id} tabIndex={-1}>
@@ -662,11 +686,15 @@ export function ChatPanel({
                 </div>
               )}
               <textarea
-                aria-label="向阅读助手提问"
+                aria-label={
+                  researchMode ? "提出教研任务要求" : "向阅读助手提问"
+                }
                 placeholder={
-                  contextLabel
-                    ? "围绕当前内容提问，也可以添加选段。"
-                    : "有什么疑问或想法？"
+                  researchMode
+                    ? "描述你想完成的任务，或提出修改要求…"
+                    : contextLabel
+                      ? "围绕当前内容提问，也可以添加选段。"
+                      : "有什么疑问或想法？"
                 }
                 rows={2}
                 maxLength={10000}
@@ -686,12 +714,18 @@ export function ChatPanel({
               />
               <div className={styles.composeBottom}>
                 <div className={styles.composeMeta}>
-                  {contextLabel && (
-                    <span className={styles.context} title={contextLabel}>
-                      <Link aria-hidden="true" />
-                      <span>{contextLabel}</span>
-                    </span>
-                  )}
+                  {contextLabel &&
+                    (pageSelection ? (
+                      <ReadingContextControl
+                        label={contextLabel}
+                        selection={pageSelection}
+                      />
+                    ) : (
+                      <span className={styles.context} title={contextLabel}>
+                        <Link aria-hidden="true" />
+                        <span>{contextLabel}</span>
+                      </span>
+                    ))}
                   <span
                     className={styles.voice}
                     title="长按空格键可语音输入…（尚未开放）"

@@ -97,13 +97,7 @@ class CodexProcess(JsonRpcProcess):
                 self.notification(method, params)
             if state.stop_requested and not state.future.done():
                 await self.interrupt(sid)
-            try:
-                return await asyncio.wait_for(asyncio.shield(state.future), 300)
-            except TimeoutError as error:
-                raise ConnectionError(
-                    "等待 Codex 完成超时，已收到的内容仍保留。请确认原会话状态后继续。",
-                    "request_timeout",
-                ) from error
+            return await asyncio.shield(state.future)
         finally:
             state.acknowledged.set()
             self.active.pop(sid, None)

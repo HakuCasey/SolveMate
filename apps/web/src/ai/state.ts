@@ -70,6 +70,7 @@ export function mergeAiTurn(data: AppData, turn: AiTurn): AppData {
         id: turn.userMessageId,
         role: "user",
         content: turn.text,
+        ...(turn.research ? { research: structuredClone(turn.research) } : {}),
         createdAt: turn.startedAt,
         turnId: turn.id,
         ...(turn.readingContext

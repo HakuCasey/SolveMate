@@ -18,6 +18,9 @@ export function assertAppData(value: unknown): asserts value is AppData {
   )
     throw new Error("Local data has an unsupported schema version.");
   const data = value as AppData;
+  const toolIds = data.questionResearch?.tools?.map((tool) => tool.id) ?? [];
+  if (new Set(toolIds).size !== toolIds.length)
+    throw new Error("Teaching tools contain duplicate IDs.");
   if (data.noteLibrary !== undefined) assertNoteLibrary(data.noteLibrary);
   if (data.subjects !== undefined) {
     if (

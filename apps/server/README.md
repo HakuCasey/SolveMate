@@ -1,8 +1,8 @@
-# SolveMate 官方内容服务
+# SolveMate 社区内容服务
 
 使用 Python + FastAPI 提供课程目录、版本查询、更新判断与内容包下载。当前发布高等数学和 C 语言两门课程，每门课程包含教材、题目、记忆点和讨论点。
 
-服务只分发官方学习内容，不接收或保存个人会话、笔记、机器人配置与 AI 凭据。网页已通过“设置 → 官方内容”接入下载更新；未下载时使用随应用提供的基础内容，下载后由本机服务保存到 `user/community/`，浏览器只保留缓存。
+服务只分发社区学习内容，不接收或保存个人会话、笔记、机器人配置与 AI 凭据。网页已通过“设置 → 社区内容”接入下载更新；未下载时使用随应用提供的基础内容，下载后由本机服务保存到 `user/community/`，浏览器只保留缓存。
 
 ## 安装与启动
 
@@ -20,7 +20,7 @@ uvicorn solvemate_server.main:create_app --factory --host 127.0.0.1 --port 8000
 
 `requirements.lock` 锁定本次验证的运行、测试与构建依赖。修改依赖时在独立虚拟环境中安装 `-e ".[dev]"`，验证后重新生成锁定文件。`.venv` 是自动生成的本地依赖目录，不提交 Git。
 
-体验完整应用前，在该虚拟环境中执行 `python -m pip install -r ../local/requirements.lock` 安装本机 AI 服务的额外依赖。随后也可在仓库根目录执行 `npm start`，由脚本构建网页、发布内容并同时启动网页、官方内容和本机 AI 三个服务；按 `Ctrl+C` 会一起停止。此时无需另外执行上面的发布和 Uvicorn 命令。
+体验完整应用前，在该虚拟环境中执行 `python -m pip install -r ../local/requirements.lock` 安装本机 AI 服务的额外依赖。随后也可在仓库根目录执行 `npm start`，由脚本构建网页、发布内容并同时启动网页、社区内容和本机 AI 三个服务；按 `Ctrl+C` 会一起停止。此时无需另外执行上面的发布和 Uvicorn 命令。
 
 默认 API 地址为 `http://127.0.0.1:8000`，交互接口文档为 `/docs`，OpenAPI 为 `/openapi.json`。首次启动前必须执行发布命令；没有发布目录或内容损坏时，启动校验会报错，不提供空的成功结果。
 
@@ -90,7 +90,7 @@ memory/discussion-points.json
 | `SOLVEMATE_CONTENT_DIR`  | `apps/server/.content/`                 | API 与发布工具共用的发布目录         |
 | `SOLVEMATE_CORS_ORIGINS` | localhost、127.0.0.1 的 5173、5174 端口 | 逗号分隔的网页来源；空值关闭跨域许可 |
 
-正式部署或从 wheel 安装时显式设置上述目录。发布包不嵌入 Python wheel，部署时要保留整个发布目录与历史版本。API 进程只需读取发布目录；发布命令由维护者在服务端运行，不暴露公开上传或发布接口。API 允许公开读取官方内容，不需要登录。
+正式部署或从 wheel 安装时显式设置上述目录。发布包不嵌入 Python wheel，部署时要保留整个发布目录与历史版本。API 进程只需读取发布目录；发布命令由维护者在服务端运行，不暴露公开上传或发布接口。API 允许公开读取社区内容，不需要登录。
 
 ## 检查
 
@@ -111,3 +111,12 @@ python -m build --wheel --no-isolation
 ## 开源与分发
 
 服务采用 [MIT](LICENSE)，wheel 包含许可证原文。仓库整体声明见 [NOTICE](../../NOTICE.md)，Python 依赖继续遵循各自许可证。构建后的 wheel 不包含课程资产和发布目录，部署时另外提供；不要将 `.venv/`、`.content/`、`build/` 或 `dist/` 提交到仓库。
+
+## 教研工具发布
+
+`data/tools/<id>.json` 保存社区工具，`data/catalog.json` 的 `tools` 数组列出允许发布的编号。发布命令与课程相同，修改一个工具只更新该工具的版本。发布器先校验所有工具，再写入 `tools/<id>/<SHA-256>.json`，最后提交目录；原版本仍可下载。
+
+- `GET /api/v1/tools` 返回工具名称、简介和版本目录。
+- `GET /api/v1/tools/{id}/versions/{version}/download` 下载指定版本 JSON，响应提供 ETag 和 SHA-256。
+
+客户端校验完整文件后再保存，失败不替换已有工具。工具的 Skill 和模板共用一个发布版本。

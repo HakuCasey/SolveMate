@@ -1,4 +1,4 @@
-"""官方内容的只读 HTTP API。"""
+"""社区内容的只读 HTTP API。"""
 
 import hashlib
 import logging
@@ -34,7 +34,7 @@ def matches_etag(request: Request, etag: str) -> bool:
 
 
 def cached_json(
-    request: Request, value: BaseModel, immutable: bool = False
+    request: Request, value: BaseModel | dict, immutable: bool = False
 ) -> Response:
     body = json_bytes(value)
     headers = {
@@ -221,6 +221,33 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             media_type="application/zip",
             filename=f"{course_id}-{release.version}.zip",
             headers=headers,
+        )
+
+    @app.get("/api/v1/tools")
+    def tools(request: Request):
+        return cached_json(
+            request, {"tools": repository.catalog().model_dump()["tools"]}
+        )
+
+    @app.get("/api/v1/tools/{tool_id}/versions/{version}/download")
+    def download_tool(tool_id: CoursePath, version: VersionPath, request: Request):
+        if version == "latest":
+            entry = next(
+                (t for t in repository.catalog().tools if t.id == tool_id), None
+            )
+            if not entry:
+                raise ContentNotFound("Tool was not found.")
+            version = entry.latest_version
+        _, payload = repository.tool_release(tool_id, version)
+        return Response(
+            payload,
+            media_type="application/json",
+            headers={
+                "ETag": f'"{version}"',
+                "X-Content-SHA256": version,
+                "Cache-Control": "no-cache",
+                "Content-Disposition": f'attachment; filename="{tool_id}.json"',
+            },
         )
 
     return app

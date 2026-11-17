@@ -6,7 +6,6 @@ import { DexieStorage, LocalDataConflictError } from "./index";
 import {
   userCache,
   writerId,
-  publishStorageStatus,
   localRequest,
   LocalServiceError,
   envelope,
@@ -109,7 +108,6 @@ async function initialize() {
           revision: 0,
           value: migrateAiMetadata(old!.value),
         };
-    publishStorageStatus({ online: false });
     return;
   }
   const pending = await userCache.pending.toArray();

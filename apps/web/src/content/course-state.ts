@@ -1,7 +1,7 @@
 import type { UpdateResponse } from "./contracts";
 import { storedVersion, type ContentSnapshot } from "./storage";
 
-/** 只核对课程包的保存记录和版本；资料是否可读由 OfficialMaterial 判断。 */
+/** 只核对课程包的保存记录和版本；资料是否可读由 CommunityCatalogEntry 判断。 */
 export function courseState(
   snapshot: ContentSnapshot,
   id: string,

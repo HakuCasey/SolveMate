@@ -1,0 +1,408 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  background: var(--sm-paper);
+}
+.toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  flex-shrink: 0;
+  gap: 16px;
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--sm-line);
+  background: var(--sm-paper);
+}
+.fieldRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  font-size: 14px;
+}
+.fieldRow label {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 6px;
+  white-space: nowrap;
+  color: var(--sm-ink);
+}
+.fieldRow label svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: var(--sm-accent);
+}
+.selectTrigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--sm-line);
+  border-radius: 8px;
+  background: var(--sm-paper);
+  color: var(--sm-ink);
+  text-align: left;
+  font-size: 14px;
+}
+.selectTrigger:hover {
+  border-color: var(--sm-accent);
+}
+.selectTrigger span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.selectTrigger svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: var(--sm-soft);
+}
+.empty button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--sm-accent);
+  font-size: 12px;
+}
+.formActions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+.formActions button,
+.empty > button {
+  padding: 8px 14px;
+  border: 1px solid var(--sm-line);
+  border-radius: 8px;
+  background: var(--sm-paper);
+}
+.formActions button[type="submit"] {
+  background: var(--sm-accent);
+  color: var(--sm-on);
+  border-color: var(--sm-accent);
+}
+.empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  color: var(--sm-soft);
+}
+.empty > svg {
+  width: 36px;
+  height: 36px;
+  color: var(--sm-accent);
+}
+.empty h2 {
+  font-size: 20px;
+  color: var(--sm-ink);
+  margin-bottom: 0;
+}
+.empty p {
+  font-size: 13px;
+}
+/* 资料选择位于通用上传窗口下方，嵌套上传时保持正确的遮罩与点击顺序。 */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: var(--sm-overlay);
+}
+.picker {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  width: min(640px, calc(100vw - 32px));
+  height: min(480px, calc(100dvh - 48px));
+  border: 1px solid var(--sm-line);
+  border-radius: 16px;
+  background: var(--sm-paper);
+  box-shadow: var(--sm-shadow-dialog);
+  z-index: 65;
+  overflow: hidden;
+}
+.pickerHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--sm-line);
+}
+.pickerHeader h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 17px;
+  margin: 0;
+}
+.sourceList {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.sourceList > section {
+  flex: 1;
+  min-height: 0;
+}
+.error {
+  color: var(--sm-danger);
+  font-size: 13px;
+}
+.editorFooter {
+  flex-shrink: 0;
+  padding: 12px 18px;
+  border-top: 1px solid var(--sm-line);
+}
+.confirm {
+  position: fixed;
+  z-index: 70;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(400px, calc(100vw - 32px));
+  padding: 24px;
+  background: var(--sm-paper);
+  color: var(--sm-ink);
+  border: 1px solid var(--sm-line);
+  border-radius: 16px;
+  box-shadow: var(--sm-shadow-dialog);
+}
+.confirm h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+}
+.confirm p {
+  font-size: 13px;
+  color: var(--sm-soft);
+}
+
+.toolDialog {
+  position: fixed;
+  z-index: 65;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  width: min(900px, calc(100vw - 32px));
+  max-height: calc(100dvh - 48px);
+  border: 1px solid var(--sm-line);
+  border-radius: 16px;
+  background: var(--sm-paper);
+  color: var(--sm-ink);
+  box-shadow: var(--sm-shadow-dialog);
+  overflow: hidden;
+  height: min(650px, calc(100dvh - 48px));
+}
+.toolWorkspace {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  flex: 1;
+  min-height: 0;
+}
+.toolRail {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid var(--sm-line);
+  background: var(--sm-ground);
+}
+.toolList {
+  flex: 1;
+  min-height: 0;
+  padding: 10px 8px;
+  overflow: auto;
+  scrollbar-width: thin;
+}
+.toolList > button {
+  width: 100%;
+  padding: 10px;
+  overflow: hidden;
+  border-radius: 7px;
+  color: var(--sm-soft);
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+.toolList > button:hover {
+  color: var(--sm-ink);
+  background: var(--sm-paper);
+}
+.toolList > button[aria-current="true"] {
+  color: var(--sm-accent);
+  background: var(--sm-active);
+  font-weight: 600;
+}
+.toolEmpty {
+  padding: 14px 10px;
+  color: var(--sm-soft);
+  font-size: 12px;
+}
+.toolRailActions {
+  display: grid;
+  gap: 6px;
+  flex-shrink: 0;
+  padding: 10px 8px;
+  border-top: 1px solid var(--sm-line);
+}
+.toolRailActions button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 10px;
+  border-radius: 7px;
+  color: var(--sm-accent);
+  text-align: left;
+  font-size: 12px;
+}
+.toolRailActions button:hover {
+  background: var(--sm-active);
+}
+.toolRailActions svg {
+  width: 15px;
+  height: 15px;
+}
+.toolEditor {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  min-height: 0;
+  padding: 14px 18px;
+  overflow: auto;
+}
+.toolName {
+  display: grid;
+  grid-template-columns: 90px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  color: var(--sm-soft);
+  font-size: 13px;
+}
+.toolName input {
+  padding: 9px 11px;
+  border: 1px solid var(--sm-line);
+  border-radius: 8px;
+  background: var(--sm-ground);
+  color: var(--sm-ink);
+  font: inherit;
+}
+.toolSection {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 180px;
+}
+.toolSection header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 7px;
+}
+.toolSection h3 {
+  margin: 0;
+  font-size: 14px;
+}
+.toolSection header button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--sm-accent);
+  font-size: 12px;
+}
+.toolSection header svg {
+  width: 15px;
+  height: 15px;
+}
+.toolSection textarea {
+  flex: 1;
+  width: 100%;
+  min-height: 150px;
+  resize: none;
+  padding: 12px;
+  border: 1px solid var(--sm-line);
+  border-radius: 9px;
+  background: var(--sm-ground);
+  color: var(--sm-ink);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.overlayTop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: var(--sm-overlay);
+}
+.confirmTop {
+  position: fixed;
+  z-index: 85;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(380px, calc(100vw - 32px));
+  padding: 22px;
+  border: 1px solid var(--sm-line);
+  border-radius: 14px;
+  background: var(--sm-paper);
+  color: var(--sm-ink);
+  box-shadow: var(--sm-shadow-dialog);
+}
+.confirmTop h2 {
+  margin: 0 0 8px;
+  font-size: 17px;
+}
+.confirmTop p {
+  margin: 0 0 20px;
+  color: var(--sm-soft);
+  font-size: 13px;
+}
+@media (max-width: 680px) {
+  .toolWorkspace {
+    grid-template-columns: 150px minmax(0, 1fr);
+  }
+}
+.pickerHeader button {
+  display: inline-flex;
+  padding: 6px;
+  border-radius: 6px;
+  color: var(--sm-soft);
+}
+.pickerHeader button:hover {
+  background: var(--sm-ground);
+}
+.pickerHeader svg {
+  width: 20px;
+  height: 20px;
+}

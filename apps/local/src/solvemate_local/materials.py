@@ -439,8 +439,27 @@ class Materials:
                 raise MaterialError("题目集需使用题号引用，请重新选择。")
             elif location["pageNumber"] > record["version"]["pageCount"]:
                 raise MaterialError("引用页码超出资料范围，请重新选择。")
-            if not reference.content.strip():
+            if reference.pageNumbers and (
+                record["kind"] != "textbooks"
+                or reference.quoteKind != "page"
+                or any(
+                    page > record["version"]["pageCount"]
+                    for page in reference.pageNumbers
+                )
+            ):
+                raise MaterialError("参考页码超出资料范围，请重新选择。")
+            if not reference.content.strip() and not reference.pageNumbers:
                 raise MaterialError("引用中没有可供 AI 读取的文字，请重新选择内容。")
+
+    def prepare_reference(self, reference):
+        """验证引用，并只在本轮执行对象上绑定受管理的文件路径。"""
+        self.validate_reference(reference)
+        if reference.pageNumbers:
+            _, path = self.reader_path(
+                reference.material["materialId"],
+                reference.material["contentVersion"],
+            )
+            reference.bind_resource(path.resolve())
 
     async def close(self):
         tasks = list(self.tasks.values())

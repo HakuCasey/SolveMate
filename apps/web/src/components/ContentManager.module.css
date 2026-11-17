@@ -44,6 +44,7 @@
   align-items: start;
 }
 .card {
+  container-type: inline-size;
   display: flex;
   flex-direction: column;
   padding: 16px;
@@ -74,13 +75,21 @@
   height: 17px;
 }
 .card h2 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   flex: 1;
   min-width: 0;
   margin: 0;
-  overflow-wrap: anywhere;
   font-size: 14px;
   font-weight: 600;
   line-height: 1.5;
+}
+.titleText {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .card p {
   margin: 0;
@@ -226,14 +235,22 @@
   color: var(--sm-accent);
 }
 .card .updateNotice {
-  display: flex;
+  display: inline-flex;
+  flex-shrink: 0;
   align-items: center;
-  gap: 5px;
-  padding-top: 8px;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 400;
+  white-space: nowrap;
 }
 .checkResult svg,
 .updateNotice svg {
   width: 14px;
   height: 14px;
   flex-shrink: 0;
+}
+@container (max-width: 260px) {
+  .updateLabel {
+    display: none;
+  }
 }

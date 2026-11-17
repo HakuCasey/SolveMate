@@ -277,6 +277,70 @@
           }
         }
       }
+    },
+    "/api/v1/tools": {
+      "get": {
+        "summary": "Tools",
+        "operationId": "tools_api_v1_tools_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tools/{tool_id}/versions/{version}/download": {
+      "get": {
+        "summary": "Download Tool",
+        "operationId": "download_tool_api_v1_tools__tool_id__versions__version__download_get",
+        "parameters": [
+          {
+            "name": "tool_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+              "title": "Tool Id"
+            }
+          },
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^(latest|[a-f0-9]{64})$",
+              "title": "Version"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -315,7 +379,9 @@
               "textbook",
               "questions",
               "learning-points",
-              "discussion-points"
+              "discussion-points",
+              "textbook-pdf",
+              "textbook-pages"
             ],
             "title": "Kind"
           },

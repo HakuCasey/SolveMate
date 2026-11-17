@@ -1,14 +1,14 @@
 import { PopoverPanel } from "../components/PopoverPanel";
 import { Children, type ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
-import { CloudDownload, MessagesSquare, Save } from "lucide-react";
+import { CloudDownload, MessagesSquare, ListChecks } from "lucide-react";
 import { Popover } from "radix-ui";
 import styles from "./StatusBar.module.css";
 
 export type StatusTone = "neutral" | "active" | "ready" | "danger";
 
 const categoryIcons = {
-  记录保存: Save,
+  操作状态: ListChecks,
   应用更新: CloudDownload,
   对话状态: MessagesSquare,
 };

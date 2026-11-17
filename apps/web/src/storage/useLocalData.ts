@@ -1,3 +1,4 @@
+import { operations } from "../operations/store";
 import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
 import type { AppData, Course } from "@solvemate/contracts";
 import {
@@ -12,6 +13,7 @@ import { upgradeRobotCatalog } from "../state/robots";
 import { appStorage, userStorageStatus } from "./local-service";
 import { LocalDataController } from "./controller";
 import { logError } from "../logger";
+import { initializeTeachingTools } from "../research/initialize";
 import { initializeNotes } from "../state/notes";
 import { useRefreshResource } from "../refresh/useDataRefresh";
 
@@ -21,10 +23,12 @@ function loadInitialData(available: Course[]): Promise<AppData> {
     .load()
     .then(async (saved) => {
       if (saved) {
-        const upgraded = initializeNotes(
-          upgradeRobotCatalog(saved),
-          sampleNotebooks,
-          sampleNotes,
+        const upgraded = await initializeTeachingTools(
+          initializeNotes(
+            upgradeRobotCatalog(saved),
+            sampleNotebooks,
+            sampleNotes,
+          ),
         );
         try {
           validateContentReferences(upgraded, available);
@@ -42,7 +46,7 @@ function loadInitialData(available: Course[]): Promise<AppData> {
           await appStorage.save(upgraded);
         return upgraded;
       }
-      const initial = createInitialData();
+      const initial = await initializeTeachingTools(createInitialData());
       await appStorage.save(initial);
       return initial;
     })
@@ -62,26 +66,37 @@ export function useLocalData(available: Course[] = courses) {
     store.snapshot,
   );
   const firstCourses = useRef(available).current;
-  const load = useCallback(async () => {
-    try {
-      const saved = await loadInitialData(firstCourses);
-      store.initialize(saved);
-      await store
-        .restoreRecoveries()
-        .catch((error: unknown) =>
-          logError("Failed to restore retained changes.", error),
-        );
-    } catch (error) {
-      logError("Failed to open local learning data.", error);
-      store.failLoad(error);
-      throw error;
-    }
-  }, [firstCourses, store]);
+  const load = useCallback(
+    async (report = true) => {
+      const operation = report
+        ? operations.start({
+            key: "records:load",
+            label: "打开对话、笔记和配置",
+          })
+        : null;
+      try {
+        const saved = await loadInitialData(firstCourses);
+        store.initialize(saved);
+        if (operation) operations.finish(operation);
+        await store
+          .restoreRecoveries()
+          .catch((error: unknown) =>
+            logError("Failed to restore retained changes.", error),
+          );
+      } catch (error) {
+        logError("Failed to open local learning data.", error);
+        store.failLoad(error);
+        if (operation) operations.finish(operation, error);
+        throw error;
+      }
+    },
+    [firstCourses, store],
+  );
   useEffect(() => {
     void load().catch(() => undefined);
   }, [load]);
   const refresh = useCallback(async () => {
-    if (store.snapshot().loadState !== "ready") await load();
+    if (store.snapshot().loadState !== "ready") await load(false);
     else await store.refresh();
   }, [load, store]);
   useRefreshResource("records", refresh);
@@ -91,8 +106,8 @@ export function useLocalData(available: Course[] = courses) {
     readSaveState: () => store.snapshot().saveState,
     setData: store.update,
     saveChanges: store.commit,
-    retrySave: () =>
-      store.snapshot().loadState !== "ready" ? load() : store.retry(),
+    retrySave: (key?: string) =>
+      store.snapshot().loadState !== "ready" ? load() : store.retry(key),
     retryRead: refresh,
     restoreRecovery: store.restoreRecovery,
     resolveConflict: store.resolve,

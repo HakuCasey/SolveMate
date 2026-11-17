@@ -1,10 +1,10 @@
 # SolveMate 本机服务
 
-本服务在用户电脑上连接已安装的 DeepSeek Harness、Hermes 或 Codex，负责 Harness 进程、模型选项、会话绑定、执行记录和权限确认，并提供个人记录、上传资料和已下载课程的本机保存与处理。官方内容服务仍位于 `apps/server/`，个人问题和资料不经过官方内容服务。
+本服务在用户电脑上连接已安装的 DeepSeek Harness、Hermes 或 Codex，负责 Harness 进程、模型选项、会话绑定、执行记录和权限确认，并提供个人记录、上传资料和已下载课程的本机保存与处理。社区内容服务仍位于 `apps/server/`，个人问题和资料不经过社区内容服务。
 
 ## 启动
 
-按仓库 README 准备 `apps/server/.venv`，并在其中安装本目录 `requirements.lock` 的额外依赖后，在仓库根目录执行 `npm start`。脚本同时启动网页、官方内容服务和本机 AI 服务，按 `Ctrl+C` 统一停止。本服务使用该 Python 环境中的 FastAPI、Pydantic、Uvicorn、PyYAML 和 websockets，启动时直接加载本目录的源代码。
+按仓库 README 准备 `apps/server/.venv`，并在其中安装本目录 `requirements.lock` 的额外依赖后，在仓库根目录执行 `npm start`。脚本同时启动网页、社区内容服务和本机 AI 服务，按 `Ctrl+C` 统一停止。本服务使用该 Python 环境中的 FastAPI、Pydantic、Uvicorn、PyYAML 和 websockets，启动时直接加载本目录的源代码。
 
 开发时可在仓库根目录单独启动：
 
@@ -31,7 +31,7 @@ apps\server\.venv\Scripts\python.exe -m uvicorn solvemate_local.main:create_app 
 在 SolveMate 的“设置 → AI 配置”中选择 DeepSeek Harness、检测连接，再选择实际返回的模型和推理强度并保存。正常情况下通过 PATH 查找 `dsh`，页面不显示安装路径；命令缺失时显示路径输入框，填入对应系统的默认安装位置并自动检测一次；默认位置仍找不到程序时再提示用户修改。模型列表不代表每个模型的鉴权和额度均已验证；实际提问失败时会保留问题并显示错误。
 
 - macOS 与 Windows：优先使用 PATH 中的 `dsh` 命令。未注册命令时尝试默认安装位置：macOS 为 `/Applications/DeepSeek Harness.app`；Windows 为系统用户程序目录下的 `DeepSeek Harness`，通常是 `%LOCALAPPDATA%\Programs\DeepSeek Harness`，支持系统目录重定向。默认位置也未找到时，可手动填写实际位置。
-- 手动路径支持 macOS 的 `.app` 或包内命令，以及 Windows 的 `DeepSeek Harness.exe`、安装目录或官方 `dsh.cmd`。不扫描整个磁盘，也不修改系统命令注册；第三方 `.cmd`、`.bat` 暂不支持。
+- 手动路径支持 macOS 的 `.app` 或包内命令，以及 Windows 的 `DeepSeek Harness.exe`、安装目录或社区 `dsh.cmd`。不扫描整个磁盘，也不修改系统命令注册；第三方 `.cmd`、`.bat` 暂不支持。
 - 模型标识按运行时返回值保存，不根据显示名称拼接。
 - 连接检测不发起模型推理。真实提问会使用所选模型服务，遵循该服务的用量规则。
 
@@ -39,7 +39,7 @@ apps\server\.venv\Scripts\python.exe -m uvicorn solvemate_local.main:create_app 
 
 通过原生 `hermes acp` 接入回复、工具和会话恢复。连接检测通过安装自身的 SDK 读取模型目录，不创建检测会话；模型编号与 ACP 保持一致。正式提问在创建原生会话时显式指定所选模型，再由 ACP 加载同一编号，避免先初始化 Hermes 的全局默认模型。先运行 `hermes acp --check` 确认 ACP 依赖，再在 SolveMate 检测连接、选择模型并保存；原生 Gateway SDK 或严格加载能力不支持时，按提示更新 Hermes。
 
-优先使用 PATH 中的原生 `hermes` 命令。找不到时，macOS 尝试 `~/.local/bin/hermes`，Windows 尝试 `%LOCALAPPDATA%/hermes/bin/hermes.exe`，对应官方源码安装器的 CLI 位置。其他位置可手动填写；Windows MSIX 安装优先使用系统执行别名。不通过 shell 执行 `.cmd`、`.bat`，也不跨 Windows 与 WSL 查找程序。
+优先使用 PATH 中的原生 `hermes` 命令。找不到时，macOS 尝试 `~/.local/bin/hermes`，Windows 尝试 `%LOCALAPPDATA%/hermes/bin/hermes.exe`，对应社区源码安装器的 CLI 位置。其他位置可手动填写；Windows MSIX 安装优先使用系统执行别名。不通过 shell 执行 `.cmd`、`.bat`，也不跨 Windows 与 WSL 查找程序。
 
 配置目录取本机服务继承的 `HERMES_HOME`，未设置时遵循 Hermes 平台默认与 `HERMES_DATA_DIR_SUFFIX`。SolveMate 不导入 Hermes 的 Python 包、不复制密钥、不修改其全局默认模型。退出只关闭 SolveMate 持有的 ACP 客户端，不直接停止用户自己的 Gateway。
 
@@ -49,7 +49,7 @@ apps\server\.venv\Scripts\python.exe -m uvicorn solvemate_local.main:create_app 
 
 检测读取账号状态、当前模型配置和分页模型目录，不创建 thread 或请求模型。当前配置的自定义模型未在目录列出时，保留该模型，不推测其他模型或其推理选项。目录不代表每个模型的权限和额度都已验证，真实调用结果以执行状态为准。
 
-优先通过 PATH 查找 `codex`。找不到时显示 CLI 路径，默认候选为 `~/.local/bin/codex`，Windows 为 `~/.local/bin/codex.exe`，实际安装位置可以修改。Windows 的官方 npm 命令若是 `.cmd`，只查找对应 npm 包的原生 `codex.exe`，不通过 shell 执行批处理；仅安装在 WSL 内的程序不能由 Windows 本机服务直接调用。
+优先通过 PATH 查找 `codex`。找不到时显示 CLI 路径，默认候选为 `~/.local/bin/codex`，Windows 为 `~/.local/bin/codex.exe`，实际安装位置可以修改。Windows 的社区 npm 命令若是 `.cmd`，只查找对应 npm 包的原生 `codex.exe`，不通过 shell 执行批处理；仅安装在 WSL 内的程序不能由 Windows 本机服务直接调用。
 
 正式对话使用原生 thread，模型与推理强度按轮传入；恢复保留 thread 编号，停止使用该轮的原生 turn 编号。正文按原生增量显示，并以最终消息校正。权限只提供当前操作或当前轮次的决定，不提供会话级授权。无法完整显示的超长权限内容仅提供拒绝，未支持的客户端请求明确返回错误。
 
@@ -67,9 +67,9 @@ DSH 与 Hermes 的检测只读取协议与模型目录，不创建或恢复检�
 
 本机服务按其继承的 `DSH_HOME` 定位配置，未设置时使用当前用户的 `.dsh`。macOS 和 Windows 使用相同规则；其他进程单独设置的环境变量不会自动传给 SolveMate。
 
-当前复用桌面配置 `profiles/desktop/cordis.patch.yml` 中 `@deepseek-ai/dsh-llm-pi-ai` 的模型提供方设置。ACP 的有效配置通过 DSH 官方 `--dump-config` 获取；保留 ACP 与共享配置中的已有提供方，同名配置以 ACP 的有效值为准。桌面界面插件和其他设置不进入本机 Host。
+当前复用桌面配置 `profiles/desktop/cordis.patch.yml` 中 `@deepseek-ai/dsh-llm-pi-ai` 的模型提供方设置。ACP 的有效配置通过 DSH 社区 `--dump-config` 获取；保留 ACP 与共享配置中的已有提供方，同名配置以 ACP 的有效值为准。桌面界面插件和其他设置不进入本机 Host。
 
-运行时通过官方 `--patch` 加载提供方配置。临时文件位于系统临时目录、以当前用户权限创建，进程关闭后删除；不写入项目、连接数据库或日志。模型配置中的凭据引用交给 Harness 解析，不读取它的凭据库。更改模型提供方后，重新检测并保存连接，以便加载新配置。临时启动补丁禁用配置编辑器，选择会话模型不会修改 DSH 的默认模型；不需要另建 profile。
+运行时通过社区 `--patch` 加载提供方配置。临时文件位于系统临时目录、以当前用户权限创建，进程关闭后删除；不写入项目、连接数据库或日志。模型配置中的凭据引用交给 Harness 解析，不读取它的凭据库。更改模型提供方后，重新检测并保存连接，以便加载新配置。临时启动补丁禁用配置编辑器，选择会话模型不会修改 DSH 的默认模型；不需要另建 profile。
 
 桌面配置不存在时使用 ACP 自身的模型配置。配置无法读取、YAML 损坏或提供方包含动态表达式时明确报错。当前未复用其他自定义模型插件或任意 profile；需要另外适配。会话绑定保留建立时的配置主目录；目录改变后仍由适配器尝试恢复原会话，找到并恢复成功就继续，失败时保留记录并显示原因。
 
@@ -89,7 +89,7 @@ DSH 与 Hermes 的检测只读取协议与模型目录，不创建或恢复检�
 
 ## 已确认的协议边界
 
-DeepSeek Harness `0.2.2-rc.2` 已验证原生模型目录、会话恢复、正文增量、停止与一次性权限。当前向模型传递关联 PDF 页、选段和题目的实际文字，不通过该接口直接传递 PDF/PPT 原件。
+DeepSeek Harness `0.2.2-rc.2` 已验证原生模型目录、会话恢复、正文增量、停止与一次性权限。默认关联当前页时传递该页文字；用户明确选择一个或多个页码时，传递原 PDF、固定版本和页码范围，由 Harness 读取指定页面；选段和题目继续传递实际文字。PPTX 先转换为阅读 PDF，再按相同规则处理。
 
 会话恢复按原编号读取原生跟随快照并加载模型选择，不通过 `session/create` 替代恢复。网页历史由 SolveMate 保存；恢复错误会明确显示，不创建空会话替代。请求编号用于去重，同编号不同内容会被拒绝。服务重启时把未结束执行标为中断，已收到的回复继续保留。
 
@@ -133,17 +133,17 @@ Codex 的接口映射、适配边界及验证结果见 [005 设计](../../docs/f
 
 共享定义位于 `packages/contracts/ai-metadata.schema.json`，TypeScript 类型和本机服务打包的 Schema 由 `npm run contracts:generate` 生成。请求、返回与保存数据使用相同字段定义；`npm run contracts:check` 检查生成文件是否同步。
 
-左下角管理外部连接、启用状态及检测结果；全局默认独立引用一项连接。教师与对话只选择已配置且启用的连接与模型，不处理安装与检测。教师未单独配置时使用全局默认，新对话保存明确的服务与模型。每轮执行独立保存请求快照、提交信息与结果版本；没有取得原生实际模型时保留为空。配置更新携带期望版本，发生冲突返回 HTTP 409，客户端重新读取配置。
+左下角管理外部连接及检测结果；全局默认独立引用已连接服务中的模型。机器人与对话只选择已连接的服务、模型和推理等级，不处理程序查找与连接检测。机器人未单独配置时使用全局默认，新对话保存明确的服务与模型。每轮执行独立保存请求快照、提交信息与结果版本；没有取得原生实际模型时保留为空。配置更新携带期望版本，发生冲突返回 HTTP 409，客户端重新读取配置。
 
 SQLite 首次打开旧数据库时，在同一事务中备份旧记录并迁移至格式 3，原生会话编号保持不变。浏览器个人数据库也通过事务迁移并保留旧格式备份，课程内容数据库保持原格式。具体约束与验证见 [006 设计](../../docs/features/006-ai-conversation-metadata/design.md)。
 
-## 用户资料
+## 资料导入与处理
 
-网页科目下的“学习资料”列表支持 PDF 和 PPTX，单文件上限 100 MiB。原件先保存到 `user/uploads/<资料编号>/<SHA-256 版本>/`；资料编号目录中的 `record.json` 记录处理状态和阅读文件。PPTX 由 LibreOffice 转换为 PDF，PDF.js 在网页显示原页面；每页文字通过 pypdf 提取。官方服务不接收这些文件。
+网页学科下的“学习资料”列表支持 PDF 和 PPTX，单文件上限 100 MiB。原件先保存到 `user/uploads/<资料编号>/<SHA-256 版本>/`；资料编号目录中的 `record.json` 记录处理状态和阅读文件。PPTX 由 LibreOffice 转换为 PDF，PDF.js 在网页显示原页面；每页文字通过 pypdf 提取。社区服务不接收这些文件。
 
-PDF 无需安装办公软件。PPTX 需安装 [LibreOffice](https://www.libreoffice.org/download/download-libreoffice/)：macOS 可执行 `brew install --cask libreoffice`；Windows 使用官方安装程序。服务优先查找 PATH，再检查 macOS 应用目录或 Windows Program Files 目录。非默认路径可在启动前设置 `SOLVEMATE_LIBREOFFICE`，值为 `soffice`、`soffice.com` 或 `soffice.exe` 的完整路径。macOS 无界面转换会同时加载系统与 LibreOffice 自带字体；未安装课件使用的字体时，转换后的排版可能与原课件不同，要求原版排版时可导入课件导出的 PDF。
+PDF 无需安装办公软件。PPTX 需安装 [LibreOffice](https://www.libreoffice.org/download/download-libreoffice/)：macOS 可执行 `brew install --cask libreoffice`；Windows 使用社区安装程序。服务优先查找 PATH，再检查 macOS 应用目录或 Windows Program Files 目录。非默认路径可在启动前设置 `SOLVEMATE_LIBREOFFICE`，值为 `soffice`、`soffice.com` 或 `soffice.exe` 的完整路径。macOS 无界面转换会同时加载系统与 LibreOffice 自带字体；未安装课件使用的字体时，转换后的排版可能与原课件不同，要求原版排版时可导入课件导出的 PDF。
 
-转换使用独立配置目录，最多同时处理两份资料，超过两分钟会停止本次转换；缺少转换器或文件损坏时保留原件，可在网页点击“重试处理”。重启服务会将中断任务标为失败，等待用户重试。在同一科目重复导入同一文件复用原资料；不同科目分别保留资料记录。调整所属科目只改变归属，不改变文件编号和历史引用。原件或阅读文件丢失时可重新导入原文件恢复。
+转换使用独立配置目录，最多同时处理两份资料，超过两分钟会停止本次转换；缺少转换器或文件损坏时保留原件，可在网页点击“重试处理”。重启服务会将中断任务标为失败，等待用户重试。在同一学科重复导入同一文件复用原资料；不同学科分别保留资料记录。调整所属学科只改变归属，不改变文件编号和历史引用。原件或阅读文件丢失时可重新导入原文件恢复。
 
 `SOLVEMATE_USER_DIR` 可指定本机数据根目录；默认使用项目的 `user/`。`SOLVEMATE_MATERIALS_DIR` 可单独指定上传资料目录，默认是数据根目录下的 `uploads/`；已有 `SOLVEMATE_LOCAL_DATA` 仍指定 AI 数据目录。测试应显式指定独立目录，不使用正式资料。
 
@@ -156,11 +156,11 @@ PDF 无需安装办公软件。PPTX 需安装 [LibreOffice](https://www.libreoff
 | `GET /local-api/v1/materials/{id}/{version}/reader`       | 读取固定资料版本的 PDF                                           |
 | `GET /local-api/v1/materials/{id}/{version}/pages/{page}` | 取得对应页面文字                                                 |
 
-所有资料接口沿用本机服务的 Host、Origin 和 `X-SolveMate-Client` 检查。文件名只作显示，不参与磁盘目录拼接。网页引用保存资料编号、固定版本、页码和文字快照；文字随问题直接进入现有 Harness 请求。当前不提供扫描件 OCR、图片理解、跨页选区或整本书检索。
+所有资料接口沿用本机服务的 Host、Origin 和 `X-SolveMate-Client` 检查。文件名只作显示，不参与磁盘目录拼接。引用统一保存资料编号、固定版本和页码；当前页引用额外保存发送时的文字快照，明确选择页码时由本机服务向 Harness 提供原 PDF 路径和页码。文字选段作为补充引用随问题发送。当前不提供扫描件 OCR、图片理解、跨页选区或整本书检索。
 
 ## 个人记录与浏览器迁移
 
-`user/app.sqlite3` 保存对话、消息、笔记本、笔记、机器人、学科、标签、设置、提问草稿及阅读进度。`user/community/` 保存下载包和清单，数据库保存版本索引与当前指针；`user/ai/` 继续保存已有连接、原生绑定和执行。接口位于 `/local-api/v1/user/`，沿用本机地址、网页来源及客户端标识检查，个人记录不发送到官方服务。
+`user/app.sqlite3` 保存对话、消息、笔记本、笔记、机器人、学科、标签、设置、尚未发送的提问及阅读进度。`user/community/` 保存下载包和清单，数据库保存版本索引与当前指针；`user/ai/` 继续保存已有连接、原生绑定和执行。接口位于 `/local-api/v1/user/`，沿用本机地址、网页来源及客户端标识检查，个人记录不发送到社区服务。
 
 首次升级使用原浏览器、原访问地址打开新版，先关闭其他旧版页面。程序读取原始 IndexedDB 记录及下载包，将完整信封（含旧格式备份）备份到 `user/backups/`，校验后导入；原数据库不删除。已有正式记录时提供“使用本机记录”或“导入浏览器记录”；替换需要确认，并先用 SQLite 备份接口保存本机记录。相同来源与内容重复打开不会重复导入；旧页面后续改动过的记录会再次提示选择。
 
@@ -186,6 +186,6 @@ PDF 无需安装办公软件。PPTX 需安装 [LibreOffice](https://www.libreoff
 
 网页入口为“设置 → 备份与恢复”。本机服务生成 ZIP，包含个人记录数据库、AI 数据库、上传原件及派生文件、已下载内容及历史版本、AI 工作目录。备份不包含 `backups/`、代码或第三方 Harness 的登录信息与原生会话存储。可在当前目录或另一实例的 `SOLVEMATE_USER_DIR` 中恢复，默认位置继续为仓库根目录的 `user/`。
 
-恢复前校验格式、文件摘要和数据库，再自动生成 `backups/before-restore-<时间>-<编号>.zip`。替换期间暂停新业务请求，已有问答、连接检测、资料转换须先完成；替换失败回退原数据，进程中断则在下次启动时处理恢复记录。原资料与原生会话编号保留；恢复后的保存版本提高，旧窗口需要刷新后继续。未发送的提问草稿保留，未保存表单由既有草稿机制保护。
+恢复前校验格式、文件摘要和数据库，再自动生成 `backups/before-restore-<时间>-<编号>.zip`。替换期间暂停新业务请求，已有问答、连接检测、资料转换须先完成；替换失败回退原数据，进程中断则在下次启动时处理恢复记录。原资料与原生会话编号保留；恢复后的保存版本提高，旧窗口需要刷新后继续。输入框中尚未发送的提问保留，未保存的表单修改由现有恢复机制保护。
 
 接口为 `POST /local-api/v1/user/backups/export`、`POST /inspect`、`POST /{token}/restore`，均要求既有本机网页访问凭据。ZIP 上限为 4 GiB，展开后上限为 8 GiB；默认导出直接写系统下载目录，选择其他位置时向浏览器流式传输。详细规则见 [018](../../docs/features/018-data-backup/spec.md)。

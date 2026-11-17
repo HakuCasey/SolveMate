@@ -11,6 +11,7 @@ from .adapters import AdapterRegistry
 from .adapters.types import HarnessEvent
 from .connections import ConnectionManager
 from .errors import ConnectionError
+from .generation import Generation
 from .metadata import (
     UNKNOWN_CLIENT,
     normalized_detection,
@@ -41,6 +42,7 @@ class AiService:
             store, self.registry, self.workspace, self.update, self.permission
         )
         self.jobs = {}
+        self.generations = {}
         self.session_turns = {}
         self.permissions = {}
         self.listeners = {}
@@ -601,6 +603,7 @@ class AiService:
             "userMessageId": request.userMessageId,
             "assistantMessageId": request.id + "-assistant",
             "text": request.text,
+            **({"research": deepcopy(request.research)} if request.research else {}),
             "teacher": request.teacher.model_dump(),
             "reference": request.reference.model_dump() if request.reference else None,
             **(
@@ -813,12 +816,14 @@ class AiService:
                 "externalSessionId": sid,
                 "contentKeys": prepared.content_keys,
                 "messageIds": prepared.message_ids,
+                "instructionKeys": prepared.instruction_keys,
             }
             self.progress(turn, "waiting")
-            result = await adapter.prompt(
-                process, sid, prepared.text, request_id=turn["id"]
-            )
-            self.confirm_delivery(turn)
+            generation = Generation(adapter, process, sid)
+            self.generations[turn["id"]] = generation
+            result = await generation.run(prepared.text, turn["id"])
+            if result not in {"failed", "cancelled"}:
+                self.confirm_delivery(turn)
             cancelled = result == "cancelled"
             turn["status"] = "cancelled" if cancelled else result
             if not cancelled and (result == "failed" or not turn["content"].strip()):
@@ -898,6 +903,7 @@ class AiService:
                     )
                 await self.disconnect_resources(turn["connectionId"])
         finally:
+            self.generations.pop(turn["id"], None)
             turn["phase"] = "finished"
             turn["completedAt"] = now()
             turn["permissions"] = []
@@ -953,6 +959,9 @@ class AiService:
         turn = self.jobs.get(ident)
         if not turn:
             return
+        generation = self.generations.get(ident)
+        if generation:
+            generation.update(params)
         kind = params.get("kind")
         if kind == "text":
             if "committed" in params:
@@ -963,6 +972,9 @@ class AiService:
         elif kind == "received":
             phase = "waiting"
         elif kind == "thinking":
+            # 增量已在上方重置期限；状态未变化时不重复写库、推送网页。
+            if turn["phase"] == "thinking":
+                return
             phase = "thinking"
         elif kind == "turn":
             turn["externalTurnId"] = params["externalTurnId"]

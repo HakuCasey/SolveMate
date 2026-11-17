@@ -4,7 +4,7 @@ import { Popover, Switch } from "radix-ui";
 import { PopoverPanel } from "../components/PopoverPanel";
 import styles from "./MaterialReader.module.css";
 
-/** 官方资料和上传资料共用翻页与缩放控件，阅读位置由各自的固定版本保存。 */
+/** 社区资料和上传资料共用翻页与缩放控件，阅读位置由各自的固定版本保存。 */
 export function PdfControls({
   pageNumber,
   pageCount,

@@ -40,6 +40,7 @@ function setup() {
         },
       ],
     },
+    contextPages: { [key]: [12, 15, 17] },
   };
   const value: ReloadCheckpoint = {
     schemaVersion: 1,

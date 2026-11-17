@@ -90,7 +90,19 @@ class HermesProcess(AcpTransport):
     async def prepare_launch(self):
         env = os.environ.copy()
         env["HERMES_HOME"] = str(hermes_home())
-        return [self.executable, "acp"], env
+        from .hermes_reasoning import _run, runtime_command
+
+        try:
+            raw = await _run(
+                [self.executable, "--print-runtime-command", "--module", "site"], env
+            )
+            helper = Path(__file__).with_name("hermes_acp.py")
+            return runtime_command(raw, helper), env
+        except (ValueError, TypeError, SyntaxError, IndexError) as error:
+            raise ConnectionError(
+                "无法读取 Hermes 的运行环境，请更新 Hermes 后重新检测连接。",
+                "hermes_sdk_unavailable",
+            ) from error
 
 
 class HermesAdapter(AcpAdapter):
@@ -197,7 +209,7 @@ class HermesAdapter(AcpAdapter):
         )
 
     async def rename_session(self, executable, sid, title, workspace):
-        # 使用官方管理命令；标题作为独立参数传递，不能拼接到 shell 命令中。
+        # 使用社区管理命令；标题作为独立参数传递，不能拼接到 shell 命令中。
         env = os.environ.copy()
         env["HERMES_HOME"] = str(self.home())
         process = await asyncio.create_subprocess_exec(

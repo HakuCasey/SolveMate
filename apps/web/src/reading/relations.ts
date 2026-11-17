@@ -19,6 +19,7 @@ import {
 import { locationForOrigin } from "@solvemate/contracts";
 import { materialLocation } from "../materials/location";
 import { officialEntryId } from "../content/entries";
+import { pageSelectionLabel } from "./page-selection";
 
 /** 资料身份不含学科名称、页码或版本；位置与版本仍由原记录各自保留。 */
 export function learningMaterialId(source: LearningLocation): string {
@@ -85,15 +86,30 @@ export class LearningMaterial {
       return UNSUPPORTED_READING_REFERENCE;
     return `${this.title} · ${this.position}`;
   }
+  readingLabelForPages(pages: number[]) {
+    return "materialId" in this.source && pages.length
+      ? `${this.title} · ${pageSelectionLabel(pages)}`
+      : this.readingLabel;
+  }
   /** 空正文仅用于保存读取失败的问题；提交 Harness 前必须读取成功。 */
-  contextReference(content = ""): ReadingReference {
+  contextReference(content = "", pageNumbers?: number[]): ReadingReference {
+    const selectedPages: [number, ...number[]] | undefined = pageNumbers?.length
+      ? [pageNumbers[0], ...pageNumbers.slice(1)]
+      : undefined;
+    const source =
+      "materialId" in this.source && selectedPages
+        ? { ...this.source, pageNumber: selectedPages[0] }
+        : this.source;
     return {
-      title: this.readingLabel,
+      title: selectedPages
+        ? this.readingLabelForPages(selectedPages)
+        : this.readingLabel,
       content,
-      selection: "materialId" in this.source ? null : { ...this.source },
-      ...("materialId" in this.source
-        ? { material: { ...this.source }, quoteKind: "page" as const }
-        : this.source.kind === "textbooks"
+      ...(selectedPages ? { pageNumbers: selectedPages } : {}),
+      selection: "materialId" in source ? null : { ...source },
+      ...("materialId" in source
+        ? { material: { ...source }, quoteKind: "page" as const }
+        : source.kind === "textbooks"
           ? { quoteKind: "page" as const }
           : {}),
     };

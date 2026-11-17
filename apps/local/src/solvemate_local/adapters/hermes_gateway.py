@@ -47,7 +47,7 @@ async def native_request(process, operation, **payload):
 
 
 async def _native(request):
-    # 由 Hermes 自己的 Python 运行；只使用官方 SDK，不加载 SolveMate 依赖或复制密钥。
+    # 由 Hermes 自己的 Python 运行；只使用社区 SDK，不加载 SolveMate 依赖或复制密钥。
     from hermes_cli.gateway_client import connect_gateway
 
     operation = request["operation"]

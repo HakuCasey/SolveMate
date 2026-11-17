@@ -26,7 +26,9 @@ from .models import (
     QuestionFile,
     ReleaseManifest,
     SourceCatalog,
+    TeachingTool,
     TextbookPages,
+    ToolCatalogEntry,
 )
 from .repository import ContentRepository, RepositoryError, json_bytes
 
@@ -174,6 +176,15 @@ def publish(data_dir: Path, content_dir: Path) -> PublishedCatalog:
         raise ValueError("Invalid source catalog; check data/catalog.json.") from error
     # 所有课程先校验并打包；任何源文件错误都不会改变当前发布目录。
     releases = [build_release(data_dir, course) for course in definition.courses]
+    tools = []
+    for ident in definition.tools:
+        path = (data_dir / "tools" / f"{ident}.json").resolve(strict=True)
+        path.relative_to(data_dir.resolve())
+        tool = TeachingTool.model_validate_json(path.read_bytes())
+        if tool.id != ident:
+            raise ValueError("Tool ID does not match the source catalog.")
+        payload = json_bytes(tool)
+        tools.append((tool, hashlib.sha256(payload).hexdigest(), payload))
     content_dir.mkdir(parents=True, exist_ok=True)
     lock = content_dir / ".publish-lock"
     try:
@@ -226,7 +237,30 @@ def publish(data_dir: Path, content_dir: Path) -> PublishedCatalog:
                     versions=versions,
                 )
             )
-        catalog = PublishedCatalog(courses=entries)
+        tool_entries = []
+        for tool, version, payload in tools:
+            parent = content_dir / "tools" / tool.id
+            parent.mkdir(parents=True, exist_ok=True)
+            target = parent / f"{version}.json"
+            if target.exists() and target.read_bytes() != payload:
+                raise ValueError("Published tool version is immutable.")
+            if not target.exists():
+                atomic_write(target, payload)
+            old = next((item for item in previous.tools if item.id == tool.id), None)
+            versions = list(old.versions) if old else []
+            if version not in versions:
+                versions.append(version)
+            tool_entries.append(
+                ToolCatalogEntry(
+                    id=tool.id,
+                    title=tool.title,
+                    description=tool.description,
+                    latest_version=version,
+                    versions=versions,
+                    updatedAt=tool.updatedAt,
+                )
+            )
+        catalog = PublishedCatalog(courses=entries, tools=tool_entries)
         # 完整包全部落盘后才提交新目录；请求始终读到完整的旧目录或新目录。
         atomic_write(content_dir / "catalog.json", json_bytes(catalog))
         logger.info("Published content catalog: courses=%d", len(entries))
@@ -239,7 +273,7 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     settings = Settings.from_env()
     parser = argparse.ArgumentParser(
-        description="Publish SolveMate official course content."
+        description="Publish SolveMate community course content."
     )
     parser.add_argument("--data-dir", type=Path, default=settings.data_dir)
     parser.add_argument("--content-dir", type=Path, default=settings.content_dir)

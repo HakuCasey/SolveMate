@@ -1,27 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { AiTurn } from "@solvemate/contracts";
 import { createInitialData } from "../data/catalog";
-import { conversationTasks, recordStatus } from "./state";
-const saved = {
-  saveState: "saved" as const,
-  conflict: false,
-  online: true,
-  unsaved: false,
-};
+import { conversationTasks } from "./state";
 describe("status bar derives current business state", () => {
-  it("never shows saved while a form is dirty or a save has failed", () => {
-    expect(recordStatus(saved).label).toBe("已保存");
-    expect(recordStatus({ ...saved, unsaved: true }).label).toBe(
-      "有未保存修改",
-    );
-    expect(recordStatus({ ...saved, saveState: "saving" }).label).toBe(
-      "正在保存…",
-    );
-    expect(
-      recordStatus({ ...saved, conflict: true, unsaved: true }).label,
-    ).toBe("保存失败");
-    expect(recordStatus({ ...saved, online: false }).attention).toBe(true);
-  });
   it("includes all running conversations and their permission requests", () => {
     const data = createInitialData();
     for (const [index, conversation] of data.conversations.entries())
@@ -91,19 +72,4 @@ describe("status bar derives current business state", () => {
       conversationTasks(data.conversations, {}, data.conversations[0].id),
     ).toEqual([]);
   });
-});
-
-it("reports unreadable records before save errors and distinguishes initial loading", () => {
-  const base = {
-    saveState: "error" as const,
-    conflict: false,
-    online: true,
-    unsaved: false,
-  };
-  expect(recordStatus({ ...base, readError: "无法读取" }).label).toBe(
-    "记录读取失败",
-  );
-  expect(
-    recordStatus({ ...base, saveState: "saved", reading: true }).label,
-  ).toBe("正在读取…");
 });

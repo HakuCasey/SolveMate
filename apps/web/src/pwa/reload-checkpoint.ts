@@ -33,7 +33,19 @@ function validCheckpoint(value: unknown): value is ReloadCheckpoint {
   if (
     !record(reading.positions) ||
     !record(reading.documents) ||
-    !record(reading.references)
+    !record(reading.references) ||
+    (reading.contextPages !== undefined && !record(reading.contextPages))
+  )
+    return false;
+  if (
+    reading.contextPages !== undefined &&
+    !Object.values(reading.contextPages).every(
+      (pages) =>
+        Array.isArray(pages) &&
+        pages.length > 0 &&
+        pages.length <= 200 &&
+        pages.every((page) => Number.isInteger(page) && page > 0),
+    )
   )
     return false;
   if (

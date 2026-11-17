@@ -47,14 +47,12 @@ class DshStream:
         self.reason = None
         self.turn = None
         self.abandoned_text = ""
-        self.phase = None
         self.tools = {}
         self.committed = True
 
     def send(self, **event):
-        if event["kind"] == "thinking" and self.phase == "thinking":
-            return
-        self.phase = event["kind"]
+        # 每个思考增量都是实际进展；相同显示状态的去重由公共服务负责，
+        # 不能在这里丢弃后让无进展计时误判。思考正文仍不向外传递。
         self.emit({"sessionId": self.sid, **event})
 
     def snapshot(self, value):

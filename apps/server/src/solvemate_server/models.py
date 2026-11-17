@@ -72,12 +72,43 @@ class CourseSpec(CourseInfo):
         return self
 
 
+class ToolResource(Model):
+    id: str = Field(min_length=1, max_length=100)
+    title: str = Field(min_length=1, max_length=80)
+    content: str = Field(min_length=1, max_length=20000)
+
+
+class TeachingTool(Model):
+    id: Identifier
+    title: str = Field(min_length=1, max_length=80)
+    description: str = Field(max_length=500)
+    skill: ToolResource
+    template: ToolResource
+    suggestions: list[Annotated[str, Field(min_length=1, max_length=200)]] = Field(
+        default_factory=list, max_length=2
+    )
+    source: Literal["official"] = "official"
+    updatedAt: int = Field(ge=0)
+
+
+class ToolCatalogEntry(Model):
+    id: Identifier
+    title: str = Field(min_length=1, max_length=80)
+    description: str = Field(max_length=500)
+    latest_version: Digest
+    versions: list[Digest] = Field(min_length=1)
+    updatedAt: int = Field(ge=0)
+
+
 class SourceCatalog(Model):
     schema_version: Literal[1]
     courses: list[CourseSpec] = Field(min_length=1)
+    tools: list[Identifier] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def unique_courses(self) -> "SourceCatalog":
+        if len(set(self.tools)) != len(self.tools):
+            raise ValueError("Tool IDs must be unique.")
         if len({item.id for item in self.courses}) != len(self.courses):
             raise ValueError("Course IDs must be unique.")
         return self
@@ -118,9 +149,14 @@ class CatalogEntry(Model):
 class PublishedCatalog(Model):
     schema_version: Literal[1] = 1
     courses: list[CatalogEntry]
+    tools: list[ToolCatalogEntry] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def unique_courses(self) -> "PublishedCatalog":
+        if len({item.id for item in self.tools}) != len(self.tools):
+            raise ValueError("Published tool IDs must be unique.")
+        if any(t.latest_version not in t.versions for t in self.tools):
+            raise ValueError("Latest tool version must be published.")
         if len({item.course.id for item in self.courses}) != len(self.courses):
             raise ValueError("Published course IDs must be unique.")
         return self

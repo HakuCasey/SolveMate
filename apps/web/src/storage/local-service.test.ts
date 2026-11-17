@@ -392,3 +392,33 @@ it("keeps a valid cache readable when the server reports corrupt JSON", async ()
   expect(service.userStorageStatus.snapshot().loadFailure).toBeNull();
   service.userCache.close();
 });
+
+it("retains readable caches without overriding the availability of a service reporting a disk error", async () => {
+  const service = await import("./local-service");
+  const storage = new service.LocalAppStorage();
+  await storage.load();
+  await storage.save(createInitialData());
+  const original = state.value;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(
+      reply(
+        {
+          code: "local_storage_failed",
+          detail: "磁盘空间不足，请清理后重新读取。",
+        },
+        503,
+      ),
+    ),
+  );
+  expect(await storage.load()).toEqual(original);
+  expect(service.userStorageStatus.snapshot().online).toBe(true);
+  expect(service.userStorageStatus.snapshot().loadFailure).toMatchObject({
+    code: "local_storage_failed",
+  });
+  expect(state.value).toBe(original);
+  vi.stubGlobal("fetch", vi.fn(fetcher));
+  expect(await storage.refresh()).toEqual(original);
+  expect(service.userStorageStatus.snapshot().loadFailure).toBeNull();
+  service.userCache.close();
+});

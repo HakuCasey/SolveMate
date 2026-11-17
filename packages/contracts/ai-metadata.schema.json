@@ -321,6 +321,16 @@
           "type": "string",
           "maxLength": 100000
         },
+        "pageNumbers": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "minItems": 1,
+          "maxItems": 200,
+          "uniqueItems": true
+        },
         "selection": {
           "anyOf": [
             {
@@ -930,6 +940,9 @@
               "type": "null"
             }
           ]
+        },
+        "research": {
+          "$ref": "#/$defs/QuestionResearchContext"
         }
       },
       "required": [
@@ -1214,6 +1227,18 @@
         "receivedAt": {
           "type": "integer",
           "minimum": 0
+        },
+        "instructionKeys": {
+          "type": "object",
+          "properties": {
+            "skill": {
+              "type": "string"
+            },
+            "template": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
         }
       },
       "required": [
@@ -1458,6 +1483,9 @@
         },
         "readingContext": {
           "$ref": "#/$defs/ReadingReference"
+        },
+        "research": {
+          "$ref": "#/$defs/QuestionResearchContext"
         }
       },
       "required": [
@@ -1718,6 +1746,9 @@
                   "$ref": "#/$defs/ReadingReference"
                 },
                 "maxItems": 20
+              },
+              "research": {
+                "$ref": "#/$defs/QuestionResearchContext"
               }
             },
             "required": [
@@ -1758,6 +1789,9 @@
         "bindingRevision": {
           "type": "integer",
           "minimum": 1
+        },
+        "research": {
+          "$ref": "#/$defs/QuestionResearchContext"
         }
       },
       "required": [
@@ -2290,6 +2324,128 @@
       },
       "title": "SupportedReadingReference",
       "type": "object"
+    },
+    "ResearchResource": {
+      "title": "ResearchResource",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "content": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "content"
+      ],
+      "additionalProperties": false
+    },
+    "QuestionResearchContext": {
+      "title": "QuestionResearchContext",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "question-research"
+        },
+        "template": {
+          "$ref": "#/$defs/ResearchResource"
+        },
+        "skill": {
+          "$ref": "#/$defs/ResearchResource"
+        },
+        "toolId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "toolTitle": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        }
+      },
+      "required": [
+        "kind",
+        "template",
+        "skill"
+      ],
+      "additionalProperties": false
+    },
+    "TeachingTool": {
+      "title": "TeachingTool",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "skill": {
+          "$ref": "#/$defs/ResearchResource"
+        },
+        "template": {
+          "$ref": "#/$defs/ResearchResource"
+        },
+        "source": {
+          "enum": [
+            "official",
+            "user"
+          ]
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "updatedAt": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "suggestions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "maxItems": 2
+        },
+        "customTitle": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "description",
+        "skill",
+        "template",
+        "source",
+        "updatedAt"
+      ],
+      "additionalProperties": false
     }
   },
   "anyOf": [
@@ -2400,6 +2556,9 @@
     },
     {
       "$ref": "#/$defs/MaterialVersion"
+    },
+    {
+      "$ref": "#/$defs/TeachingTool"
     }
   ]
 }

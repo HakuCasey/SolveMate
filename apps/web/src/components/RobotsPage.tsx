@@ -662,7 +662,7 @@ export function RobotsPage({
               role={invalidField ? "alert" : "status"}
             >
               {removed
-                ? "机器人已删除，当前输入仍保留，可从“未保存内容”中复制。"
+                ? "机器人已删除，请先复制当前输入，再选择其他机器人。"
                 : hasChanges && !invalidField
                   ? "有未保存的修改"
                   : status}

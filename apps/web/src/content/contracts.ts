@@ -1,4 +1,4 @@
-/** 与官方内容服务的 OpenAPI 对齐，读取外部数据时仍需校验。 */
+/** 与社区内容服务的 OpenAPI 对齐，读取外部数据时仍需校验。 */
 export interface CourseInfo {
   id: string;
   title: string;

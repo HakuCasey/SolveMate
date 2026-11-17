@@ -1,3 +1,4 @@
+import { trackOperation } from "../operations/store";
 import type {
   AiSettings,
   AiTurn,
@@ -202,7 +203,7 @@ async function streamTurn(
   }
 }
 
-export const localAi = {
+const api = {
   renameSession: async (id: string, title: string, binding: SessionBinding) => {
     const result = await request<{ status: "synced" | "unsupported" }>(
       `/conversations/${encodeURIComponent(id)}/native-title`,
@@ -322,4 +323,44 @@ export const localAi = {
       "POST",
       { requestId, optionId },
     ),
+};
+
+export const localAi = {
+  ...api,
+  detect: trackOperation(
+    ([, , provider = "deepseek-harness"]) => ({
+      key: `ai:detect:${provider}`,
+      label: "检测 AI 连接",
+      targetId: provider,
+      guidance: "请在设置 → AI 配置中检查连接并重试。",
+    }),
+    api.detect,
+  ),
+  save: trackOperation(
+    ([config]) => ({
+      key: `ai:save:${config.provider}`,
+      label: "保存 AI 配置",
+      targetId: config.provider,
+      guidance: "请在设置 → AI 配置中核对选项，再点击保存配置。",
+    }),
+    api.save,
+  ),
+  deleteConnection: trackOperation(
+    ([id]) => ({
+      key: `ai:delete:${id}`,
+      label: "删除 AI 配置",
+      targetId: id,
+      guidance: "请在设置 → AI 配置中核对连接是否仍存在，再重试。",
+    }),
+    api.deleteConnection,
+  ),
+  setDefaultConnection: trackOperation(
+    ([id]) => ({
+      key: `ai:default:${id}`,
+      label: "设置默认模型",
+      targetId: id,
+      guidance: "请在设置 → AI 配置中重新选择默认模型。",
+    }),
+    api.setDefaultConnection,
+  ),
 };

@@ -14,7 +14,7 @@ import {
 import type { Conversation } from "@solvemate/contracts";
 import type { ConversationChange } from "../state/conversations";
 import { useEditValue } from "../refresh/useEditRevision";
-import { useDraftBackup } from "../refresh/drafts";
+import { useUnsavedForm } from "../refresh/drafts";
 import styles from "./ConversationActions.module.css";
 
 export interface ConversationActionsProps {
@@ -58,16 +58,12 @@ export function ConversationActions({
   const [updating, setUpdating] = useState(false);
   const [actionError, setActionError] = useState("");
   const [deleteOpen, setDeleteOpen] = useState(false);
-  const releaseRename = useDraftBackup(
+  const releaseRename = useUnsavedForm(
     `conversation-name:${conversation.id}`,
-    "对话名称草稿",
-    { title: renameTitle },
     panel === "rename" && renameTitle !== conversation.title,
   );
-  const releaseLabel = useDraftBackup(
+  const releaseLabel = useUnsavedForm(
     `conversation-label:${conversation.id}`,
-    "对话标签草稿",
-    { label: customLabel },
     panel === "label" && !!customLabel,
   );
   const customLabels =

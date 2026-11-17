@@ -1,4 +1,6 @@
 import type { PersonalMaterials } from "../materials/useMaterials";
+import { OfficialTools } from "../research/OfficialTools";
+import type { TeachingTools } from "../research/useTeachingTools";
 import { useEffect } from "react";
 import { BookOpen, Check, ListChecks, RefreshCw, X } from "lucide-react";
 import type { OfficialContent } from "../content/useOfficialContent";
@@ -8,6 +10,8 @@ import styles from "./ContentManager.module.css";
 
 interface Props {
   content: OfficialContent;
+  tools: TeachingTools;
+  onUseTool: () => void;
   library: OfficialLibrary;
   operation: { busy: boolean; error: string };
   onInstall: (id: string, update: boolean) => Promise<boolean>;
@@ -16,6 +20,8 @@ interface Props {
 }
 export function ContentManager({
   content,
+  tools,
+  onUseTool,
   library,
   operation,
   onInstall,
@@ -23,12 +29,25 @@ export function ContentManager({
   materials,
 }: Props) {
   const { checking, connectionError, transfer, refresh, checkedAt } = content;
-  const availableUpdates = library.entries.filter(
-    (item) => item.downloaded && item.packageState.updateAvailable,
+  const refreshTools = tools.refresh;
+  const toolUpdates = tools.items.filter(
+    (t) =>
+      t.source === "official" &&
+      tools.remote.some((r) => r.id === t.id && r.latest_version !== t.version),
   ).length;
-  const unknownVersions = library.entries.some(
-    (item) => item.downloaded && item.packageState.unknown,
-  );
+  const availableUpdates =
+    toolUpdates +
+    library.entries.filter(
+      (item) => item.downloaded && item.packageState.updateAvailable,
+    ).length;
+  const unknownVersions =
+    tools.items.some(
+      (t) =>
+        t.source === "official" && !tools.remote.some((r) => r.id === t.id),
+    ) ||
+    library.entries.some(
+      (item) => item.downloaded && item.packageState.unknown,
+    );
   const unverifiedVersions = library.entries.some(
     (item) =>
       item.downloaded &&
@@ -38,7 +57,8 @@ export function ContentManager({
   );
   useEffect(() => {
     void refresh();
-  }, [refresh]);
+    void refreshTools();
+  }, [refresh, refreshTools]);
   const busy =
     !!transfer &&
     ["downloading", "verifying", "saving"].includes(transfer.phase);
@@ -47,42 +67,50 @@ export function ContentManager({
       <header className={styles.heading}>
         <div>
           <h1>社区内容</h1>
-          <p>下载或更新社区资料。</p>
+          <p>下载或更新社区资料与教研工具。</p>
         </div>
         <button
           className={styles.secondary}
-          disabled={checking || busy || operation.busy}
+          disabled={
+            checking || tools.checking || busy || operation.busy || !!tools.busy
+          }
           onClick={() => {
             void refresh();
+            void refreshTools();
           }}
         >
           <RefreshCw aria-hidden="true" />
-          {checking ? "正在检查内容更新…" : "检查内容更新"}
+          {checking || tools.checking ? "正在检查内容更新…" : "检查内容更新"}
         </button>
       </header>
       <div className={styles.body}>
-        {!checking && !connectionError && checkedAt && (
-          <p
-            className={styles.checkResult}
-            role="status"
-            data-updates={availableUpdates > 0}
-          >
-            {availableUpdates > 0 ? (
-              <RefreshCw aria-hidden="true" />
-            ) : (
-              <Check aria-hidden="true" />
-            )}
-            {availableUpdates > 0
-              ? `有 ${availableUpdates} 项内容可更新，仍可使用本地版本。`
-              : unknownVersions
-                ? "检查完成，部分本地版本暂无法核对，仍可使用。"
-                : unverifiedVersions
-                  ? "本地版本已变化，请重新检查内容更新。"
-                  : library.entries.some((item) => item.downloaded) || false
-                    ? "检查完成，已下载的社区内容均为最新版本。"
-                    : "检查完成，可下载下列社区内容。"}
-          </p>
-        )}
+        {!checking &&
+          !tools.checking &&
+          !tools.error &&
+          !connectionError &&
+          checkedAt && (
+            <p
+              className={styles.checkResult}
+              role="status"
+              data-updates={availableUpdates > 0}
+            >
+              {availableUpdates > 0 ? (
+                <RefreshCw aria-hidden="true" />
+              ) : (
+                <Check aria-hidden="true" />
+              )}
+              {availableUpdates > 0
+                ? `有 ${availableUpdates} 项内容可更新，仍可使用本地版本。`
+                : unknownVersions
+                  ? "检查完成，部分本地版本暂无法核对，仍可使用。"
+                  : unverifiedVersions
+                    ? "本地版本已变化，请重新检查内容更新。"
+                    : library.entries.some((item) => item.downloaded) ||
+                        tools.items.some((t) => t.source === "official")
+                      ? "检查完成，已下载的社区内容均为最新版本。"
+                      : "检查完成，可下载下列社区内容。"}
+            </p>
+          )}
         {connectionError && (
           <p className={styles.notice} role="alert">
             {connectionError}
@@ -93,6 +121,7 @@ export function ContentManager({
             {operation.error}
           </p>
         )}
+        <OfficialTools tools={tools} onUse={onUseTool} />
         <h2 className={styles.sectionTitle}>学习资料与题目</h2>
         <div className={styles.list}>
           {library.entries.map((item) => {
@@ -126,7 +155,21 @@ export function ContentManager({
                     <span className={styles.icon}>
                       <Icon aria-hidden="true" />
                     </span>
-                    <h2 title={title}>{title}</h2>
+                    <h2 title={title}>
+                      <span className={styles.titleText}>{title}</span>
+                      {item.downloaded && state.updateAvailable && (
+                        <span
+                          className={styles.updateNotice}
+                          title="有新版可更新"
+                          aria-label="有新版可更新"
+                        >
+                          <RefreshCw aria-hidden="true" />
+                          <span className={styles.updateLabel}>
+                            有新版可更新
+                          </span>
+                        </span>
+                      )}
+                    </h2>
                     <div className={styles.actions}>
                       {item.downloaded && (
                         <button
@@ -194,12 +237,6 @@ export function ContentManager({
                       "尚未下载"
                     )}
                   </p>
-                  {item.downloaded && state.updateAvailable && (
-                    <p className={styles.updateNotice}>
-                      <RefreshCw aria-hidden="true" />
-                      有新版可更新
-                    </p>
-                  )}
                   {state.unknown && (
                     <p className={styles.noticeInline}>
                       本地版本暂无法核对，仍可阅读。

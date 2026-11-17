@@ -1,3 +1,5 @@
+import { operations } from "../operations/store";
+import { recordOperation } from "../operations/records";
 import { migrateNoteMetadata } from "@solvemate/contracts";
 import type { AppData } from "@solvemate/contracts";
 import type { AppStorage, UnsavedRecord } from "./index";
@@ -48,6 +50,7 @@ export class LocalDataController {
   private refreshWanted = false;
   private recoveryId = crypto.randomUUID();
   private restoringRecoveryId: string | null = null;
+  private failedCommits = new Map<string, string>();
   private temporaryBase: AppData | null = null;
   constructor(
     private readonly storage: AppStorage,
@@ -105,8 +108,7 @@ export class LocalDataController {
       await this.storage.preserve?.(record);
     } catch (error) {
       this.publish({
-        refreshError:
-          "未保存内容仍在当前窗口，但浏览器未能备份；请保留页面并导出内容。",
+        refreshError: "本次修改未能备份到浏览器，请保持页面打开并重试。",
       });
       throw error;
     }
@@ -119,16 +121,37 @@ export class LocalDataController {
   private persist(data: AppData, transactional = false) {
     if (!this.base)
       return Promise.reject(
-        new Error("原记录尚未读取成功，输入已保留。请在“记录保存”中重新读取。"),
+        new Error("原记录尚未读取成功，输入已保留。请在“操作状态”中重新读取。"),
       );
     const generation = ++this.generation;
     // 未发布的配置提交独立保留，后续回复或阅读进度不能覆盖这份候选内容。
     const backupId = transactional ? crypto.randomUUID() : this.recoveryId;
+    const description = recordOperation(this.base, data);
+    const operation = description
+      ? operations.start(
+          transactional
+            ? { ...description, key: `records:commit:${description.key}` }
+            : description,
+        )
+      : null;
     this.publish({ saveState: "saving" });
     const result = Promise.resolve()
       .then(() => this.storage.save(data))
       .then(() => {
         this.base = structuredClone(data);
+        if (operation) operations.finish(operation);
+        if (transactional && operation)
+          this.failedCommits.delete(operation.key);
+        // 完整快照成功落盘后，先前未确认的同一批修改已一并完成；独立提交失败仍需恢复。
+        if (!transactional) {
+          for (const failed of operations.snapshot().failures) {
+            if (
+              failed.key.startsWith("records:") &&
+              !failed.key.startsWith("records:commit:")
+            )
+              operations.resolve(failed.key);
+          }
+        }
         if (this.restoringRecoveryId && !this.state.conflicts.length) {
           const restored = this.restoringRecoveryId;
           this.restoringRecoveryId = null;
@@ -149,13 +172,20 @@ export class LocalDataController {
           this.publish({ saveState: "saved", conflict: false, saveError: "" });
       })
       .catch(async (error: unknown) => {
+        const failed =
+          operation ??
+          operations.start({
+            key: "records:background",
+            label: "更新阅读记录",
+          });
+        operations.finish(failed, error);
+        if (transactional) this.failedCommits.set(failed.key, backupId);
         try {
           await this.retain(data, backupId);
         } catch (failure) {
           logError("Failed to retain unconfirmed local changes.", failure);
           this.publish({
-            refreshError:
-              "未保存内容仍在当前窗口，但浏览器未能备份；请保留页面并导出内容。",
+            refreshError: "本次修改未能备份到浏览器，请保持页面打开并重试。",
           });
         }
         if (generation === this.generation)
@@ -202,7 +232,7 @@ export class LocalDataController {
     if (this.refreshPromise) await this.refreshPromise;
     if (this.locked) throw new Error("正在保存另一项修改，请稍后重试。");
     if (this.state.conflicts.length)
-      throw new Error("有尚未确认的修改冲突，请先在“未保存内容”中核对。");
+      throw new Error("有尚未确认的修改冲突，请先在“处理修改冲突”中核对。");
     this.locked = true;
     try {
       await this.lastWrite.catch(() => undefined);
@@ -211,7 +241,7 @@ export class LocalDataController {
       if (!this.base) {
         await this.retain(next);
         throw new Error(
-          "原记录尚未读取成功，输入已保留。请在“记录保存”中重新读取。",
+          "原记录尚未读取成功，输入已保留。请在“操作状态”中重新读取。",
         );
       }
       await this.persist(next, true);
@@ -278,7 +308,26 @@ export class LocalDataController {
       this.unlock();
     }
   };
-  retry = () => {
+  retry = (key?: string) => {
+    const candidate =
+      key && this.failedCommits.has(key)
+        ? [key, this.failedCommits.get(key)!]
+        : this.failedCommits.entries().next().value;
+    if (candidate && !this.state.conflicts.length) {
+      const [operationKey, id] = candidate;
+      return (
+        this.restoringRecoveryId === id && this.state.data
+          ? this.persist(this.state.data, true).then(() => true)
+          : this.restoreRecovery(id)
+      )
+        .then((restored) => {
+          if (restored) {
+            operations.resolve(operationKey);
+            this.failedCommits.delete(operationKey);
+          }
+        })
+        .catch(() => undefined);
+    }
     if (!this.state.data || this.state.conflicts.length)
       return Promise.resolve();
     if (this.state.conflict) {
@@ -360,7 +409,7 @@ export class LocalDataController {
               ? "error"
               : "saved",
           saveError: conflicts.length
-            ? "内容存在修改冲突，输入已保留，请在“未保存内容”中核对。"
+            ? "内容存在修改冲突，输入已保留，请在“处理修改冲突”中核对。"
             : dirty
               ? "最新记录已读取，本页修改已保留，请确认后重试保存。"
               : "",
@@ -368,7 +417,9 @@ export class LocalDataController {
       } catch (error) {
         this.publish({
           refreshError:
-            "无法读取最新记录，当前内容与未保存输入仍保留，请点击“刷新数据”重试。",
+            error instanceof Error
+              ? error.message
+              : "对话、笔记和配置未能读取，请重试。",
         });
         logError("Failed to refresh local records.", error);
         throw error;

@@ -1,14 +1,11 @@
 import { PopoverPanel } from "./PopoverPanel";
-import { useEffect, useRef, useState, type CSSProperties } from "react";
-import { ContextMenu, Popover } from "radix-ui";
+import { useState, type CSSProperties } from "react";
+import { Popover } from "radix-ui";
 import {
   ArchiveRestore,
-  BookOpen,
   Bot,
-  ChevronDown,
   Check,
   CircleHelp,
-  Code2,
   Cpu,
   Download,
   RefreshCw,
@@ -18,23 +15,16 @@ import {
   Moon,
   NotebookPen,
   PawPrint,
-  Pencil,
-  Plus,
   School,
-  Trash2,
   Settings as SettingsIcon,
   SlidersHorizontal,
-  SquareFunction,
   Sun,
   UserRoundPlus,
 } from "lucide-react";
-import type { CourseId, Settings, Subject } from "@solvemate/contracts";
-import type { LibraryScope } from "../reading/library";
-import { teachingActivities, type TeachingActivityId } from "../data/teaching";
+import type { Settings } from "@solvemate/contracts";
 import type { AiService } from "../ai/useAiService";
 import { AiSettings } from "./AiSettings";
 import { StudyFootprint, StudyAchievements } from "./StudyOverview";
-import type { SubjectAction } from "./SubjectDialog";
 import userAvatar from "../assets/user-avatar.png";
 import { findTheme, themes } from "../theme/presets";
 import styles from "./Sidebar.module.css";
@@ -50,20 +40,11 @@ type View =
   | "library";
 
 interface SidebarProps {
-  subjects: Subject[];
   onRefreshData: () => Promise<boolean>;
   onOpenBackup: () => void;
-  onSubjectAction: (action: SubjectAction) => void;
   view: View;
-  teachingActivity: TeachingActivityId;
-  onSelectTeachingActivity: (id: TeachingActivityId) => void;
-  activeScope: LibraryScope | null;
   settings: Settings;
   onNavigate: (view: View) => void;
-  onSelectContent: (
-    courseId: CourseId | null,
-    kind: "questions" | "textbooks",
-  ) => void;
   onSettingsChange: (settings: Settings) => void;
   disabled?: boolean;
   ai: AiService;
@@ -98,49 +79,15 @@ const accountActions = [
 ];
 
 export function Sidebar({
-  subjects,
   onRefreshData,
   onOpenBackup,
   view,
-  teachingActivity,
-  onSelectTeachingActivity,
-  activeScope,
-  onSubjectAction,
   settings,
   onNavigate,
-  onSelectContent,
   onSettingsChange,
   disabled = false,
   ai,
 }: SidebarProps) {
-  const [subjectsOpen, setSubjectsOpen] = useState(false);
-  const [teachingOpen, setTeachingOpen] = useState(false);
-  const [expandedSubjects, setExpandedSubjects] = useState<
-    Record<CourseId, boolean>
-  >({});
-  const activeSubject = activeScope
-    ? (activeScope.courseId ?? "__unclassified__")
-    : null;
-  const subjectTree = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (activeSubject === null) return;
-    setSubjectsOpen(true);
-    setExpandedSubjects((previous) =>
-      previous[activeSubject]
-        ? previous
-        : { ...previous, [activeSubject]: true },
-    );
-  }, [activeSubject]);
-  useEffect(() => {
-    const tree = subjectTree.current;
-    const item = tree?.querySelector<HTMLElement>('[aria-pressed="true"]');
-    if (!tree || !item) return;
-    const bounds = tree.getBoundingClientRect(),
-      target = item.getBoundingClientRect();
-    if (target.top < bounds.top) tree.scrollTop -= bounds.top - target.top;
-    else if (target.bottom > bounds.bottom)
-      tree.scrollTop += target.bottom - bounds.bottom;
-  }, [activeSubject, subjectsOpen, expandedSubjects]);
   const [accountOpen, setAccountOpen] = useState(false);
   const [accountMessage, setAccountMessage] = useState("");
   const [settingsMenu, setSettingsMenu] = useState<
@@ -164,15 +111,6 @@ export function Sidebar({
       if (current === "closed") return current;
       return open ? panel : current === panel ? "menu" : current;
     });
-  }
-
-  function toggleSubjects() {
-    // 收起总入口时同时收起课程，避免再次展开时恢复旧的子树状态。
-    if (subjectsOpen)
-      setExpandedSubjects(
-        Object.fromEntries(subjects.map((subject) => [subject.id, false])),
-      );
-    setSubjectsOpen(!subjectsOpen);
   }
 
   function navigate(nextView: View) {
@@ -257,166 +195,18 @@ export function Sidebar({
         <StudyAchievements />
       </div>
 
-      <div className={styles.subjects}>
-        <button
-          className={styles.primaryButton}
-          type="button"
-          aria-expanded={subjectsOpen}
-          aria-controls="subject-navigation"
-          disabled={disabled}
-          onClick={toggleSubjects}
-        >
-          <Library aria-hidden="true" />
-          <span>学科</span>
-          <ChevronDown
-            aria-hidden="true"
-            className={styles.chevron}
-            data-open={subjectsOpen}
-          />
-        </button>
-        {subjectsOpen && (
-          <div
-            id="subject-navigation"
-            className={styles.subjectTree}
-            ref={subjectTree}
-          >
-            {subjects.map((subject) => (
-              <div className={styles.subjectBranch} key={subject.id}>
-                <ContextMenu.Root>
-                  <ContextMenu.Trigger asChild>
-                    <button
-                      className={styles.subjectButton}
-                      type="button"
-                      aria-expanded={!!expandedSubjects[subject.id]}
-                      aria-controls={`course-${subject.id}`}
-                      disabled={disabled}
-                      onClick={() =>
-                        setExpandedSubjects({
-                          ...expandedSubjects,
-                          [subject.id]: !expandedSubjects[subject.id],
-                        })
-                      }
-                    >
-                      <span>{subject.title}</span>
-                      <ChevronDown
-                        aria-hidden="true"
-                        className={styles.chevron}
-                        data-open={expandedSubjects[subject.id]}
-                      />
-                    </button>
-                  </ContextMenu.Trigger>
-                  <ContextMenu.Portal>
-                    <ContextMenu.Content className={styles.subjectMenu}>
-                      <ContextMenu.Item
-                        disabled={disabled}
-                        onSelect={() =>
-                          onSubjectAction({ kind: "rename", subject })
-                        }
-                      >
-                        <Pencil aria-hidden="true" />
-                        重命名
-                      </ContextMenu.Item>
-                      <ContextMenu.Item
-                        disabled={disabled}
-                        className={styles.deleteSubject}
-                        onSelect={() =>
-                          onSubjectAction({ kind: "delete", subject })
-                        }
-                      >
-                        <Trash2 aria-hidden="true" />
-                        删除
-                      </ContextMenu.Item>
-                    </ContextMenu.Content>
-                  </ContextMenu.Portal>
-                </ContextMenu.Root>
-                {expandedSubjects[subject.id] && (
-                  <div
-                    className={styles.subjectLeaves}
-                    id={`course-${subject.id}`}
-                  >
-                    <button
-                      className={styles.contentButton}
-                      type="button"
-                      aria-pressed={
-                        activeScope?.courseId === subject.id &&
-                        activeScope.kind === "textbooks"
-                      }
-                      disabled={disabled}
-                      onClick={() => onSelectContent(subject.id, "textbooks")}
-                    >
-                      <BookOpen aria-hidden="true" />
-                      <span>学习资料</span>
-                    </button>
-                    <button
-                      className={styles.contentButton}
-                      type="button"
-                      aria-pressed={
-                        activeScope?.courseId === subject.id &&
-                        activeScope.kind === "questions"
-                      }
-                      disabled={disabled}
-                      onClick={() => onSelectContent(subject.id, "questions")}
-                    >
-                      {subject.id === "calculus" ? (
-                        <SquareFunction aria-hidden="true" />
-                      ) : (
-                        <Code2 aria-hidden="true" />
-                      )}
-                      <span>题目</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-            ))}
-            <div className={styles.subjectBranch}>
-              <button
-                className={styles.subjectButton}
-                type="button"
-                aria-expanded={!!expandedSubjects.__unclassified__}
-                aria-controls="course-unclassified"
-                onClick={() =>
-                  setExpandedSubjects((previous) => ({
-                    ...previous,
-                    __unclassified__: !previous.__unclassified__,
-                  }))
-                }
-              >
-                未分类
-                <ChevronDown
-                  aria-hidden="true"
-                  className={styles.chevron}
-                  data-open={expandedSubjects.__unclassified__}
-                />
-              </button>
-              {expandedSubjects.__unclassified__ && (
-                <div className={styles.subjectLeaves} id="course-unclassified">
-                  <button
-                    className={styles.contentButton}
-                    type="button"
-                    aria-pressed={
-                      activeScope?.courseId === null &&
-                      activeScope.kind === "textbooks"
-                    }
-                    disabled={disabled}
-                    onClick={() => onSelectContent(null, "textbooks")}
-                  >
-                    <BookOpen aria-hidden="true" />
-                    <span>学习资料</span>
-                  </button>
-                </div>
-              )}
-            </div>
-            <button
-              className={styles.addSubject}
-              disabled={disabled}
-              onClick={() => onSubjectAction({ kind: "create" })}
-            >
-              <Plus aria-hidden="true" />
-              新增学科
-            </button>
-          </div>
-        )}
-      </div>
+      <button
+        className={styles.primaryButton}
+        type="button"
+        aria-pressed={
+          view === "library" || view === "materials" || view === "reading"
+        }
+        disabled={disabled}
+        onClick={() => navigate("library")}
+      >
+        <Library aria-hidden="true" />
+        <span>学科</span>
+      </button>
 
       <button
         className={styles.primaryButton}
@@ -438,51 +228,16 @@ export function Sidebar({
         <NotebookPen aria-hidden="true" />
         <span>笔记</span>
       </button>
-      <div className={styles.teaching}>
-        <button
-          className={styles.primaryButton}
-          type="button"
-          aria-expanded={teachingOpen}
-          aria-controls="teaching-navigation"
-          aria-pressed={view === "teaching"}
-          disabled={disabled}
-          onClick={() => setTeachingOpen((open) => !open)}
-        >
-          <School aria-hidden="true" />
-          <span>教研室</span>
-          <ChevronDown
-            className={styles.chevron}
-            data-open={teachingOpen}
-            aria-hidden="true"
-          />
-        </button>
-        {teachingOpen && (
-          <div
-            id="teaching-navigation"
-            className={styles.subjectLeaves}
-            role="group"
-            aria-label="教研室功能"
-          >
-            {teachingActivities.map((activity) => (
-              <button
-                key={activity.id}
-                type="button"
-                className={styles.contentButton}
-                disabled={disabled}
-                aria-pressed={
-                  view === "teaching" && teachingActivity === activity.id
-                }
-                onClick={() => {
-                  navigate("teaching");
-                  onSelectTeachingActivity(activity.id);
-                }}
-              >
-                <span>{activity.title}</span>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
+      <button
+        className={styles.primaryButton}
+        type="button"
+        aria-pressed={view === "teaching"}
+        disabled={disabled}
+        onClick={() => navigate("teaching")}
+      >
+        <School aria-hidden="true" />
+        <span>教研室</span>
+      </button>
       <button
         className={styles.primaryButton}
         type="button"
@@ -544,7 +299,7 @@ export function Sidebar({
                 onClick={() => navigate("content")}
               >
                 <Download aria-hidden="true" />
-                <span>官方内容</span>
+                <span>社区内容</span>
               </button>
               <button
                 className={styles.settingsItem}

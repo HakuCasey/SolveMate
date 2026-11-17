@@ -29,7 +29,7 @@ def default_path():
 
 
 def npm_native(root, machine=None):
-    """仅定位官方 npm 包的原生程序，不执行或解析用户批处理内容。"""
+    """仅定位社区 npm 包的原生程序，不执行或解析用户批处理内容。"""
     machine = (machine or platform.machine()).lower()
     target = (
         "aarch64-pc-windows-msvc"
@@ -60,7 +60,7 @@ def find_codex(value=""):
         candidate = npm_native(candidate.parent)
         if candidate is None:
             raise ConnectionError(
-                "该 Codex 命令旁未找到官方 npm 包的原生程序，请填写 codex.exe 的完整路径。",
+                "该 Codex 命令旁未找到社区 npm 包的原生程序，请填写 codex.exe 的完整路径。",
                 "program_missing",
             )
     if not candidate or not candidate.is_absolute() or not candidate.is_file():

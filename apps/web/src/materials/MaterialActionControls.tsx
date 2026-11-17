@@ -4,7 +4,7 @@ import { FolderInput, Pencil, Trash2 } from "lucide-react";
 import type { SubjectDirectory } from "../state/subjects";
 import { SettingsSelect } from "../components/SettingsSelect";
 import { useSaveFeedback } from "../components/SaveFeedback";
-import { useDraftBackup } from "../refresh/drafts";
+import { useUnsavedForm } from "../refresh/drafts";
 import styles from "./MaterialActions.module.css";
 
 export type MaterialAction = "rename" | "move" | "delete";
@@ -85,15 +85,16 @@ export function MaterialActionDialog({
   const saved = useSaveFeedback();
   const cancel = useRef<HTMLButtonElement>(null);
   const deleting = action === "delete";
-  useDraftBackup(
+  const release = useUnsavedForm(
     `material:${action}:${id}`,
-    "资料修改",
-    { title, subjectId: courseId },
     !deleting &&
       (title !== initialTitle ||
         courseId !== (initialSubjectId ?? unclassified)),
   );
-  const onClose = finish;
+  const onClose = () => {
+    release();
+    finish();
+  };
   async function submit() {
     if (saving) return;
     if (

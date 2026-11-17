@@ -607,9 +607,14 @@ def test_stream_delivers_partial_reply_before_terminal_and_disconnect_preserves_
             stream = service.stream(request.id)
             first = json.loads((await anext(stream)).split("data: ", 1)[1])
             assert first["status"] == "running" and "requestHash" not in first
-            partial = json.loads(
-                (await asyncio.wait_for(anext(stream), 2)).split("data: ", 1)[1]
-            )
+            # 建连、恢复会话和选择模型都会产生运行状态；等待第一段正文，
+            # 不把某个中间阶段恰好排在第二帧当作流式协议的一部分。
+            while True:
+                partial = json.loads(
+                    (await asyncio.wait_for(anext(stream), 2)).split("data: ", 1)[1]
+                )
+                if partial["content"] or partial["status"] != "running":
+                    break
             assert partial["content"] == "partial " and partial["status"] == "running"
             await stream.aclose()
             assert not service.listeners and request.id in service.jobs

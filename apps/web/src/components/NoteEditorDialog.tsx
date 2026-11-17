@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Dialog } from "radix-ui";
 import { truncateNoteTitle } from "@solvemate/contracts";
 import type { LearningLocation, Note, NoteLibrary } from "@solvemate/contracts";
-import { useDraftBackup } from "../refresh/drafts";
+import { useUnsavedForm } from "../refresh/drafts";
 import { useEditRevision } from "../refresh/useEditRevision";
 import { unclassifiedNotebookId, type NoteContent } from "../state/notes";
 import styles from "./NoteManagement.module.css";
@@ -41,12 +41,7 @@ export function NoteEditorDialog({
     (!initial &&
       (value.destination?.kind === "new" ||
         value.notebookId !== unclassifiedNotebookId));
-  const release = useDraftBackup(
-    `note-editor:${target.id}`,
-    "笔记正文草稿",
-    { ...value, source: target.source },
-    dirty,
-  );
+  const release = useUnsavedForm(`note-editor:${target.id}`, dirty);
   const getRevision = useEditRevision(
     initial ?? { revision: 0 },
     library.notes.find((item) => item.id === target.id),

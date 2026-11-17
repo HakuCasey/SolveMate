@@ -69,6 +69,9 @@ export function publishStorageStatus(change: Partial<StorageStatus>) {
   status = { ...status, ...change };
   for (const callback of listeners) callback();
 }
+const serviceUnavailableMessage =
+  "无法连接本机服务。请在项目目录运行 npm start，服务启动后点击“重新读取”。";
+
 export async function localRequest(
   path: string,
   init: RequestInit = {},
@@ -88,22 +91,24 @@ export async function localRequest(
   } catch (error) {
     publishStorageStatus({ online: false });
     logError("Failed to connect to local storage.", error);
-    throw new LocalServiceError(
-      "无法连接本机服务，请在项目目录运行 npm start 后重试。",
-      "unavailable",
-    );
+    throw new LocalServiceError(serviceUnavailableMessage, "unavailable");
   }
   if (!response.ok) {
     const body = (await response.json().catch(() => ({}))) as {
       detail?: unknown;
       code?: string;
     };
-    if (response.status >= 500) publishStorageStatus({ online: false });
+    // 代理无法连接本机服务时会返回空的 5xx；服务自身的结构化错误须原样保留。
+    const unavailable =
+      response.status >= 500 && !body.code && typeof body.detail !== "string";
+    publishStorageStatus({ online: !unavailable });
     const failure = new LocalServiceError(
       typeof body.detail === "string"
         ? body.detail
-        : "本机服务未能完成请求，原有数据已保留。",
-      body.code ?? "request_failed",
+        : unavailable
+          ? serviceUnavailableMessage
+          : "本机服务未能完成请求，请重试。原有数据已保留。",
+      unavailable ? "unavailable" : (body.code ?? "request_failed"),
       response.status,
     );
     if (init.method && init.method !== "GET") {

@@ -4,6 +4,7 @@ import type {
   Conversation,
   ReadingReference,
   SessionBinding,
+  QuestionResearchContext,
 } from "@solvemate/contracts";
 import { activeSessionBinding } from "../ai/session-bindings";
 import { resolveConversationAi } from "../ai/robot-config";
@@ -15,6 +16,7 @@ import {
 import { uniqueConversationTitle } from "./conversation-limits";
 
 export interface QuestionInput {
+  research?: QuestionResearchContext;
   conversation: Conversation;
   robotId: string;
   messageId: string;
@@ -128,6 +130,9 @@ export function recordQuestion(
         turnId: input.turnId,
         role: "user" as const,
         content: text,
+        ...(input.research
+          ? { research: structuredClone(input.research) }
+          : {}),
         createdAt: input.createdAt,
         ...(readingContext
           ? { readingContext: structuredClone(readingContext) }
@@ -142,6 +147,9 @@ export function recordQuestion(
   const changed: Conversation = {
     ...conversation,
     example: false,
+    ...((original?.research ?? input.research)
+      ? { research: structuredClone((original?.research ?? input.research)!) }
+      : {}),
     revision: conversation.revision + 1,
     ...(!input.retry && readingContext?.material
       ? { material: { ...readingContext.material }, selection: null }

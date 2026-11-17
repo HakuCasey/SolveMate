@@ -59,9 +59,9 @@
 <text id="ai-dependency" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="28" fill="#75849A" font-weight="400" text-anchor="middle"><tspan x="868" y="576" dominant-baseline="central">↓</tspan></text>
 <rect id="knowledge" x="1112" y="196" width="448" height="360" rx="6" fill="#F5F7FA" stroke="#BEC8D6" stroke-width="1.2" stroke-dasharray="6 4"></rect>
 <text id="knowledge-title" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="24" fill="#26364B" font-weight="600" text-anchor="middle"><tspan x="1336" y="225" dominant-baseline="central">知识维护</tspan></text>
-<text id="knowledge-context" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="16" fill="#667180" font-weight="400" text-anchor="middle"><tspan x="1336" y="258" dominant-baseline="central">内容来源：官方内容服务与开源资料</tspan></text>
-<rect id="knowledge-0" x="1130" y="280" width="198" height="46" rx="5" fill="#FFF0CC" stroke="#D6BA76" stroke-width="1.2"><title>官方资料维护：部分实现</title></rect>
-<text id="knowledge-0-label" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="18" fill="#78551D" font-weight="400" text-anchor="middle"><tspan x="1229" y="303" dominant-baseline="central">官方资料维护</tspan></text>
+<text id="knowledge-context" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="16" fill="#667180" font-weight="400" text-anchor="middle"><tspan x="1336" y="258" dominant-baseline="central">内容来源：社区内容服务与开源资料</tspan></text>
+<rect id="knowledge-0" x="1130" y="280" width="198" height="46" rx="5" fill="#FFF0CC" stroke="#D6BA76" stroke-width="1.2"><title>社区资料维护：部分实现</title></rect>
+<text id="knowledge-0-label" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="18" fill="#78551D" font-weight="400" text-anchor="middle"><tspan x="1229" y="303" dominant-baseline="central">社区资料维护</tspan></text>
 <rect id="knowledge-1" x="1344" y="280" width="198" height="46" rx="5" fill="#E9EDF2" stroke="#C1C9D4" stroke-width="1.2"><title>开源资料维护：待开发</title></rect>
 <text id="knowledge-1-label" font-family="PingFang SC, Noto Sans CJK SC, sans-serif" font-size="18" fill="#667180" font-weight="400" text-anchor="middle"><tspan x="1443" y="303" dominant-baseline="central">开源资料维护</tspan></text>
 <rect id="knowledge-2" x="1130" y="338" width="198" height="46" rx="5" fill="#FFF0CC" stroke="#D6BA76" stroke-width="1.2"><title>内容发布：部分实现</title></rect>

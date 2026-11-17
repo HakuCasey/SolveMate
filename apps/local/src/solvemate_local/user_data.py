@@ -60,6 +60,7 @@ def encoded(value):
 
 
 def validate_data(value):
+    # 旧社区归属仅用于迁移；正式记录不再保存该字段。
     checked = (
         {key: item for key, item in value.items() if key != "officialMaterials"}
         if isinstance(value, dict)
@@ -67,6 +68,11 @@ def validate_data(value):
     )
     if next(VALIDATOR.iter_errors(checked), None):
         raise UserDataError("学习记录格式不正确，原有数据已保留。")
+    tool_ids = [
+        tool["id"] for tool in value.get("questionResearch", {}).get("tools", [])
+    ]
+    if len(set(tool_ids)) != len(tool_ids):
+        raise UserDataError("教研工具包含重复编号。")
     for key in ("robots", "conversations", "subjects", "officialMaterials"):
         ids = [item["id"] for item in value.get(key, [])]
         if len(set(ids)) != len(ids):

@@ -109,8 +109,6 @@ export class LocalAppStorage implements AppStorage {
       saved = await cachedEnvelope(
         (await userCache.get<StateEnvelope>("state")) ?? initialUserState(),
       );
-      if (error.code === "unavailable" || error.status >= 500)
-        publishStorageStatus({ online: false });
     }
     // 没有有效正式记录且旧记录未处理时，不能把读取失败解释成首次使用。
     if (saved.value === null && preparationFailure) throw preparationFailure;

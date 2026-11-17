@@ -7,6 +7,7 @@ import type {
 } from "@solvemate/contracts";
 import {
   updateReadingDocument,
+  updateReadingContextPages,
   updateReadingPosition,
   updateReadingReferences,
   rememberReadingLocation,
@@ -19,11 +20,14 @@ import {
 /** 阅读现场由应用层持有，阅读器卸载只释放 DOM 和 PDF 渲染资源。 */
 export function useReadingState(initial?: ReadingState) {
   const [state, setState] = useState<ReadingState>(
-    initial ?? {
-      positions: {},
-      documents: {},
-      references: {},
-    },
+    initial
+      ? { ...initial, contextPages: initial.contextPages ?? {} }
+      : {
+          positions: {},
+          documents: {},
+          references: {},
+          contextPages: {},
+        },
   );
   const updatePosition = useCallback(
     (key: string, change: ReadingChange<ReadingPositionState>) =>
@@ -38,6 +42,11 @@ export function useReadingState(initial?: ReadingState) {
   const updateReferences = useCallback(
     (key: string, change: ReadingChange<DraftReference[]>) =>
       setState((previous) => updateReadingReferences(previous, key, change)),
+    [],
+  );
+  const updateContextPages = useCallback(
+    (key: string, pages: number[] | null) =>
+      setState((previous) => updateReadingContextPages(previous, key, pages)),
     [],
   );
   const rememberLocation = useCallback(
@@ -57,6 +66,7 @@ export function useReadingState(initial?: ReadingState) {
     updatePosition,
     updateDocument,
     updateReferences,
+    updateContextPages,
     rememberLocation,
     restoreProgress,
   };

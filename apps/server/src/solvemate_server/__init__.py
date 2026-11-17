@@ -1,1 +1,1 @@
-"""SolveMate 官方内容服务。"""
+"""SolveMate 社区内容服务。"""

@@ -295,7 +295,7 @@ describe("refresh conflict recovery", () => {
     controller.initialize(base);
     await expect(controller.refresh()).rejects.toThrow("Offline");
     expect(controller.readData()).toBe(base);
-    expect(controller.snapshot().refreshError).toContain("仍保留");
+    expect(controller.snapshot().refreshError).toBe("Offline");
   });
 });
 
@@ -394,4 +394,28 @@ it("keeps the workspace available after a read failure and never saves its empty
   expect(controller.readData()).toBe(existing);
   expect(controller.snapshot().loadFailure).toBeNull();
   expect(controller.snapshot().recoveries.length).toBeGreaterThan(0);
+});
+
+it("retries the failed committed change instead of saving the unchanged old configuration", async () => {
+  vi.spyOn(console, "error").mockImplementation(() => {});
+  const original = createInitialData();
+  const save = vi
+    .fn()
+    .mockRejectedValueOnce(new Error("Unavailable"))
+    .mockResolvedValue(undefined);
+  const controller = new LocalDataController({
+    load: async () => original,
+    save,
+  });
+  controller.initialize(original);
+  await expect(
+    controller.commit((data) => ({
+      ...data,
+      settings: { ...data.settings, fontSize: 21 },
+    })),
+  ).rejects.toThrow("Unavailable");
+  expect(controller.readData()?.settings.fontSize).toBe(14);
+  await controller.retry();
+  expect(controller.readData()?.settings.fontSize).toBe(21);
+  expect(save.mock.lastCall?.[0].settings.fontSize).toBe(21);
 });

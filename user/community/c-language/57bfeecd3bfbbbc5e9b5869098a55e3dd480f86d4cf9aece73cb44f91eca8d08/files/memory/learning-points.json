@@ -1,0 +1,150 @@
+{
+  "course": "C 语言",
+  "origin": "AI 根据本仓库原创 C 语言示例教材与题库提炼的课程记忆点，不代表真实用户的学习记录。",
+  "points": [
+    {
+      "id": "CK001",
+      "title": "表达式与输出",
+      "content": "a 和 b 都是 int，a + b 得到整数 7；%d 用于输出 int，\\n 表示换行。",
+      "common_mistake": "格式占位符需要与参数类型匹配。",
+      "source": {
+        "textbook": "../textbooks/primer.md#types-and-io",
+        "question_ids": [
+          "C001"
+        ]
+      }
+    },
+    {
+      "id": "CK002",
+      "title": "整数除法与浮点除法",
+      "content": "5 / 2 的两个操作数都是整数，结果为 2；5.0 / 2 中的 5.0 是 double，结果为 2.5。",
+      "common_mistake": "运算完成后再赋给浮点变量，不能恢复整数除法已经丢掉的小数部分。",
+      "source": {
+        "textbook": "../textbooks/primer.md#types-and-io",
+        "question_ids": [
+          "C002"
+        ]
+      }
+    },
+    {
+      "id": "CK003",
+      "title": "循环累加",
+      "content": "i 依次取 1、2、3、4、5，sum 依次变成 1、3、6、10、15。",
+      "common_mistake": "循环结束条件 i <= 5 包含 5，不能误读为只累加到 4。",
+      "source": {
+        "textbook": "../textbooks/primer.md#control-flow",
+        "question_ids": [
+          "C003"
+        ]
+      }
+    },
+    {
+      "id": "CK004",
+      "title": "条件选择与取模",
+      "content": "8 % 2 的余数为 0，因此条件为真，执行第一个分支；puts 会在字符串之后追加换行。",
+      "common_mistake": "== 是比较，= 是赋值；二者在条件表达式中的作用不同。",
+      "source": {
+        "textbook": "../textbooks/primer.md#control-flow",
+        "question_ids": [
+          "C004"
+        ]
+      }
+    },
+    {
+      "id": "CK005",
+      "title": "函数参数按值传递",
+      "content": "形参 value 是 n 的值的副本，修改 value 不改变 n；返回值为 13，赋给 result。",
+      "common_mistake": "形参与实参名字可以不同；修改普通形参不会直接修改调用者的变量。",
+      "source": {
+        "textbook": "../textbooks/primer.md#functions",
+        "question_ids": [
+          "C005"
+        ]
+      }
+    },
+    {
+      "id": "CK006",
+      "title": "递归与终止条件",
+      "content": "递归逐次调用 factorial(4)、factorial(3)、factorial(2)、factorial(1)，再返回并相乘得到 120。",
+      "common_mistake": "递归必须有可到达的终止条件；固定宽度整数不能表示任意大的阶乘。",
+      "source": {
+        "textbook": "../textbooks/primer.md#functions",
+        "question_ids": [
+          "C006"
+        ]
+      }
+    },
+    {
+      "id": "CK007",
+      "title": "数组的部分初始化",
+      "content": "初始化器只提供前两个元素，数组中其余元素按规则初始化为 0。有效下标为 0 到 3。",
+      "common_mistake": "这不代表没有初始化器的自动存储期局部数组也会自动清零。",
+      "source": {
+        "textbook": "../textbooks/primer.md#arrays-and-strings",
+        "question_ids": [
+          "C007"
+        ]
+      }
+    },
+    {
+      "id": "CK008",
+      "title": "字符串长度与存储大小",
+      "content": "word 数组存放 c、a、t 和结尾的空字符，共 4 个 char；strlen 返回空字符之前的字符数 3。",
+      "common_mistake": "sizeof word 与 strlen(word) 不是同一个概念；对指针使用 sizeof 也不能得到所指字符串长度。",
+      "source": {
+        "textbook": "../textbooks/primer.md#arrays-and-strings",
+        "question_ids": [
+          "C008"
+        ]
+      }
+    },
+    {
+      "id": "CK009",
+      "title": "指针与数组元素",
+      "content": "p 指向第一个 int 元素，*p 为 10；p + 2 指向第三个元素，解引用得到 30。",
+      "common_mistake": "指针加 1 按所指类型移动一个元素，而不是固定移动一个字节。",
+      "source": {
+        "textbook": "../textbooks/primer.md#pointers",
+        "question_ids": [
+          "C009"
+        ]
+      }
+    },
+    {
+      "id": "CK010",
+      "title": "通过指针交换变量",
+      "content": "调用时传入 x 和 y 的地址；swap 内的指针本身仍按值传递，但解引用操作访问并修改了原变量。",
+      "common_mistake": "C 没有因为参数是指针就改成按引用传递；不要把指针值与所指对象混淆。",
+      "source": {
+        "textbook": "../textbooks/primer.md#pointers",
+        "question_ids": [
+          "C010"
+        ]
+      }
+    },
+    {
+      "id": "CK011",
+      "title": "结构体的值复制",
+      "content": "结构体赋值复制各成员的值。本题成员不含指针，修改 second.score 不会影响 first.score。",
+      "common_mistake": "若结构体含指针成员，赋值复制的是指针值，不会自动深复制所指内存。",
+      "source": {
+        "textbook": "../textbooks/primer.md#structs-and-files",
+        "question_ids": [
+          "C011"
+        ]
+      }
+    },
+    {
+      "id": "CK012",
+      "title": "文件位置与读取",
+      "content": "写入后调用 rewind 将文件位置移回开头，再由 fgets 读取。fgets 保留读到的换行符，所以 printf 不需要额外添加换行。",
+      "common_mistake": "读写文件要检查打开和读取结果；字符数组的容量不等于当前字符串的长度。",
+      "source": {
+        "textbook": "../textbooks/primer.md#structs-and-files",
+        "question_ids": [
+          "C012"
+        ]
+      }
+    }
+  ]
+}

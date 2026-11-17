@@ -283,9 +283,17 @@ def create_app(
         references = body.references or ([body.reference] if body.reference else [])
         if body.readingContext:
             references = [body.readingContext, *references]
+        references.extend(
+            reference
+            for message in body.history
+            for reference in [
+                *([message.readingContext] if message.readingContext else []),
+                *message.references,
+            ]
+        )
         for reference in references:
             if reference.material:
-                request.app.state.materials.validate_reference(reference)
+                request.app.state.materials.prepare_reference(reference)
         return request.app.state.ai.create_turn(body)
 
     @app.get("/local-api/v1/turns/{ident}")
