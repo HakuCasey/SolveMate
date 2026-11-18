@@ -4,7 +4,7 @@
 
 ## 准备构建环境
 
-先按仓库根 README 准备 Node.js、Python 环境和项目依赖，再安装桌面构建工具：
+先按仓库根 README 准备 Node.js、Python 环境和项目依赖，再安装桌面构建工具。本机构建要求 `apps/server/.venv` 中以可编辑方式安装 `apps/local`（根 README 的 Python 环境步骤已包含），否则 PyInstaller 会跳过 `solvemate_local` 的校验 schema 收集，打包出的本机服务启动时会因找不到 schema 而失败。
 
 ```bash
 apps/server/.venv/bin/python -m pip install -r apps/desktop/requirements-build.lock

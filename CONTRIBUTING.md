@@ -4,7 +4,7 @@
 
 ## 运行与检查
 
-网页安装与启动见 [README](README.md#本地启动与访问)，Python 服务见[社区内容服务](apps/server/README.md)和[本机 AI 服务](apps/local/README.md)。前端使用 Node.js 24、npm 11 验证，后端支持 Python 3.12 及以上，当前验证环境为 Python 3.14。
+网页安装与启动见 [README](README.md#本地启动与访问)，Python 服务见[社区内容服务](apps/server/README.md)和[本机 AI 服务](apps/local/README.md)。从下载代码到本地运行、Windows 桌面打包的完整流程见[开发指导](docs/development.md)。前端使用 Node.js 24、npm 11 验证，后端支持 Python 3.12 及以上，当前验证环境为 Python 3.14。
 
 修改网页代码后，在仓库根目录执行：
 

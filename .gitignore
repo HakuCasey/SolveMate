@@ -26,3 +26,7 @@ apps/desktop/*.spec
 
 # 本机选择的数据路径
 /.user-location.json
+
+# SQLite 运行时副文件（WAL/SHM），随服务启动产生，不纳入版本管理
+*.sqlite3-wal
+*.sqlite3-shm

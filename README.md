@@ -60,6 +60,7 @@ source .venv/bin/activate
 python -m pip install -r requirements.lock
 python -m pip install -r ../local/requirements.lock
 python -m pip install --no-deps --no-build-isolation -e .
+python -m pip install --no-deps --no-build-isolation -e ../local
 cd ../..
 ```
 
@@ -71,6 +72,7 @@ py -3 -m venv .venv
 .venv\Scripts\python.exe -m pip install -r requirements.lock
 .venv\Scripts\python.exe -m pip install -r ../local/requirements.lock
 .venv\Scripts\python.exe -m pip install --no-deps --no-build-isolation -e .
+.venv\Scripts\python.exe -m pip install --no-deps --no-build-isolation -e ..\local
 cd ../..
 ```
 
