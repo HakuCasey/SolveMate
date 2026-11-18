@@ -81,6 +81,7 @@
 - A1 应用加载、侧边栏功能菜单、导航切换（`e2e/smoke.spec.ts`）
 - 各主页面（学科/对话/笔记/教研室/机器人）导航、设置菜单（`e2e/navigation.spec.ts`）
 - B1 学科切换（高等数学 / C 语言）、B2 学习资料/题目切换、C1 打开 PDF 阅读（`e2e/subjects.spec.ts`）
+- C3 阅读位置在重新打开后恢复（`e2e/reading-position.spec.ts`）
 - D1 新建对话、发送、收到回复、追问（`e2e/conversation.spec.ts`）
 - D4 指定页码提问正常提交并收到回复（`e2e/reading-context.spec.ts`）
 - D9 空输入按 ↑ 回填上一次发送内容（`e2e/conversation.spec.ts`）
