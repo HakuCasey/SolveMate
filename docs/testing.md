@@ -84,6 +84,7 @@
 - C3 阅读位置在重新打开后恢复（`e2e/reading-position.spec.ts`）
 - D1 新建对话、发送、收到回复、追问（`e2e/conversation.spec.ts`）
 - D4 指定页码提问正常提交并收到回复（`e2e/reading-context.spec.ts`）
+- D5 关联当前页提问正常提交并收到回复（`e2e/current-page.spec.ts`）
 - D9 空输入按 ↑ 回填上一次发送内容（`e2e/conversation.spec.ts`）
 - D3 会话归档与移回进行中（`e2e/conversation-manage.spec.ts`）
 - D2 切换机器人触发确认并新建对话（`e2e/robot-switch.spec.ts`）
