@@ -15,9 +15,9 @@ def test_official_tools_catalog_download_and_updates(client, content_settings):
     assert response.json()["skill"]["content"]
     assert response.json()["template"]["content"]
     source = content_settings.data_dir / "tools" / f"{entry['id']}.json"
-    value = json.loads(source.read_text())
+    value = json.loads(source.read_text(encoding="utf-8"))
     value["template"]["content"] += "\n补充评分说明。"
-    source.write_text(json.dumps(value, ensure_ascii=False))
+    source.write_text(json.dumps(value, ensure_ascii=False), encoding="utf-8")
     publish(content_settings.data_dir, content_settings.content_dir)
     updated = client.get("/api/v1/tools").json()["tools"]
     assert updated[0] == catalog[0]
@@ -35,9 +35,9 @@ def test_corrupt_tool_is_rejected_without_changing_published_catalog(
 ):
     previous = client.get("/api/v1/tools").json()
     source = content_settings.data_dir / "tools" / "question-development.json"
-    value = json.loads(source.read_text())
+    value = json.loads(source.read_text(encoding="utf-8"))
     value["skill"]["content"] = ""
-    source.write_text(json.dumps(value))
+    source.write_text(json.dumps(value), encoding="utf-8")
     import pytest
 
     with pytest.raises(ValueError):
@@ -50,7 +50,7 @@ def test_corrupt_tool_is_rejected_without_changing_published_catalog(
         / entry["id"]
         / f"{entry['latest_version']}.json"
     )
-    payload.write_text("{}")
+    payload.write_text("{}", encoding="utf-8")
     assert (
         client.get(f"/api/v1/tools/{entry['id']}/versions/latest/download").status_code
         == 503

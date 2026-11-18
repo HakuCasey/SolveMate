@@ -27,7 +27,7 @@ AGENT = r"""
 import json,sys
 from pathlib import Path
 state_path=Path.cwd()/"fake-codex.json"
-state=json.loads(state_path.read_text()) if state_path.exists() else {"threads":[],"calls":[],"turns":0}
+state=json.loads(state_path.read_text(encoding="utf-8")) if state_path.exists() else {"threads":[],"calls":[],"turns":0}
 active=None
 
 def send(value):
@@ -161,7 +161,9 @@ def test_detection_reads_paginated_catalog_without_creating_threads(tmp_path):
         assert settings["detection"]["version"] == "0.162.1"
         assert "private_setting" not in json.dumps(settings)
         assert settings["connections"][0]["id"] == "codex-local"
-    state = json.loads((tmp_path / "store/workspace/fake-codex.json").read_text())
+    state = json.loads(
+        (tmp_path / "store/workspace/fake-codex.json").read_text(encoding="utf-8")
+    )
     assert "thread/start" not in state["calls"] and state["threads"] == []
     with Store(tmp_path / "store").db as db:
         assert db.execute("SELECT COUNT(*) FROM probes").fetchone()[0] == 0
@@ -190,7 +192,9 @@ def test_stream_reconciles_final_messages_and_restores_same_thread_after_restart
         assert result["externalSessionId"] == turn["externalSessionId"]
         assert result["model"] == "model-b"
         assert len(client.get("/local-api/v1/settings").json()["connections"]) == 1
-    state = json.loads((tmp_path / "store/workspace/fake-codex.json").read_text())
+    state = json.loads(
+        (tmp_path / "store/workspace/fake-codex.json").read_text(encoding="utf-8")
+    )
     assert len(state["threads"]) == 1
     assert "thread/resume" in state["calls"]
     assert state["lastTurnParams"]["model"] == "model-b"
@@ -216,7 +220,9 @@ def test_stop_disconnect_and_native_error_keep_received_text(tmp_path, text, sta
             assert result["errorCode"] == "process_stopped"
         if text == "wait":
             state = json.loads(
-                (tmp_path / "store/workspace/fake-codex.json").read_text()
+                (tmp_path / "store/workspace/fake-codex.json").read_text(
+                    encoding="utf-8"
+                )
             )
             assert state["interrupted"]["turnId"] == pending["externalTurnId"]
 
@@ -262,15 +268,15 @@ def test_missing_native_thread_does_not_create_a_replacement(tmp_path):
         client.post("/local-api/v1/turns", json=req)
         wait_for(client, req["id"])
     state_file = tmp_path / "store/workspace/fake-codex.json"
-    state = json.loads(state_file.read_text())
+    state = json.loads(state_file.read_text(encoding="utf-8"))
     state["threads"] = []
-    state_file.write_text(json.dumps(state))
+    state_file.write_text(json.dumps(state), encoding="utf-8")
     with client_for(tmp_path) as client:
         req = question()
         client.post("/local-api/v1/turns", json=req)
         result = wait_for(client, req["id"])
         assert result["status"] == "failed"
-    assert json.loads(state_file.read_text())["threads"] == []
+    assert json.loads(state_file.read_text(encoding="utf-8"))["threads"] == []
 
 
 def test_repeated_model_cursor_fails_without_looping_forever():
@@ -312,7 +318,7 @@ def test_windows_npm_launcher_resolves_native_binary_without_shell(
 
 def test_windows_batch_without_official_native_binary_is_not_executed(tmp_path):
     shim = tmp_path / "codex.cmd"
-    shim.write_text("echo must not run")
+    shim.write_text("echo must not run", encoding="utf-8")
     with pytest.raises(ConnectionError) as failed:
         find_codex(str(shim))
     assert failed.value.code == "program_missing"

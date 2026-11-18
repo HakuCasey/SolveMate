@@ -43,7 +43,7 @@ def test_failed_publication_preserves_previous_catalog_and_packages(
     previous_bytes = archive.read_bytes()
     points_path = data / "calculus/memory/learning-points.json"
     if failure == "invalid-json":
-        points_path.write_text("invalid JSON")
+        points_path.write_text("invalid JSON", encoding="utf-8")
     elif failure == "missing-file":
         points_path.unlink()
     elif failure in ("bad-question-reference", "bad-anchor"):
@@ -52,12 +52,12 @@ def test_failed_publication_preserves_previous_catalog_and_packages(
             points["points"][0]["source"]["textbook"] = "../textbooks/primer.md#missing"
         else:
             points["points"][0]["source"]["question_ids"] = ["M999"]
-        points_path.write_text(json.dumps(points))
+        points_path.write_text(json.dumps(points), encoding="utf-8")
     else:
         catalog_path = data / "catalog.json"
         catalog = json.loads(catalog_path.read_bytes())
         catalog["courses"][0]["files"][0]["path"] = "../private-file.md"
-        catalog_path.write_text(json.dumps(catalog))
+        catalog_path.write_text(json.dumps(catalog), encoding="utf-8")
     with pytest.raises((ValueError, OSError)):
         publish(data, root)
     assert (root / "catalog.json").read_bytes() == before

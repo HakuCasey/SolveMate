@@ -19,7 +19,9 @@ def test_catalog_launch_keeps_global_options_before_web_options_and_cleans_up(
     async def spawn(*argv, **kwargs):
         # 模拟 DSH：Web 参数之后的 --patch 会被 Web 解析器拒绝。
         valid = argv.index("--patch") < argv.index("--no-open")
-        rows = json.loads(Path(argv[argv.index("--patch") + 1]).read_text())
+        rows = json.loads(
+            Path(argv[argv.index("--patch") + 1]).read_text(encoding="utf-8")
+        )
         assert {"id": "config-editor", "disabled": True} in rows
         assert kwargs["env"]["DSH_HOME"] == str(tmp_path)
         port = argv[argv.index("--port") + 1]

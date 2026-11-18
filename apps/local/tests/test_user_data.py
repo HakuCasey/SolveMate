@@ -177,7 +177,7 @@ def test_migration_backs_up_raw_envelope_and_is_repeatable(tmp_path):
     assert store.migrate(body) == saved
     backups = list((tmp_path / "backups").glob("browser-*.json"))
     assert len(backups) == 1
-    assert json.loads(backups[0].read_text()) == body["payload"]
+    assert json.loads(backups[0].read_text(encoding="utf-8")) == body["payload"]
     assert store.db.execute("SELECT COUNT(*) FROM migrations").fetchone()[0] == 1
     store.close()
 
@@ -290,7 +290,7 @@ def test_upload_directory_copy_and_interrupted_receipt_are_recoverable(
 ):
     old = tmp_path / "materials" / "original-id"
     old.mkdir(parents=True)
-    (old / "record.json").write_text('{"id":"original-id"}')
+    (old / "record.json").write_text('{"id":"original-id"}', encoding="utf-8")
     (old / "original.pdf").write_bytes(b"original")
     original = user_data.atomic_write
     monkeypatch.setattr(
@@ -307,9 +307,9 @@ def test_upload_directory_copy_and_interrupted_receipt_are_recoverable(
     assert (tmp_path / "backups/uploads-migration.json").exists()
     assert migrate_uploads(tmp_path) == result
     # 已迁移后重命名产生的新资料记录不会被旧副本覆盖。
-    (result / "original-id/record.json").write_text("changed")
+    (result / "original-id/record.json").write_text("changed", encoding="utf-8")
     migrate_uploads(tmp_path)
-    assert (result / "original-id/record.json").read_text() == "changed"
+    assert (result / "original-id/record.json").read_text(encoding="utf-8") == "changed"
 
 
 def test_interrupted_copy_never_activates_partial_directory(tmp_path, monkeypatch):
@@ -369,7 +369,7 @@ def test_native_session_ids_messages_and_historical_references_survive_migration
         (
             Path(__file__).resolve().parents[3]
             / "packages/contracts/fixtures/ai-metadata.json"
-        ).read_text()
+        ).read_text(encoding="utf-8")
     )
     conversation = deepcopy(
         next(

@@ -84,7 +84,8 @@ def test_upload_metadata_migrates_once_and_file_is_preserved(tmp_path):
     assert second.get(ident)["title"] == "统一记录"
     assert original.read_bytes() == b"original bytes"
     assert (
-        json.loads((folder.parent / "record.json").read_text())["title"] == "上传资料"
+        json.loads((folder.parent / "record.json").read_text(encoding="utf-8"))["title"]
+        == "上传资料"
     )
     assert list((tmp_path / "backups").glob("materials-*.sqlite3"))
     user.close()
