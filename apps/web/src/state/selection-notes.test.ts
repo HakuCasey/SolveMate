@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, afterEach } from "vitest";
 import { assertMetadata } from "@solvemate/contracts";
-import { createInitialData } from "../data/catalog";
+import { createStudyFixture } from "../data/__fixtures__/study";
 import { assertAppData } from "../data/validation";
 import { makeMessageReference, appendReference } from "../reading/reference";
 import { createNote, editNote, unclassifiedNotebookId } from "./notes";
@@ -8,7 +8,7 @@ import { createNote, editNote, unclassifiedNotebookId } from "./notes";
 afterEach(() => vi.restoreAllMocks());
 
 function fixture() {
-  const data = createInitialData();
+  const data = createStudyFixture();
   const conversation = data.conversations.find((item) => item.messages.length)!;
   const message = conversation.messages[0];
   const reference = makeMessageReference(

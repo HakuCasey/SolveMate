@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { LocalDataController } from "./controller";
 import { LocalDataConflictError } from "./index";
-import { createInitialData } from "../data/catalog";
+import { createStudyFixture } from "../data/__fixtures__/study";
 
 function deferred() {
   let resolve!: () => void;
@@ -22,7 +22,7 @@ describe("saved metadata transactions", () => {
       load: async () => null,
       save,
     });
-    const data = createInitialData();
+    const data = createStudyFixture();
     controller.initialize(data);
     const pending = controller.commit((previous) => ({
       ...previous,
@@ -70,7 +70,7 @@ describe("saved metadata transactions", () => {
       load: async () => null,
       save,
     });
-    const original = createInitialData();
+    const original = createStudyFixture();
     controller.initialize(original);
     const change = (previous: typeof original) => ({
       ...previous,
@@ -85,7 +85,7 @@ describe("saved metadata transactions", () => {
   });
   it("reports a storage conflict without replacing the loaded data", async () => {
     vi.spyOn(console, "error").mockImplementation(() => undefined);
-    const original = createInitialData();
+    const original = createStudyFixture();
     const controller = new LocalDataController({
       load: async () => null,
       save: async () => {
@@ -105,7 +105,7 @@ describe("saved metadata transactions", () => {
         load: async () => null,
         save: () => gate.promise,
       });
-    controller.initialize(createInitialData());
+    controller.initialize(createStudyFixture());
     const first = controller.commit((previous) => previous);
     await expect(controller.commit((previous) => previous)).rejects.toThrow(
       "正在保存",
@@ -117,7 +117,7 @@ describe("saved metadata transactions", () => {
 
 describe("refreshing shared local records", () => {
   it("keeps this window's reading selection while loading other browser edits", async () => {
-    const original = createInitialData();
+    const original = createStudyFixture();
     const remote = structuredClone(original);
     remote.conversations[0].title = "另一浏览器改名";
     remote.selection.itemId = "M002";
@@ -134,14 +134,14 @@ describe("refreshing shared local records", () => {
   });
   it("does not replace unsaved changes with a newer server snapshot", async () => {
     vi.spyOn(console, "error").mockImplementation(() => undefined);
-    const load = vi.fn(async () => createInitialData());
+    const load = vi.fn(async () => createStudyFixture());
     const controller = new LocalDataController({
       load,
       save: async () => {
         throw new Error("Unavailable");
       },
     });
-    controller.initialize(createInitialData());
+    controller.initialize(createStudyFixture());
     controller.update((previous) => ({
       ...previous!,
       settings: { ...previous!.settings, fontSize: 21 },
@@ -158,7 +158,7 @@ describe("refreshing shared local records", () => {
 describe("refresh conflict recovery", () => {
   it("backs up failed saves, refreshes independent edits, and only writes again on explicit retry", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
-    const base = createInitialData(),
+    const base = createStudyFixture(),
       remote = structuredClone(base);
     remote.settings.appearance = "dark";
     const save = vi
@@ -193,7 +193,7 @@ describe("refresh conflict recovery", () => {
   });
   it("requires resolution of the latest same-field conflict across repeated refreshes", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
-    const base = createInitialData(),
+    const base = createStudyFixture(),
       remote = structuredClone(base);
     remote.settings.fontSize = 18;
     const save = vi.fn().mockRejectedValue(new Error("Offline"));
@@ -224,7 +224,7 @@ describe("refresh conflict recovery", () => {
   });
   it("retains a failed transactional candidate even when it was never published", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
-    const base = createInitialData(),
+    const base = createStudyFixture(),
       preserve = vi.fn(async () => {});
     const controller = new LocalDataController({
       load: async () => base,
@@ -248,7 +248,7 @@ describe("refresh conflict recovery", () => {
   });
   it("keeps background message events while a refresh is pending", async () => {
     const pending = deferred(),
-      base = createInitialData(),
+      base = createStudyFixture(),
       remote = structuredClone(base);
     remote.settings.appearance = "dark";
     const controller = new LocalDataController({
@@ -285,7 +285,7 @@ describe("refresh conflict recovery", () => {
   });
   it("retains the working view when reading or backup fails", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
-    const base = createInitialData(),
+    const base = createStudyFixture(),
       controller = new LocalDataController({
         load: async () => {
           throw new Error("Offline");
@@ -301,7 +301,7 @@ describe("refresh conflict recovery", () => {
 
 it("keeps failed transactional candidates separately from subsequent working updates", async () => {
   vi.spyOn(console, "error").mockImplementation(() => {});
-  const base = createInitialData(),
+  const base = createStudyFixture(),
     controller = new LocalDataController({
       load: async () => base,
       save: async () => {
@@ -336,9 +336,9 @@ it("restores unsaved old note content using the current metadata without changin
   ).default;
   const { migrateNoteMetadata } = await import("@solvemate/contracts");
   const original = {
-    ...createInitialData(),
+    ...createStudyFixture(),
     noteLibrary: {
-      ...createInitialData().noteLibrary!,
+      ...createStudyFixture().noteLibrary!,
       notes: [fixtures[1].note],
     },
   };
@@ -364,8 +364,8 @@ it("restores unsaved old note content using the current metadata without changin
 });
 
 it("keeps the workspace available after a read failure and never saves its empty display state", async () => {
-  const { createEmptyData } = await import("../data/catalog");
-  const fallback = createEmptyData(),
+  const { createInitialData: freshData } = await import("../data/catalog");
+  const fallback = freshData(),
     save = vi.fn(async () => {}),
     preserve = vi.fn(async () => {});
   const controller = new LocalDataController(
@@ -389,7 +389,7 @@ it("keeps the workspace available after a read failure and never saves its empty
   expect(save).not.toHaveBeenCalled();
   expect(preserve).toHaveBeenCalled();
   expect(controller.snapshot().loadState).toBe("error");
-  const existing = createInitialData();
+  const existing = createStudyFixture();
   controller.initialize(existing);
   expect(controller.readData()).toBe(existing);
   expect(controller.snapshot().loadFailure).toBeNull();
@@ -398,7 +398,7 @@ it("keeps the workspace available after a read failure and never saves its empty
 
 it("retries the failed committed change instead of saving the unchanged old configuration", async () => {
   vi.spyOn(console, "error").mockImplementation(() => {});
-  const original = createInitialData();
+  const original = createStudyFixture();
   const save = vi
     .fn()
     .mockRejectedValueOnce(new Error("Unavailable"))

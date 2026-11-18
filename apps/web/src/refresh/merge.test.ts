@@ -1,6 +1,6 @@
 import type { AiTurn } from "@solvemate/contracts";
 import { describe, expect, it } from "vitest";
-import { createInitialData } from "../data/catalog";
+import { createStudyFixture } from "../data/__fixtures__/study";
 import {
   dataEqual,
   mergeData,
@@ -8,7 +8,7 @@ import {
   resolveDataConflict,
 } from "./merge";
 const copies = () => {
-  const base = createInitialData();
+  const base = createStudyFixture();
   return { base, local: structuredClone(base), remote: structuredClone(base) };
 };
 describe("three-way record refresh", () => {

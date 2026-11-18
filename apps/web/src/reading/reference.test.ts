@@ -1,7 +1,8 @@
 import { locationKey } from "../materials/api";
 import { describe, expect, it } from "vitest";
 import { assertMetadata, assertUserData } from "@solvemate/contracts";
-import { createInitialData, getCurrentContent } from "../data/catalog";
+import { createStudyFixture } from "../data/__fixtures__/study";
+import { getCurrentContent } from "../data/catalog";
 import {
   appendReference,
   REFERENCE_LIMIT_MESSAGE,
@@ -13,7 +14,7 @@ import {
 
 describe("reading quotes", () => {
   it("pins selected content and its official version without including an unselected answer", () => {
-    const selection = createInitialData().selection,
+    const selection = createStudyFixture().selection,
       content = getCurrentContent(selection);
     const quote = makeReadingReference(
       selection,
@@ -37,7 +38,7 @@ describe("reading quotes", () => {
     ).toThrow("过长");
   });
   it("adds independent fragments, deduplicates exact references and enforces request limits", () => {
-    const selection = createInitialData().selection;
+    const selection = createStudyFixture().selection;
     const first = makeReadingReference(
       selection,
       getCurrentContent(selection),
@@ -79,7 +80,7 @@ describe("reading quotes", () => {
     );
     expect(referencePreview("🐱".repeat(16))).toBe("🐱".repeat(15) + "…");
     expect(referencePreview("  a\nb  ")).toBe("a b");
-    const reference = makeReadingReference(createInitialData().selection, {
+    const reference = makeReadingReference(createStudyFixture().selection, {
       title: "题目",
       topic: "课程",
       content: "正文",
@@ -97,7 +98,7 @@ describe("reading quotes", () => {
 });
 
 it("keeps historical messages with more than four references readable", () => {
-  const data = createInitialData();
+  const data = createStudyFixture();
   const references = Array.from({ length: 5 }, (_, index) => ({
     title: "历史引用",
     content: String(index),

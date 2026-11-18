@@ -1,6 +1,6 @@
 import { activeSessionBinding } from "../ai/session-bindings";
 import { describe, expect, it } from "vitest";
-import { createInitialData } from "../data/catalog";
+import { createStudyFixture } from "../data/__fixtures__/study";
 import { aiTurn } from "../ai/fixtures.test-support";
 import { mergeAiTurn } from "../ai/state";
 import {
@@ -11,7 +11,7 @@ import {
 
 describe("reading conversation recovery", () => {
   it("uses learning activity rather than array order or management changes", () => {
-    const data = createInitialData();
+    const data = createStudyFixture();
     const old = {
       ...data.conversations[0],
       id: "old",
@@ -38,7 +38,7 @@ describe("reading conversation recovery", () => {
   });
 
   it("matches a fixed PDF version across pages and rejects unsupported positions", () => {
-    const data = createInitialData();
+    const data = createStudyFixture();
     const selection = {
       ...data.selection,
       kind: "textbooks" as const,
@@ -80,7 +80,7 @@ describe("reading conversation recovery", () => {
   });
 
   it("returns an explicitly selected older conversation and skips unavailable ones", () => {
-    const data = createInitialData();
+    const data = createStudyFixture();
     const selection = data.selection;
     const old = {
       ...data.conversations[0],
@@ -110,7 +110,7 @@ describe("reading conversation recovery", () => {
   });
 
   it("keeps background replies attached to their original conversation and reading reference", () => {
-    let data = createInitialData();
+    let data = createStudyFixture();
     const originalSelection = {
       courseId: "c-language",
       version: "example-1",

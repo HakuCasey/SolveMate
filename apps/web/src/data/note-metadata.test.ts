@@ -7,7 +7,8 @@ import {
   truncateNoteTitle,
 } from "@solvemate/contracts";
 import fixtures from "../../../../packages/contracts/fixtures/note-metadata.json";
-import { createInitialData, courses } from "./catalog";
+import { createStudyFixture } from "./__fixtures__/study";
+import { courses } from "./catalog";
 import { migrateAiMetadata } from "./migrate-ai-metadata";
 import {
   createNote,
@@ -29,9 +30,9 @@ describe("unified note metadata", () => {
   for (const fixture of fixtures)
     it(`migrates ${fixture.name} without changing saved content or identity`, () => {
       const value = {
-        ...createInitialData(),
+        ...createStudyFixture(),
         noteLibrary: {
-          notebooks: createInitialData().noteLibrary!.notebooks,
+          notebooks: createStudyFixture().noteLibrary!.notebooks,
           customTags: [],
           notes: [fixture.note],
         },
@@ -60,9 +61,9 @@ describe("unified note metadata", () => {
     });
   it("preserves known times, and rejects invalid dates and old fields after migration", () => {
     const value = {
-      ...createInitialData(),
+      ...createStudyFixture(),
       noteLibrary: {
-        ...createInitialData().noteLibrary!,
+        ...createStudyFixture().noteLibrary!,
         notes: [{ ...fixtures[0].note, createdAt: 100, updatedAt: 200 }],
       },
     };
@@ -91,7 +92,7 @@ describe("unified note metadata", () => {
     vi.useFakeTimers();
     vi.setSystemTime(1000);
     let data = createNote(
-      createInitialData(),
+      createStudyFixture(),
       { title: "自己的笔记", content: "正文", notebookId: "notebook-calculus" },
       null,
       null,
@@ -144,7 +145,7 @@ describe("unified note metadata", () => {
     });
   });
   it("opens conversation sources by message ids without copying their contents", () => {
-    const data = createInitialData();
+    const data = createStudyFixture();
     const conversation = data.conversations[0];
     const origin = {
       kind: "conversation" as const,

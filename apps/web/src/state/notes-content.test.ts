@@ -2,7 +2,7 @@ import { sourceForNote } from "./note-origins";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 afterEach(() => vi.restoreAllMocks());
-import { createInitialData } from "../data/catalog";
+import { createStudyFixture } from "../data/__fixtures__/study";
 import { assertAppData } from "../data/validation";
 import {
   createNote,
@@ -25,7 +25,7 @@ const values = {
 };
 describe("note content and source", () => {
   it("saves a copied fixed-version source and subject tag using the shared schema", () => {
-    const initial = createInitialData(),
+    const initial = createStudyFixture(),
       data = createNote(initial, values, source, "c-language", "note-new");
     const note = data.noteLibrary!.notes[0];
     assertAppData(data);
@@ -50,7 +50,7 @@ describe("note content and source", () => {
   });
   it("edits content without changing notebook, source, identity or tags", () => {
     const initial = createNote(
-      createInitialData(),
+      createStudyFixture(),
       values,
       source,
       "c-language",
@@ -82,7 +82,7 @@ describe("note content and source", () => {
   it("moves to an existing or new notebook without changing content or source", () => {
     vi.spyOn(Date, "now").mockReturnValue(1000);
     const initial = createNote(
-      createInitialData(),
+      createStudyFixture(),
       values,
       source,
       "c-language",
@@ -125,7 +125,7 @@ describe("note content and source", () => {
   });
   it("rejects missing destinations, duplicate names and stale moves before creating a notebook", () => {
     const initial = createNote(
-      createInitialData(),
+      createStudyFixture(),
       values,
       source,
       null,
@@ -180,7 +180,7 @@ describe("note content and source", () => {
   });
   it("keeps failed or deleted edits from recreating a note or its notebook", () => {
     const initial = createNote(
-      createInitialData(),
+      createStudyFixture(),
       { ...values, notebookId: "notebook-calculus" },
       source,
       null,
@@ -208,7 +208,7 @@ describe("note content and source", () => {
     );
   });
   it("rejects invalid source, blank content and oversized content without changing existing records", () => {
-    const initial = createInitialData(),
+    const initial = createStudyFixture(),
       before = structuredClone(initial);
     expect(() =>
       createNote(initial, values, { ...source, pageNumber: 0 }, null),
@@ -223,7 +223,7 @@ describe("note content and source", () => {
     expect(initial).toEqual(before);
   });
   it("edits a note without rewriting its material origins", () => {
-    const initial = createInitialData(),
+    const initial = createStudyFixture(),
       note = initial.noteLibrary!.notes[0];
     const changed = editNote(initial, note.id, values, note.revision);
     expect(changed.noteLibrary!.notes[0]).toMatchObject({

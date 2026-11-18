@@ -1,7 +1,7 @@
 import "fake-indexeddb/auto";
 import Dexie from "dexie";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createInitialData } from "../data/catalog";
+import { createStudyFixture } from "../data/__fixtures__/study";
 import { DexieStorage, LocalDataConflictError } from "./index";
 import { addSubject, renameSubject, removeSubject } from "../state/subjects";
 import { courses } from "../data/catalog";
@@ -32,7 +32,7 @@ describe("local storage", () => {
     const name = `solvemate-test-${crypto.randomUUID()}`;
     const first = createStore(name);
     let data = renameNotebook(
-      createInitialData(),
+      createStudyFixture(),
       "notebook-calculus",
       "高数复习",
       1,
@@ -61,7 +61,7 @@ describe("local storage", () => {
     const name = `solvemate-test-${crypto.randomUUID()}`;
     const first = createStore(name);
     let data = addSubject(
-      createInitialData(),
+      createStudyFixture(),
       courses,
       "物理",
       "subject-physics",
@@ -77,7 +77,7 @@ describe("local storage", () => {
   });
   it("restores ordinary and reading sessions without borrowing the current reading selection", async () => {
     const name = `solvemate-test-${crypto.randomUUID()}`;
-    const data = createInitialData();
+    const data = createStudyFixture();
     const session = createConversation(data, null, "calculus-teacher");
     session.messages.push({
       id: "ordinary-message",
@@ -97,7 +97,7 @@ describe("local storage", () => {
   it("restores session labels, archive state and external bindings, while accepting older sessions", async () => {
     const name = `solvemate-test-${crypto.randomUUID()}`;
     const first = createStore(name);
-    const saved = createInitialData();
+    const saved = createStudyFixture();
     saved.conversations[0].label = "考前复习";
     saved.conversations[0].status = "archived";
     saved.conversations[0].aiConfig.connectionId = "test-harness";
@@ -122,7 +122,7 @@ describe("local storage", () => {
   it("restores messages, selection, and settings from a new connection", async () => {
     const name = `solvemate-test-${crypto.randomUUID()}`;
     const first = createStore(name);
-    const saved = createInitialData();
+    const saved = createStudyFixture();
     saved.settings.fontSize = 21;
     saved.settings.appearance = "dark";
     saved.settings.themeId = "sky";
@@ -150,7 +150,7 @@ describe("local storage", () => {
   it("preserves an intentionally empty robot list after reopening", async () => {
     const name = `solvemate-test-${crypto.randomUUID()}`;
     const first = createStore(name);
-    const saved = createInitialData();
+    const saved = createStudyFixture();
     saved.robots = [];
     saved.defaultRobotId = null;
     await first.save(saved);
@@ -161,7 +161,7 @@ describe("local storage", () => {
   it("keeps the last successful value when a database write fails", async () => {
     const name = `solvemate-test-${crypto.randomUUID()}`;
     const store = createStore(name);
-    const previous = createInitialData();
+    const previous = createStudyFixture();
     await store.save(previous);
     const next = structuredClone(previous);
     next.settings.fontSize = 21;
@@ -179,15 +179,15 @@ describe("local storage", () => {
 
   it("saves successive changes in order and copies each submitted value", async () => {
     const store = createStore();
-    const first = createInitialData();
+    const first = createStudyFixture();
     first.settings.fontSize = 12;
     const saveFirst = store.save(first);
     first.settings.fontSize = 20;
     await saveFirst;
     expect((await store.load())?.settings.fontSize).toBe(12);
-    const second = createInitialData();
+    const second = createStudyFixture();
     second.settings.fontSize = 18;
-    const third = createInitialData();
+    const third = createStudyFixture();
     third.settings.fontSize = 19;
     await Promise.all([store.save(third), store.save(second)]);
     expect((await store.load())?.settings.fontSize).toBe(18);
@@ -197,7 +197,7 @@ describe("local storage", () => {
     const name = `solvemate-test-${crypto.randomUUID()}`;
     const raw = new Dexie(name);
     raw.version(1).stores({ state: "id" });
-    const futureData = { ...createInitialData(), schemaVersion: 99 };
+    const futureData = { ...createStudyFixture(), schemaVersion: 99 };
     await raw.table("state").put({ id: "main", value: futureData });
     vi.spyOn(console, "error").mockImplementation(() => undefined);
 
@@ -211,7 +211,7 @@ describe("local storage", () => {
   it("rejects a stale page instead of overwriting a newly saved conversation", async () => {
     const name = `solvemate-test-${crypto.randomUUID()}`;
     const first = createStore(name);
-    await first.save(createInitialData());
+    await first.save(createStudyFixture());
     const second = createStore(name);
     const secondData = (await second.load())!;
     const firstData = (await first.load())!;
@@ -243,7 +243,7 @@ describe("local storage", () => {
     const name = `solvemate-test-${crypto.randomUUID()}`;
     const raw = new Dexie(name);
     raw.version(1).stores({ state: "id" });
-    const value = createInitialData();
+    const value = createStudyFixture();
     value.settings.fontSize = 17;
     await raw.table("state").put({ id: "main", value });
     const store = createStore(name);
@@ -260,13 +260,13 @@ describe("local storage", () => {
   it("requires reading an existing database before overwriting it", async () => {
     const name = `solvemate-test-${crypto.randomUUID()}`;
     const first = createStore(name);
-    const original = createInitialData();
+    const original = createStudyFixture();
     original.settings.fontSize = 19;
     await first.save(original);
     vi.spyOn(console, "error").mockImplementation(() => undefined);
 
     await expect(
-      createStore(name).save(createInitialData()),
+      createStore(name).save(createStudyFixture()),
     ).rejects.toBeInstanceOf(LocalDataConflictError);
     expect(await createStore(name).load()).toEqual(original);
   });

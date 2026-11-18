@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { OperationStore, operationStatus } from "./store";
 import { DataRequestError } from "../refresh/errors";
 import { recordOperation } from "./records";
-import { createInitialData } from "../data/catalog";
+import { createStudyFixture } from "../data/__fixtures__/study";
 
 describe("operation results", () => {
   it("tracks actual completion and does not hide an unrelated failure", () => {
@@ -53,7 +53,7 @@ describe("operation results", () => {
     expect(operationStatus(store.snapshot()).label).toBe("操作失败");
   });
   it("does not report typing or reading progress as a submitted operation", () => {
-    const before = createInitialData();
+    const before = createStudyFixture();
     expect(
       recordOperation(before, {
         ...before,
@@ -71,7 +71,7 @@ describe("operation results", () => {
 });
 
 it("identifies the item and distinguishes archiving, renaming and deleting", () => {
-  const before = createInitialData(),
+  const before = createStudyFixture(),
     after = structuredClone(before);
   const conversation = after.conversations[0];
   conversation.status = "archived";

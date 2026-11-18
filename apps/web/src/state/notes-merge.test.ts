@@ -2,7 +2,8 @@ import { locationForOrigin } from "@solvemate/contracts";
 import { describe, expect, it } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { createInitialData, courses } from "../data/catalog";
+import { createStudyFixture } from "../data/__fixtures__/study";
+import { courses } from "../data/catalog";
 import { assertAppData } from "../data/validation";
 import { createSubjectDirectory } from "./subjects";
 import {
@@ -30,7 +31,7 @@ const notebookId = "notebook-calculus";
 
 describe("merge notes in one notebook", () => {
   it("omits subject labels from the note list while retaining custom labels and saved ids", () => {
-    const data = mergeNotes(createInitialData(), notebookId, selected);
+    const data = mergeNotes(createStudyFixture(), notebookId, selected);
     const note = data.noteLibrary!.notes[0];
     const directory = createSubjectDirectory(courses);
     const render = () =>
@@ -64,7 +65,7 @@ describe("merge notes in one notebook", () => {
   });
 
   it("uses list order instead of click order and replaces selected notes atomically", () => {
-    const data = createInitialData();
+    const data = createStudyFixture();
     const before = structuredClone(data);
     data.noteLibrary!.notes[1].tagIds.push("subject:c-language");
     const changed = applyNoteAction(data, createSubjectDirectory(courses), {
@@ -95,7 +96,7 @@ describe("merge notes in one notebook", () => {
     assertAppData(changed);
   });
   it("keeps every material association, including when merging an already merged note", () => {
-    const data = createInitialData();
+    const data = createStudyFixture();
     let changed = mergeNotes(data, notebookId, selected);
     const origins = changed.noteLibrary!.notes[0].origins;
     expect(origins.map(locationForOrigin)).toEqual(
@@ -131,7 +132,7 @@ describe("merge notes in one notebook", () => {
     assertAppData(changed);
   });
   it("keeps message ids and PDF pages, and includes all sources in export", () => {
-    let data = createInitialData();
+    let data = createStudyFixture();
     const conversation = data.conversations.find(
       (item) => item.messages.length,
     )!;
@@ -191,7 +192,7 @@ describe("merge notes in one notebook", () => {
     expect(html).toContain("来源：对话");
   });
   it("rejects missing, moved, changed or invalid selections and oversized content without deleting anything", () => {
-    const data = createInitialData();
+    const data = createStudyFixture();
     const before = structuredClone(data);
     expect(() => mergeNotes(data, notebookId, selected.slice(0, 1))).toThrow(
       "至少两篇",
@@ -218,7 +219,7 @@ describe("merge notes in one notebook", () => {
     expect(data.noteLibrary!.notes).toHaveLength(4);
   });
   it("deduplicates origins and supports notes without a source", () => {
-    const data = createInitialData();
+    const data = createStudyFixture();
     data.noteLibrary!.notes[1].origins = structuredClone(
       data.noteLibrary!.notes[0].origins,
     );

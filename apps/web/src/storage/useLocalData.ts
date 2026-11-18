@@ -4,10 +4,7 @@ import type { AppData, Course } from "@solvemate/contracts";
 import {
   courses,
   createInitialData,
-  createEmptyData,
   validateContentReferences,
-  sampleNotebooks,
-  sampleNotes,
 } from "../data/catalog";
 import { upgradeRobotCatalog } from "../state/robots";
 import { appStorage, userStorageStatus } from "./local-service";
@@ -24,11 +21,7 @@ function loadInitialData(available: Course[]): Promise<AppData> {
     .then(async (saved) => {
       if (saved) {
         const upgraded = await initializeTeachingTools(
-          initializeNotes(
-            upgradeRobotCatalog(saved),
-            sampleNotebooks,
-            sampleNotes,
-          ),
+          initializeNotes(upgradeRobotCatalog(saved)),
         );
         try {
           validateContentReferences(upgraded, available);
@@ -58,7 +51,10 @@ function loadInitialData(available: Course[]): Promise<AppData> {
 
 export function useLocalData(available: Course[] = courses) {
   const controller = useRef<LocalDataController | null>(null);
-  controller.current ??= new LocalDataController(appStorage, createEmptyData());
+  controller.current ??= new LocalDataController(
+    appStorage,
+    createInitialData(),
+  );
   const store = controller.current;
   const snapshot = useSyncExternalStore(
     store.subscribe,

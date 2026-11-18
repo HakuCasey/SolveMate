@@ -1,9 +1,9 @@
+import { createStudyFixture } from "./__fixtures__/study";
 import { describe, expect, it } from "vitest";
 import {
   courses,
   createInitialData,
   getCurrentContent,
-  sampleNotes,
   validateContentReferences,
 } from "./catalog";
 import { parseTextbook } from "./textbooks";
@@ -24,7 +24,7 @@ describe("built-in study content", () => {
     expect(() => assertAppData(data)).not.toThrow();
   });
   it("rejects malformed external session metadata rather than coercing it", () => {
-    const data = createInitialData();
+    const data = createStudyFixture();
     const malformed = {
       ...data,
       conversations: [
@@ -78,7 +78,6 @@ describe("built-in study content", () => {
         ).toBe(true);
       }
     }
-    expect(sampleNotes).toHaveLength(4);
   });
 
   it("keeps formulas and code unchanged when splitting textbook chapters", () => {
@@ -96,18 +95,18 @@ describe("built-in study content", () => {
     expect(book.chapters[1]?.content).toBe("下一章");
   });
 
-  it("keeps initial state and its examples independent between loads", () => {
+  it("keeps initial robot presets independent and personal history empty between loads", () => {
     const first = createInitialData();
     first.robots.length = 0;
-    first.conversations[0]!.messages.length = 0;
+    first.noteLibrary!.notebooks.length = 0;
     const second = createInitialData();
     expect(second.robots).toHaveLength(3);
-    expect(second.conversations).toHaveLength(4);
-    expect(second.conversations[0]?.messages).toHaveLength(4);
+    expect(second.conversations).toEqual([]);
+    expect(second.noteLibrary!.notes).toEqual([]);
+    expect(second.noteLibrary!.notebooks.map((item) => item.id)).toEqual([
+      "notebook-unclassified",
+    ]);
     expect(second.settings.fontSize).toBe(14);
-    expect(
-      second.conversations.every((conversation) => conversation.example),
-    ).toBe(true);
   });
 
   it("reads a selected question or PDF page from its own course", () => {
@@ -150,7 +149,7 @@ describe("built-in study content", () => {
   });
 
   it("accepts explicit ordinary sessions but rejects missing or malformed reading associations", () => {
-    const data = createInitialData();
+    const data = createStudyFixture();
     data.conversations[0].selection = null;
     expect(() => assertAppData(data)).not.toThrow();
     expect(() => validateContentReferences(data)).not.toThrow();
@@ -168,7 +167,7 @@ describe("built-in study content", () => {
   });
 
   it("rejects an unsupported chapter-only location without changing the saved record", () => {
-    const data = createInitialData();
+    const data = createStudyFixture();
     data.conversations[0]!.selection = {
       courseId: "calculus",
       kind: "textbooks",

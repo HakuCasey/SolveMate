@@ -2,15 +2,15 @@ import type { AppData } from "@solvemate/contracts";
 import "fake-indexeddb/auto";
 import Dexie from "dexie";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createInitialData } from "../data/catalog";
+import { createStudyFixture } from "../data/__fixtures__/study";
 import { DexieStorage } from "./index";
 import { ContentStorage } from "../content/storage";
 import { packageFixture } from "../content/fixtures.test-support";
 
-let state = {
+let state: import("./local-client").StateEnvelope = {
   storeId: "test-storage",
   revision: 0,
-  value: null as ReturnType<typeof createInitialData> | null,
+  value: null as ReturnType<typeof createStudyFixture> | null,
 };
 let available = true;
 let migrations: Record<string, unknown>[] = [];
@@ -80,7 +80,7 @@ afterEach(() => {
 describe("local service storage and migration", () => {
   it("preserves unsupported reading positions during browser migration instead of blocking startup", async () => {
     const old = new DexieStorage();
-    const original = createInitialData();
+    const original = createStudyFixture();
     original.selection = {
       courseId: "c-language",
       version: "example-1",
@@ -110,7 +110,7 @@ describe("local service storage and migration", () => {
   it("loads and saves explicit PDF pages and question locations without chapter metadata", async () => {
     const service = await import("./local-service");
     const storage = new service.LocalAppStorage();
-    const original = createInitialData();
+    const original = createStudyFixture();
     original.selection = {
       courseId: "c-language",
       version: "example-1",
@@ -137,7 +137,7 @@ describe("local service storage and migration", () => {
   });
   it("migrates the original envelope and course archives without modifying the old databases", async () => {
     const old = new DexieStorage();
-    const original = createInitialData();
+    const original = createStudyFixture();
     original.conversations[0].title = "原对话";
     await old.save(original);
     const rawBefore = await old.rawRecord();
@@ -166,11 +166,11 @@ describe("local service storage and migration", () => {
   });
   it("keeps another browser's records until the user explicitly chooses, then does not ask repeatedly", async () => {
     const old = new DexieStorage();
-    const original = createInitialData();
+    const original = createStudyFixture();
     original.settings.fontSize = 20;
     await old.save(original);
     old.close();
-    state = { ...state, revision: 4, value: createInitialData() };
+    state = { ...state, revision: 4, value: createStudyFixture() };
     const service = await import("./local-service");
     let required!: InstanceType<typeof service.MigrationRequired>;
     try {
@@ -192,7 +192,7 @@ describe("local service storage and migration", () => {
     const first = new service.LocalAppStorage(),
       second = new service.LocalAppStorage();
     expect(await first.load()).toBeNull();
-    await first.save(createInitialData());
+    await first.save(createStudyFixture());
     const stale = (await second.load())!;
     const next = structuredClone(stale);
     next.settings.fontSize = 21;
@@ -212,11 +212,11 @@ describe("local service storage and migration", () => {
     const service = await import("./local-service");
     const storage = new service.LocalAppStorage();
     await storage.load();
-    await storage.save(createInitialData());
+    await storage.save(createStudyFixture());
     available = false;
     expect((await storage.load())?.settings.fontSize).toBe(14);
     expect(service.userStorageStatus.snapshot().online).toBe(false);
-    const next = createInitialData();
+    const next = createStudyFixture();
     next.settings.fontSize = 17;
     await expect(storage.save(next)).rejects.toThrow("无法连接本机服务");
     expect(state.value?.settings.fontSize).toBe(14);
@@ -249,7 +249,7 @@ describe("local service storage and migration", () => {
     const storage = new service.LocalAppStorage();
     await storage.load();
     state = { ...state, storeId: "another-directory" };
-    await expect(storage.save(createInitialData())).rejects.toMatchObject({
+    await expect(storage.save(createStudyFixture())).rejects.toMatchObject({
       name: "LocalDataConflictError",
     });
     expect(state.value).toBeNull();
@@ -261,7 +261,7 @@ it("refreshes from the service without rerunning migration or treating a cache a
   const service = await import("./local-service"),
     storage = new service.LocalAppStorage();
   await storage.load();
-  await storage.save(createInitialData());
+  await storage.save(createStudyFixture());
   const migrationCount = migrations.length;
   state = {
     ...state,
@@ -283,8 +283,8 @@ it("refreshes from the service without rerunning migration or treating a cache a
   const record = {
     id: "backup",
     createdAt: 1,
-    base: createInitialData(),
-    value: createInitialData(),
+    base: createStudyFixture(),
+    value: createStudyFixture(),
   };
   await storage.preserve(record);
   expect(await storage.recoveries()).toEqual([record]);
@@ -301,9 +301,9 @@ it("upgrades old offline note caches after retaining the original envelope", asy
     storeId: "original-store",
     revision: 7,
     value: {
-      ...createInitialData(),
+      ...createStudyFixture(),
       noteLibrary: {
-        ...createInitialData().noteLibrary!,
+        ...createStudyFixture().noteLibrary!,
         notes: [fixtures[3].note],
       },
     },
@@ -323,9 +323,9 @@ it("upgrades old offline note caches after retaining the original envelope", asy
 
 it("loads valid local records while an older browser import needs a choice", async () => {
   const old = new DexieStorage();
-  await old.save(createInitialData());
+  await old.save(createStudyFixture());
   old.close();
-  const existing = createInitialData();
+  const existing = createStudyFixture();
   existing.noteLibrary!.notes = [];
   state = { ...state, value: existing, revision: 3 };
   const service = await import("./local-service");
@@ -341,7 +341,7 @@ it("uses a readable cache when returned records cannot be parsed and refuses to 
   const service = await import("./local-service");
   const storage = new service.LocalAppStorage();
   await storage.load();
-  await storage.save(createInitialData());
+  await storage.save(createStudyFixture());
   const original = state.value;
   vi.stubGlobal(
     "fetch",
@@ -355,7 +355,9 @@ it("uses a readable cache when returned records cannot be parsed and refuses to 
   expect(service.userStorageStatus.snapshot().loadFailure).toBeInstanceOf(
     Error,
   );
-  await expect(storage.save(createInitialData())).rejects.toThrow("未通过校验");
+  await expect(storage.save(createStudyFixture())).rejects.toThrow(
+    "未通过校验",
+  );
   expect(state.value).toBe(original);
   service.userCache.close();
 });
@@ -364,7 +366,7 @@ it("keeps a valid cache readable when the server reports corrupt JSON", async ()
   const service = await import("./local-service");
   const storage = new service.LocalAppStorage();
   await storage.load();
-  await storage.save(createInitialData());
+  await storage.save(createStudyFixture());
   const original = state.value;
   vi.stubGlobal(
     "fetch",
@@ -385,7 +387,7 @@ it("keeps a valid cache readable when the server reports corrupt JSON", async ()
   expect(service.userStorageStatus.snapshot().loadFailure).toBeInstanceOf(
     Error,
   );
-  await expect(storage.save(createInitialData())).rejects.toThrow("无法解析");
+  await expect(storage.save(createStudyFixture())).rejects.toThrow("无法解析");
   expect(state.value).toBe(original);
   vi.stubGlobal("fetch", vi.fn(fetcher));
   expect(await storage.refresh()).toEqual(original);
@@ -397,7 +399,7 @@ it("retains readable caches without overriding the availability of a service rep
   const service = await import("./local-service");
   const storage = new service.LocalAppStorage();
   await storage.load();
-  await storage.save(createInitialData());
+  await storage.save(createStudyFixture());
   const original = state.value;
   vi.stubGlobal(
     "fetch",

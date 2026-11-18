@@ -1,7 +1,7 @@
 import { addImportedRobot } from "./robot-transfer";
 import { describe, expect, it } from "vitest";
 import { maxRobots, type AppData } from "@solvemate/contracts";
-import { createInitialData } from "../data/catalog";
+import { createStudyFixture } from "../data/__fixtures__/study";
 import { assertAppData } from "../data/validation";
 import { upgradeRobot } from "../data/migrate-ai-metadata";
 import legacyRobots from "../data/legacy-robots.json";
@@ -17,7 +17,7 @@ import {
 } from "./robots";
 
 function legacyData(): AppData {
-  const initial = createInitialData();
+  const initial = createStudyFixture();
   const data = {
     ...initial,
     robotCatalogVersion: undefined,
@@ -33,18 +33,18 @@ function legacyData(): AppData {
 
 describe("robot configuration drafts", () => {
   it("publishes three subject-oriented teachers and permits custom specialties", () => {
-    expect(createInitialData().robots.map((robot) => robot.name)).toEqual([
+    expect(createStudyFixture().robots.map((robot) => robot.name)).toEqual([
       "全科教师",
       "高数教师",
       "C 语言教师",
     ]);
-    expect(createRobot().prompt).toBe(createInitialData().robots[0].prompt);
+    expect(createRobot().prompt).toBe(createStudyFixture().robots[0].prompt);
     const english = {
       ...createRobot(),
       name: "我的英语教师",
       specialty: "英语",
     };
-    const data = createInitialData();
+    const data = createStudyFixture();
     data.robots.push(english);
     assertAppData(data);
     // 专业范围不影响创建数学会话时选用英语教师。
@@ -94,7 +94,7 @@ describe("robot configuration drafts", () => {
   });
 
   it("updates unchanged preset instructions while keeping settings and historical records", () => {
-    const data = createInitialData();
+    const data = createStudyFixture();
     data.robots = data.robots.map((robot) => ({
       ...robot,
       prompt: (legacyTeacherPrompts as Record<string, string>)[robot.id],
@@ -106,7 +106,7 @@ describe("robot configuration drafts", () => {
       modelId: "custom:school:model",
     };
     const upgraded = upgradeRobotCatalog(data);
-    const presets = createInitialData().robots;
+    const presets = createStudyFixture().robots;
     upgraded.robots.forEach((robot, index) => {
       expect(robot).toEqual({
         ...data.robots[index],
@@ -122,7 +122,7 @@ describe("robot configuration drafts", () => {
   });
 
   it("keeps custom instructions and removed presets when updating default instructions", () => {
-    const data = createInitialData();
+    const data = createStudyFixture();
     data.robots = data.robots
       .filter((robot) => robot.id !== "c-language-teacher")
       .map((robot) => ({
@@ -142,7 +142,7 @@ describe("robot configuration drafts", () => {
     expect(upgraded.robots[0]).toBe(data.robots[0]);
     expect(upgraded.robots.at(-1)).toBe(custom);
     expect(upgraded.robots[1].prompt).toBe(
-      createInitialData().robots[1].prompt,
+      createStudyFixture().robots[1].prompt,
     );
     const empty = { ...data, robots: [], defaultRobotId: null };
     expect(upgradeRobotCatalog(empty)).toBe(empty);
@@ -162,7 +162,7 @@ describe("robot configuration drafts", () => {
   });
 
   it("restores each preset without modifying its saved configuration or another robot", () => {
-    const data = createInitialData();
+    const data = createStudyFixture();
     for (const preset of data.robots) {
       const saved = {
         ...preset,
@@ -194,7 +194,7 @@ describe("robot configuration drafts", () => {
 
 describe("robot name uniqueness", () => {
   it("allows the original name, but rejects another robot name including surrounding spaces", () => {
-    const data = createInitialData(),
+    const data = createStudyFixture(),
       robot = data.robots[0];
     expect(robotNameError(data.robots, robot)).toBe("");
     expect(
@@ -208,7 +208,7 @@ describe("robot name uniqueness", () => {
     );
   });
   it("creates distinct names for repeated new robot actions", () => {
-    const data = createInitialData();
+    const data = createStudyFixture();
     data.robots.push({
       ...createRobot("new-1"),
       name: newRobotName(data.robots),
@@ -221,7 +221,7 @@ describe("robot name uniqueness", () => {
     expect(newRobotName(data.robots)).toBe("新机器人（3）");
   });
   it("rejects duplicate names through the shared save operation", () => {
-    const data = createInitialData(),
+    const data = createStudyFixture(),
       robot = data.robots[0];
     const robots = data.robots.map((item) =>
       item.id === robot.id ? { ...item, name: data.robots[1].name } : item,
@@ -234,7 +234,7 @@ describe("robot name uniqueness", () => {
 });
 
 it("enforces the same nine-robot limit for creation, copying and import", () => {
-  const data = createInitialData();
+  const data = createStudyFixture();
   data.robots = Array.from({ length: maxRobots }, (_, i) => ({
     ...createRobot(`robot-${i}`),
     name: `机器人${i}`,

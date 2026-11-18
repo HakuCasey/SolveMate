@@ -5,7 +5,7 @@ import {
   generatingReplyId,
   type StudyContext,
 } from "./policy";
-import { createInitialData } from "../data/catalog";
+import { createStudyFixture } from "../data/__fixtures__/study";
 import { aiTurn } from "../ai/fixtures.test-support";
 import { mergeAiTurn } from "../ai/state";
 const base: StudyContext = {
@@ -72,7 +72,7 @@ describe("study whitelist", () => {
     ).toEqual([]);
   });
   it("excludes uncertain submissions, permissions and failed connections from generation", () => {
-    const data = createInitialData(),
+    const data = createStudyFixture(),
       conversation = data.conversations[0];
     const result = aiTurn({
       conversationId: conversation.id,

@@ -1,7 +1,8 @@
 import { materialFixtures } from "../content/library.test-support";
 import { describe, expect, it } from "vitest";
 import type { Material, ReadingSelection } from "@solvemate/contracts";
-import { courses, createInitialData } from "../data/catalog";
+import { createStudyFixture } from "../data/__fixtures__/study";
+import { courses } from "../data/catalog";
 import { OfficialLibrary } from "../content/library";
 import { makeSnapshot } from "../content/storage";
 import { createConversation } from "../state/conversations";
@@ -36,7 +37,7 @@ const values = {
   notebookId: unclassifiedNotebookId,
 };
 function relations(
-  data = createInitialData(),
+  data = createStudyFixture(),
   materials: Material[] = materialFixtures(courses),
 ) {
   return new LearningRelations(
@@ -49,7 +50,7 @@ function relations(
 
 describe("learning material relations", () => {
   it("reads old note associations at their original version without modifying them", () => {
-    const data = createInitialData(),
+    const data = createStudyFixture(),
       before = structuredClone(data);
     const source = sourceForNote(data.noteLibrary!.notes[0])!;
     expect(source).toMatchObject({
@@ -69,7 +70,7 @@ describe("learning material relations", () => {
     ).toBeNull();
   });
   it("groups a book across chapters and versions but keeps each exact original location", () => {
-    const data = createInitialData();
+    const data = createStudyFixture();
     const chapter2 = { ...book, chapterIndex: 1, version: "b".repeat(64) };
     const first = createConversation(data, book),
       second = createConversation(data, chapter2);
@@ -86,7 +87,7 @@ describe("learning material relations", () => {
     ).toEqual([]);
   });
   it("indexes actual message citations, deduplicates a conversation and excludes deleted records", () => {
-    const data = createInitialData();
+    const data = createStudyFixture();
     const conversation = createConversation(data, book);
     const quoted = {
       title: "课堂课本",
@@ -118,7 +119,7 @@ describe("learning material relations", () => {
     expect(relations(data).related(book).conversations).toHaveLength(2);
   });
   it("preserves source and relations after upload rename, move and deletion", () => {
-    let data = createInitialData();
+    let data = createStudyFixture();
     data.conversations = [
       createConversation(
         data,
@@ -153,7 +154,7 @@ describe("learning material relations", () => {
   });
   it("keeps historical note sources after subject deletion, and does not associate a same-named upload", () => {
     let data = createNote(
-      createInitialData(),
+      createStudyFixture(),
       values,
       book,
       "calculus",
@@ -178,7 +179,7 @@ describe("learning material relations", () => {
   });
   it("retains a missing source visibly and removes relations when their note is deleted", () => {
     const data = createNote(
-      createInitialData(),
+      createStudyFixture(),
       values,
       page,
       null,
@@ -201,7 +202,7 @@ describe("learning material relations", () => {
   });
   it("does not assign unrelated ordinary conversations or independent notes to a material", () => {
     const data = createNote(
-      createInitialData(),
+      createStudyFixture(),
       values,
       null,
       null,
@@ -218,7 +219,7 @@ describe("learning material relations", () => {
 
 describe("linked reading context", () => {
   it("requires an explicit PDF page and does not infer a chapter's first page", async () => {
-    const data = createInitialData();
+    const data = createStudyFixture();
     const library = new OfficialLibrary(makeSnapshot([], []), data);
     const index = new LearningRelations(
       data,
@@ -243,7 +244,7 @@ describe("linked reading context", () => {
     expect(reference.content).toBe(courses[0].textbooks[0].pdf!.pages[1]);
   });
   it("reads an upload by fixed identity, version and page, and refuses empty text", async () => {
-    const data = createInitialData();
+    const data = createStudyFixture();
     const upload = {
       id: page.materialId,
       title: "C 语言课本",
@@ -280,7 +281,7 @@ describe("linked reading context", () => {
 });
 
 it("uses the same saved material title for community note and chat sources", () => {
-  const data = createInitialData();
+  const data = createStudyFixture();
   const item = {
     id: "calculus:textbooks:B001",
     title: "我的课本",

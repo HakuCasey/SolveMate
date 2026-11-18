@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
-import {
-  courses,
-  createInitialData,
-  sampleNotebooks,
-  sampleNotes,
-} from "../data/catalog";
+import { createStudyFixture } from "../data/__fixtures__/study";
+import { courses } from "../data/catalog";
 import {
   createSubjectDirectory,
   renameSubject,
@@ -32,7 +28,7 @@ describe("notebook and note metadata", () => {
   it("truncates generated, edited and renamed note titles to 24 Unicode characters without changing the body", () => {
     const original = "字".repeat(24) + "其余标题";
     let data = createNote(
-      createInitialData(),
+      createStudyFixture(),
       {
         title: original,
         content: "完整正文不截断",
@@ -57,22 +53,22 @@ describe("notebook and note metadata", () => {
   });
 
   it("initializes old records once and never repopulates deleted notes", () => {
-    const old = createInitialData();
+    const old = createStudyFixture();
     delete old.noteLibrary;
-    const data = initializeNotes(old, sampleNotebooks, sampleNotes);
-    expect(data.noteLibrary?.notes).toHaveLength(4);
+    const data = initializeNotes(old);
+    expect(data.noteLibrary?.notes).toEqual([]);
     expect(
       data.noteLibrary?.notebooks.find(
         (item) => item.id === unclassifiedNotebookId,
       )?.title,
     ).toBe("未分类");
     data.noteLibrary!.notes = [];
-    expect(initializeNotes(data, sampleNotebooks, sampleNotes)).toBe(data);
+    expect(initializeNotes(data)).toBe(data);
     expect(data.noteLibrary?.notes).toEqual([]);
     expect(old.noteLibrary).toBeUndefined();
   });
   it("renames stable objects and rejects empty, duplicate, system and stale edits", () => {
-    const initial = createInitialData();
+    const initial = createStudyFixture();
     const renamed = renameNotebook(
       initial,
       "notebook-calculus",
@@ -106,7 +102,7 @@ describe("notebook and note metadata", () => {
     expect(initial.noteLibrary!.notes[0].revision).toBe(1);
   });
   it("moves all notes to the system notebook in one immutable change", () => {
-    const initial = createInitialData();
+    const initial = createStudyFixture();
     const changed = deleteNotebook(initial, "notebook-calculus", false, 1);
     expect(
       changed.noteLibrary!.notebooks.some(
@@ -129,7 +125,7 @@ describe("notebook and note metadata", () => {
     assertNoteLibrary(changed.noteLibrary);
   });
   it("deletes only the chosen notebook's notes and allows an empty library", () => {
-    const initial = createInitialData();
+    const initial = createStudyFixture();
     const changed = deleteNotebook(initial, "notebook-calculus", true, 1);
     expect(changed.noteLibrary!.notes.map((item) => item.id)).toEqual([
       "N003",
@@ -138,11 +134,11 @@ describe("notebook and note metadata", () => {
     const empty = deleteNotebook(changed, "notebook-c-language", true, 1);
     expect(empty.noteLibrary!.notes).toEqual([]);
     assertNoteLibrary(empty.noteLibrary);
-    expect(initializeNotes(empty, sampleNotebooks, sampleNotes)).toBe(empty);
+    expect(initializeNotes(empty)).toBe(empty);
   });
   it("uses subject identifiers so renaming updates labels and deleting preserves applied labels", () => {
     const data = renameSubject(
-      createInitialData(),
+      createStudyFixture(),
       courses,
       "calculus",
       "微积分",
@@ -174,7 +170,7 @@ describe("notebook and note metadata", () => {
     ).toBe(true);
   });
   it("saves custom tag definitions and references together and reuses matching names", () => {
-    const initial = createInitialData(),
+    const initial = createStudyFixture(),
       directory = createSubjectDirectory(courses);
     const changed = saveNoteTags(
       initial,
@@ -213,7 +209,7 @@ describe("notebook and note metadata", () => {
     ).toThrow("不可用");
   });
   it("deletes one note, preserves unrelated metadata and rejects orphan references", () => {
-    const initial = createInitialData();
+    const initial = createStudyFixture();
     const changed = applyNoteAction(initial, createSubjectDirectory(courses), {
       kind: "deleteNote",
       id: "N001",

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createInitialData } from "../data/catalog";
+import { createStudyFixture } from "../data/__fixtures__/study";
 import {
   createConversation,
   replaceRobots,
@@ -11,7 +11,7 @@ import {
 describe("conversation and robot changes", () => {
   it("renames active and archived sessions without changing their history or external binding", () => {
     for (const archived of [false, true]) {
-      const data = createInitialData();
+      const data = createStudyFixture();
       const original = data.conversations[0];
       original.status = archived ? "archived" : "active";
       original.binding = {
@@ -41,7 +41,7 @@ describe("conversation and robot changes", () => {
   });
 
   it("rejects empty or overlong names and leaves deleted sessions unchanged", () => {
-    const data = createInitialData();
+    const data = createStudyFixture();
     const original = data.conversations[0];
     for (const title of ["", "  ", "x".repeat(101)])
       expect(() => updateConversation(data, original.id, { title })).toThrow();
@@ -55,7 +55,7 @@ describe("conversation and robot changes", () => {
   });
 
   it("creates an ordinary session without inheriting the last reading selection", () => {
-    const data = createInitialData();
+    const data = createStudyFixture();
     const session = createConversation(data, null, "calculus-teacher");
     expect(session.selection).toBeNull();
     expect(session.robotId).toBe("calculus-teacher");
@@ -65,7 +65,7 @@ describe("conversation and robot changes", () => {
   });
 
   it("keeps a reading association only when it is explicitly supplied", () => {
-    const data = createInitialData();
+    const data = createStudyFixture();
     const session = createConversation(data, data.selection);
     expect(session.selection).toEqual(data.selection);
     expect(session.selection).not.toBe(data.selection);
@@ -73,7 +73,7 @@ describe("conversation and robot changes", () => {
     expect(session.selection?.itemId).toBe("M001");
   });
   it("archives and labels a session without changing its identity, binding or messages", () => {
-    const data = createInitialData();
+    const data = createStudyFixture();
     const session = data.conversations[0];
     session.binding = {
       conversationId: session.id,
@@ -99,7 +99,7 @@ describe("conversation and robot changes", () => {
   });
 
   it("marks a deleted session without deleting its external binding or affecting other sessions", () => {
-    const data = createInitialData();
+    const data = createStudyFixture();
     const original = data.conversations[0];
     original.aiConfig = { connectionId: "deepseek-local", modelId: "model-a" };
     original.binding = {
@@ -127,7 +127,7 @@ describe("conversation and robot changes", () => {
     ).toThrow();
   });
   it("uses the default robot for a new conversation without changing existing choices", () => {
-    const data = createInitialData();
+    const data = createStudyFixture();
     const previousRobot = data.conversations[0].robotId;
     data.defaultRobotId = "c-language-teacher";
     expect(createConversation(data, data.selection).robotId).toBe(
@@ -137,7 +137,7 @@ describe("conversation and robot changes", () => {
   });
 
   it("keeps historical authors after deleting every robot", () => {
-    const data = createInitialData();
+    const data = createStudyFixture();
     const next = replaceRobots(data, [], null);
     expect(next.robots).toEqual([]);
     expect(next.defaultRobotId).toBeNull();
@@ -154,7 +154,7 @@ describe("conversation and robot changes", () => {
   });
 
   it("separates textbook chapters and courses when selecting a conversation", () => {
-    const selection = createInitialData().selection;
+    const selection = createStudyFixture().selection;
     expect(
       sameContent(selection, { ...selection, courseId: "c-language" }),
     ).toBe(false);

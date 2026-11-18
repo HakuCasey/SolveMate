@@ -95,18 +95,14 @@ export function applyNoteAction(
   }
 }
 
-/** 示例只用于初始化；空集合表示用户已经删除内容，不能重新填入示例。 */
-export function initializeNotes(
-  data: AppData,
-  notebooks: Notebook[],
-  notes: Note[],
-): AppData {
+/** 首次使用或旧记录缺少笔记库时，建立空的“未分类”笔记本。 */
+export function initializeNotes(data: AppData): AppData {
   if (data.noteLibrary) return data;
   return {
     ...data,
     noteLibrary: structuredClone({
-      notebooks: [...notebooks, systemNotebook],
-      notes,
+      notebooks: [systemNotebook],
+      notes: [],
       customTags: [],
     }),
   };

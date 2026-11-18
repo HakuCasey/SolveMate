@@ -3,8 +3,6 @@ import type {
   Course,
   CourseId,
   CurrentContent,
-  Note,
-  Notebook,
   ReadingSelection,
 } from "@solvemate/contracts";
 import calculusQuestions from "../../../../data/calculus/questions/questions.json";
@@ -75,20 +73,13 @@ export function getCourse(
   return course;
 }
 
-export const sampleNotebooks: Notebook[] = seedData.notebooks.map((item) => ({
-  ...item,
-  revision: 1,
-}));
-
-export const sampleNotes = structuredClone(seedData.notes) as Note[];
-
 export function createInitialData(): AppData {
   const data: unknown = {
     schemaVersion: 1,
     robotCatalogVersion: 1,
     robots: seedData.robots,
     defaultRobotId: "scholar",
-    conversations: seedData.conversations,
+    conversations: [],
     settings: {
       fontSize: 14,
       appearance:
@@ -107,26 +98,7 @@ export function createInitialData(): AppData {
   };
   const initial = migrateAiMetadata(data);
   initial.selection.version = "example-1";
-  initial.conversations.forEach((session) => {
-    if (session.selection) session.selection.version = "example-1";
-  });
-  return initializeNotes(initial, sampleNotebooks, sampleNotes);
-}
-
-/** 记录尚未读取时用于显示界面，不写入存储，也不以示例冒充用户记录。 */
-export function createEmptyData(): AppData {
-  const initial = createInitialData();
-  return {
-    ...initial,
-    conversations: [],
-    noteLibrary: {
-      notebooks: initial.noteLibrary!.notebooks.filter(
-        (item) => item.id === "notebook-unclassified",
-      ),
-      notes: [],
-      customTags: [],
-    },
-  };
+  return initializeNotes(initial);
 }
 
 export function getCurrentContent(

@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { AiTurn } from "@solvemate/contracts";
-import { createInitialData } from "../data/catalog";
+import { createStudyFixture } from "../data/__fixtures__/study";
 import { conversationTasks } from "./state";
 describe("status bar derives current business state", () => {
   it("includes all running conversations and their permission requests", () => {
-    const data = createInitialData();
+    const data = createStudyFixture();
     for (const [index, conversation] of data.conversations.entries())
       conversation.turns = [
         {
@@ -46,7 +46,7 @@ describe("status bar derives current business state", () => {
     ).toMatchObject({ label: "正在回复…", error: "重连失败", attention: true });
   });
   it("does not show old failures from unrelated history or revive deleted sessions", () => {
-    const data = createInitialData();
+    const data = createStudyFixture();
     data.conversations[0].turns = [
       {
         id: "failed",

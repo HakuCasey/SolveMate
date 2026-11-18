@@ -1,6 +1,7 @@
 import "fake-indexeddb/auto";
 import Dexie from "dexie";
 import { describe, expect, it, vi } from "vitest";
+import history from "./__fixtures__/learning-records.json";
 import seed from "./seed-data.json";
 import { migrateAiMetadata } from "./migrate-ai-metadata";
 import { DexieStorage } from "../storage";
@@ -10,7 +11,7 @@ function legacy() {
     schemaVersion: 1,
     robotCatalogVersion: 1,
     robots: structuredClone(seed.robots),
-    conversations: structuredClone(seed.conversations),
+    conversations: structuredClone(history.conversations),
     defaultRobotId: "scholar",
     settings: { fontSize: 14, appearance: "light", globalModel: "" },
     selection: {
