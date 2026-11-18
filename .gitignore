@@ -30,3 +30,7 @@ apps/desktop/*.spec
 # SQLite 运行时副文件（WAL/SHM），随服务启动产生，不纳入版本管理
 *.sqlite3-wal
 *.sqlite3-shm
+
+# Playwright 测试输出
+test-results/
+playwright-report/

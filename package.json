@@ -27,6 +27,7 @@
     "contracts:check": "node scripts/generate-ai-contracts.mjs --check"
   },
   "devDependencies": {
+    "@playwright/test": "^1.65.1",
     "json-schema-to-typescript": "^15.0.4",
     "prettier": "^3.9.10"
   },
