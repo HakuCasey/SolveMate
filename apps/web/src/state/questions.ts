@@ -106,7 +106,9 @@ export function recordQuestion(
     references.some((reference) => !isSupportedReadingReference(reference))
       ? UNSUPPORTED_READING_REFERENCE
       : "") ||
-    (readingContext && !readingContext.content.trim()
+    (readingContext &&
+    !readingContext.content.trim() &&
+    !readingContext.pageNumbers?.length
       ? "关联内容尚未读取，请重试。"
       : "");
   const ready =

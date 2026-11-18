@@ -279,6 +279,33 @@ describe("fixed linked-page snapshots", () => {
     expect(retried.conversations[0].turns.at(-1)?.status).toBe("running");
     assertAppData(retried);
   });
+  it("submits a specified page range without requiring extracted text", () => {
+    const { data, input } = fixture();
+    const pageNumbers = [5, 6, 7, 8] as [number, ...number[]];
+    const context = {
+      title: "高等数学示例教材 · 第 5–8 页",
+      content: "",
+      pageNumbers,
+      selection: null,
+      material: {
+        materialId: "calculus:textbooks:B001",
+        contentVersion: "example-1",
+        pageNumber: 5,
+      },
+      quoteKind: "page" as const,
+    };
+    const saved = recordQuestion(
+      data,
+      { ...input, readingContext: context },
+      aiSettings(),
+    );
+    expect(saved.conversations[0].turns[0]).toMatchObject({
+      status: "running",
+      submissionStatus: "pending",
+    });
+    expect(saved.conversations[0].messages[0].readingContext).toEqual(context);
+    assertAppData(saved);
+  });
 });
 
 it("preserves a question with an unsupported reference and does not queue an AI request", () => {
