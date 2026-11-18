@@ -92,6 +92,12 @@
 - H 社区内容展示内置资料、I 教研室展示资料与教研工具（`e2e/research-community.spec.ts`）
 - G3/G4 备份与恢复对话框、导出窗口、数据路径（`e2e/backup.spec.ts`）
 
+### 未覆盖与环境限制
+
+- C2 文字选段提问：依赖 PDF.js 文本层的精确鼠标拖选坐标，Playwright 模拟不可靠，未纳入自动化（逻辑由 `useReadingSelection` 单测覆盖）。
+- D6-D8 服务切换/失败重试/会话恢复：需特定失败场景或多服务配置，未纳入。
+- K 应用更新/离线重开：Playwright `serviceWorkers: "block"` 屏蔽 Service Worker，无法真实测离线；状态栏「更新失败」即此环境产物。
+
 ### 已修复问题（根因）
 
 - 初始加载竞态：`saveChanges` 在数据未就绪时先等待加载，不再报「原记录尚未读取成功」。
