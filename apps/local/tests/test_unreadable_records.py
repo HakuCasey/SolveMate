@@ -1,6 +1,7 @@
 """记录解析失败不影响服务启动；原 JSON 不会被空记录覆盖。"""
 
 import sqlite3
+from contextlib import closing
 
 from fastapi.testclient import TestClient
 from test_backups import BASE, STATE, exported, inspected
@@ -26,7 +27,7 @@ def test_invalid_records_keep_the_service_available_and_refuse_overwrite(tmp_pat
             client.put(STATE, json={"value": data(), "expectedRevision": 7}).status_code
             == 422
         )
-        with sqlite3.connect(tmp_path / "app.sqlite3") as db:
+        with closing(sqlite3.connect(tmp_path / "app.sqlite3")) as db, db:
             assert db.execute("SELECT value,revision FROM state").fetchone() == (
                 original,
                 7,
@@ -42,7 +43,9 @@ def test_existing_backup_can_restore_records_after_json_becomes_unreadable(tmp_p
             == 200
         )
         archive = exported(client)
-        with sqlite3.connect(tmp_path / "app.sqlite3") as db:
+        # sqlite3.Connection 的上下文管理器只提交事务，不关闭连接。
+        # 显式关闭测试连接，避免 Windows 在恢复时仍锁定 WAL 文件。
+        with closing(sqlite3.connect(tmp_path / "app.sqlite3")) as db, db:
             db.execute("UPDATE state SET value='broken'")
         assert client.get(STATE).status_code == 422
         token = inspected(client, archive)
@@ -62,5 +65,5 @@ def test_invalid_json_shapes_do_not_prevent_the_service_from_starting(tmp_path):
         with TestClient(create_app(root / "ai"), headers=HEADERS) as client:
             assert client.get("/healthz").status_code == 200
             assert client.get(STATE).status_code == 422
-            with sqlite3.connect(root / "app.sqlite3") as db:
+            with closing(sqlite3.connect(root / "app.sqlite3")) as db, db:
                 assert db.execute("SELECT value FROM state").fetchone()[0] == raw

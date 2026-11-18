@@ -335,7 +335,11 @@ def test_converter_missing_retry_and_interrupted_processing(tmp_path, monkeypatc
 )
 def test_converter_discovery_is_cross_platform(monkeypatch, platform, env, suffix):
     monkeypatch.setattr(Path, "is_file", lambda self: self.as_posix() == suffix)
-    assert material_converter.find_libreoffice(platform, env, lambda _: None) == suffix
+    # 返回值使用运行测试的操作系统路径格式；比较规范化后的路径，
+    # 避免在 Windows 上把路径分隔符误判为程序查找失败。
+    assert Path(
+        material_converter.find_libreoffice(platform, env, lambda _: None)
+    ) == Path(suffix)
     assert (
         material_converter.find_libreoffice(platform, env, lambda _: "custom/soffice")
         == "custom/soffice"
