@@ -159,6 +159,7 @@ import {
   saveReloadCheckpoint,
   clearReloadCheckpoint,
 } from "./pwa/reload-checkpoint";
+import { refreshAfterApplicationUpdate } from "./pwa/reload-refresh";
 import { RefreshControls } from "./refresh/RefreshControls";
 import {
   useUnsavedForm,
@@ -249,7 +250,7 @@ function Workspace({ content }: { content: OfficialContent }) {
   const materialsRef = useRef(materials);
   materialsRef.current = materials;
   const teachingTools = useTeachingTools(data, saveChanges);
-  const checkpointRestored = useRef(false);
+  const updateRefreshStarted = useRef(false);
   const officialSaveState = useRef(readSaveState);
   officialSaveState.current = readSaveState;
   const officialCatalog = useRef({
@@ -366,11 +367,19 @@ function Workspace({ content }: { content: OfficialContent }) {
     return () => window.clearTimeout(timer);
   }, [hasData, readingState.positions, readingState.documents, setData]);
   useEffect(() => {
-    if (data && reloadCheckpoint.value && !checkpointRestored.current) {
-      clearReloadCheckpoint();
-      checkpointRestored.current = true;
-    }
-  }, [data, reloadCheckpoint]);
+    if (!reloadCheckpoint.value || updateRefreshStarted.current) return;
+    if (loadState === "loading") return;
+    updateRefreshStarted.current = true;
+    void refreshAfterApplicationUpdate({
+      loadState,
+      retryRead,
+      refresh: () => dataRefresh.refresh(undefined, true),
+    })
+      .catch((error: unknown) =>
+        logError("Failed to refresh data after the application update.", error),
+      )
+      .finally(clearReloadCheckpoint);
+  }, [loadState, reloadCheckpoint.value, retryRead]);
   const subjectDirectory = officialLibrary.directory;
   const subjects = subjectDirectory.active;
   const availableCourses = useMemo(

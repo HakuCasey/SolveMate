@@ -78,6 +78,7 @@ export function useLocalData(available: Course[] = courses) {
         const saved = await loadInitialData(firstCourses);
         store.initialize(saved);
         if (operation) operations.finish(operation);
+        else operations.resolve("records:load");
         await store
           .restoreRecoveries()
           .catch((error: unknown) =>
