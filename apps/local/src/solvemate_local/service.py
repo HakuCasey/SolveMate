@@ -904,6 +904,12 @@ class AiService:
                 await self.disconnect_resources(turn["connectionId"])
         finally:
             self.generations.pop(turn["id"], None)
+            # 异常路径可能在设置终态前进入 finally；补齐状态，避免持久化出 running + finished。
+            if turn["status"] == "running":
+                turn.update(
+                    status="interrupted",
+                    error=turn.get("error") or "本机服务在生成期间停止。",
+                )
             turn["phase"] = "finished"
             turn["completedAt"] = now()
             turn["permissions"] = []
