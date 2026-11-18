@@ -23,14 +23,12 @@ test("指定页码提问被正常提交并收到回复", async ({ page }) => {
   const input = page.getByRole("textbox", { name: "向阅读助手提问" });
   await input.click();
   await input.type("这几页一共有几个公式？");
+  const messages = page.locator("[data-message-content]");
+  const before = await messages.count();
   await page.getByRole("button", { name: "提问", exact: true }).click();
 
   // 问题被提交（出现用户消息），而不是被拒「关联内容尚未读取」
-  await expect(page.locator("[data-message-content]")).toHaveCount(1, {
-    timeout: 10_000,
-  });
+  await expect(messages).toHaveCount(before + 1, { timeout: 10_000 });
   // 收到回复
-  await expect(page.locator("[data-message-content]")).toHaveCount(2, {
-    timeout: 240_000,
-  });
+  await expect(messages).toHaveCount(before + 2, { timeout: 240_000 });
 });
