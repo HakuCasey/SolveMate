@@ -9,6 +9,7 @@ from urllib.parse import urlsplit
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 
 from .acp import ConnectionError
 from .backups import (
@@ -19,6 +20,7 @@ from .backups import (
 from .backups import (
     router as backup_router,
 )
+from .data_location import DataLocation
 from .file_exports import router as file_exports_router
 from .material_converter import MaterialError
 from .material_routes import router as material_router
@@ -51,6 +53,8 @@ def create_app(
     allowed_origins=None,
     materials_directory=None,
     user_directory=None,
+    web_directory=None,
+    startup_progress=None,
 ):
     configured_root = user_directory or os.environ.get("SOLVEMATE_USER_DIR")
     directory = Path(
@@ -67,23 +71,23 @@ def create_app(
         ).split(",")
     )
 
-    user_root = Path(configured_root or directory.parent)
-    uploads = Path(
-        materials_directory
-        or os.environ.get("SOLVEMATE_MATERIALS_DIR")
-        or user_root / "uploads"
+    default_root = Path(configured_root or directory.parent)
+    uploads_override = materials_directory or os.environ.get("SOLVEMATE_MATERIALS_DIR")
+    default_uploads = Path(uploads_override or default_root / "uploads")
+    configurable = (
+        directory.resolve() == (default_root / "ai").resolve()
+        and default_uploads.resolve() == (default_root / "uploads").resolve()
     )
     maintenance = Maintenance()
 
     @asynccontextmanager
     async def lifespan(app):
+        location = DataLocation(default_root, configurable)
+        app.state.data_location = location
         app.state.pdf_export_lock = asyncio.Lock()
         app.state.maintenance = maintenance
         app.state.ai = app.state.materials = app.state.user = None
-        backups = Backups(user_root, directory, uploads)
-        app.state.backups = backups
-        if not materials_directory and not os.environ.get("SOLVEMATE_MATERIALS_DIR"):
-            migrate_uploads(user_root)
+        app.state.backups = None
 
         async def close_resources():
             if app.state.materials is not None:
@@ -97,10 +101,22 @@ def create_app(
                 app.state.user.close()
                 app.state.user = None
 
+        def open_directory(root):
+            nonlocal user_root, ai_directory, uploads
+            user_root = root
+            ai_directory = root / "ai" if configurable else directory
+            uploads = root / "uploads" if configurable else default_uploads
+            app.state.backups = Backups(root, ai_directory, uploads)
+            if not uploads_override:
+                migrate_uploads(root)
+            open_resources()
+
+        user_root, ai_directory, uploads = location.current, directory, default_uploads
+
         def open_resources():
             # 恢复与正常启动共用资源创建，路由始终读取当前服务对象。
             app.state.user = UserData(user_root)
-            app.state.ai = AiService(Store(directory), registry=registry)
+            app.state.ai = AiService(Store(ai_directory), registry=registry)
             app.state.materials = Materials(
                 uploads,
                 subject_check=app.state.user.require_subject,
@@ -109,12 +125,29 @@ def create_app(
 
         app.state.open_resources = open_resources
         app.state.close_resources = close_resources
+
+        async def close_directory():
+            await close_resources()
+            if app.state.backups is not None:
+                app.state.backups.close()
+                app.state.backups = None
+
         try:
-            open_resources()
+            if location.pending:
+                try:
+                    target = location.prepare(startup_progress)
+                    open_directory(target)
+                    if app.state.user.record_error:
+                        raise UserDataError("目标目录的学习记录无法读取。")
+                    location.write(target)
+                except (OSError, ValueError, sqlite3.Error, UserDataError) as error:
+                    await close_directory()
+                    location.failed(error)
+            if app.state.user is None:
+                open_directory(location.current)
             yield
         finally:
-            await close_resources()
-            backups.close()
+            await close_directory()
 
     app = FastAPI(title="SolveMate Local", lifespan=lifespan)
     app.include_router(backup_router)
@@ -209,7 +242,7 @@ def create_app(
                     {"detail": "请求内容格式不符合接口要求。"}, status_code=415
                 )
         elif (
-            request.url.path != "/healthz"
+            request.url.path.startswith("/local-api/")
             and request.headers.get("x-solvemate-client") != "web"
         ):
             return JSONResponse(
@@ -393,4 +426,12 @@ def create_app(
 
     app.add_middleware(MaintenanceMiddleware, maintenance=maintenance)
     app.openapi = metadata_openapi
+    web_root = web_directory or os.environ.get("SOLVEMATE_WEB_DIR")
+    if web_root:
+        # 安装版由本机服务提供现有网页，保证页面和接口使用同一来源。
+        app.mount(
+            "/",
+            StaticFiles(directory=Path(web_root), html=True, check_dir=True),
+            name="web",
+        )
     return app

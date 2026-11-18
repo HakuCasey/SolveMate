@@ -100,7 +100,7 @@ export interface AiSelection {
 export interface ClientRuntime {
   appVersion: string | null;
   buildId: string | null;
-  clientKind: ("web" | "pwa") | null;
+  clientKind: ("web" | "pwa" | "desktop") | null;
 }
 export interface TeacherSnapshot {
   id: string;

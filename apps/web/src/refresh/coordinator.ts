@@ -103,7 +103,7 @@ export class DataRefreshCoordinator {
     const round = (this.round ??= {
       operation: operations.start({
         key: "refresh:data",
-        label: feedback ? "刷新数据" : "自动刷新数据",
+        label: feedback ? "加载用户数据" : "自动刷新数据",
       }),
       pending: 0,
       feedback,
@@ -160,7 +160,7 @@ export class DataRefreshCoordinator {
       operations.finish(
         {
           ...round.operation,
-          label: round.feedback ? "刷新数据" : "自动刷新数据",
+          label: round.feedback ? "加载用户数据" : "自动刷新数据",
         },
         error,
         details,

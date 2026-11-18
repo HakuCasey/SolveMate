@@ -122,7 +122,7 @@ it("records one failed automatic refresh for shared callers and keeps its specif
   });
   coordinator.register("records", async () => {});
   await coordinator.refresh(["records"], false, true);
-  expect(operations.snapshot().latest?.label).toBe("刷新数据");
+  expect(operations.snapshot().latest?.label).toBe("加载用户数据");
   expect(
     operations.snapshot().failures.some((item) => item.key === "refresh:data"),
   ).toBe(false);
@@ -148,7 +148,7 @@ it("groups multiple failed resources and concurrent calls into one refresh opera
     .snapshot()
     .diagnostics.filter((item) => !before.has(item.id));
   expect(rows).toHaveLength(1);
-  expect(rows[0].label).toBe("刷新数据");
+  expect(rows[0].label).toBe("加载用户数据");
   expect(rows[0].failures?.map((item) => item.label)).toEqual([
     "对话、笔记和配置",
     "资料列表",

@@ -42,9 +42,28 @@ class MigrationWrite(RequestModel):
     decision: Literal["keep", "replace"] | None = None
 
 
+class DirectoryChange(RequestModel):
+    path: str = Field(min_length=1, max_length=32767)
+    migrate: bool
+
+
+@router.get("/directory")
+async def directory(request: Request):
+    return request.app.state.data_location.info()
+
+
+@router.put("/directory")
+async def select_directory(body: DirectoryChange, request: Request):
+    return request.app.state.data_location.schedule(body.path, body.migrate)
+
+
 @router.get("/state")
 def state(request: Request):
-    return request.app.state.user.state()
+    result = request.app.state.user.state()
+    location = request.app.state.data_location
+    if location.current != location.default:
+        result["acceptLegacyBrowserData"] = False
+    return result
 
 
 @router.put("/state")

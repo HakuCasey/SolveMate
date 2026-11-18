@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="apps/web/public/logo.png" alt="SolveMate" width="280" />
+</p>
+
 # SolveMate
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -6,7 +10,7 @@
 
 ## 简介
 
-SolveMate 是一款面向师生的学习应用，服务于学生的自主学习与教师的智能备课。产品以资料为主干，围绕资料组织与 AI 的对话、笔记及教学内容。用户可以通过网页使用，也可以安装为离线网页应用。
+SolveMate 是一款面向师生的学习应用，服务于学生的自主学习与教师的智能备课。产品以资料为主干，围绕资料组织与 AI 的对话、笔记及教学内容。当前提供 Web/PWA，并已生成第一版 macOS 桌面应用；正式签名、公证和 Windows 实机验收待完成。
 
 - 导入自己的 PDF 课本或 PPTX 课件，阅读原页面，围绕当前页、指定页码或选段提问。
 - 在统一的学科页面选择学习资料或题目，查看 PDF、公式、代码与参考答案。
@@ -19,7 +23,17 @@ SolveMate 是一款面向师生的学习应用，服务于学生的自主学习�
 
 ## 使用方式
 
-### 环境要求
+### 桌面安装版
+
+桌面安装包包含网页、Electron、Python 运行环境和本机服务，安装后的用户不需要安装 Node.js 或 Python。使用 AI 回复仍需安装并配置至少一个支持的 Harness；导入 PPTX 需要 LibreOffice，PDF 不需要。
+
+在 Apple Silicon Mac 上，打开内部验证用的 DMG，将 SolveMate 拖入“应用程序”后启动。当前应用使用临时签名，Developer ID 签名和公证尚待完成。Windows 已配置 Setup.exe 构建，安装与卸载待实机验收。
+
+首次使用空数据目录时，对话和笔记均为空。可直接阅读预置的高等数学、C 语言社区资料与题目，也可使用三个教研工具。已有记录可通过“设置 → 备份与恢复”导入 ZIP 备份。
+
+桌面应用的构建和当前限制见[桌面应用说明](apps/desktop/README.md)。
+
+### 源码运行环境
 
 - Git、Node.js 24 和 npm 11。
 - Python 3.12 或以上版本，用于运行本机数据保存、AI 连接及社区内容服务。
@@ -92,11 +106,13 @@ VITE_CONTENT_API_URL=https://content.example.com/api/v1
 
 后端目录与来源配置见[后端部署说明](apps/server/README.md#配置与部署)。
 
-### 安装为离线应用
+### 将网页安装为离线应用
 
 网页会缓存离线运行所需的资源。点击右下角的应用更新状态，浏览器提供“安装应用”入口时，可在气泡中安装；不安装也可继续通过浏览器访问。必要资源缓存完成后可离线重开，需要离线阅读的社区资料应先下载并保存。
 
-对话、笔记、机器人、学科和设置保存在项目的 `user/app.sqlite3`；上传资料位于 `user/uploads/`，获取的社区资料位于 `user/community/`，AI 连接和原生会话关联继续保存在 `user/ai/`。浏览器只保存缓存，连接同一个本机服务即可换浏览器继续使用。清理浏览器缓存不会删除这些正式记录，但尚未保存的修改仍需先处理。首次升级请使用原来的浏览器和访问地址完成迁移，原浏览器数据和旧资料目录保留，迁移备份位于 `user/backups/`。
+源码版默认将对话、笔记、机器人、学科和设置保存在项目的 `user/app.sqlite3`；上传资料位于 `user/uploads/`，获取的社区资料位于 `user/community/`，AI 连接和原生会话关联继续保存在 `user/ai/`。浏览器只保存缓存，连接同一个本机服务即可换浏览器继续使用。清理浏览器缓存不会删除这些正式记录，但尚未保存的修改仍需先处理。首次升级请使用原来的浏览器和访问地址完成迁移，原浏览器数据和旧资料目录保留，迁移备份位于 `user/backups/`。
+
+桌面版默认使用系统应用数据目录。两种版本都可以在“设置 → 备份与恢复 → 用户数据路径”查看实际位置或更改目录。覆盖安装会继续使用已有记录。
 
 完成安装或部署后，页面操作见[用户指南](docs/product/manual/README.md)。
 
@@ -121,7 +137,7 @@ npm test
 npm run build
 ```
 
-Python 检查命令见[内容服务说明](apps/server/README.md#检查)和[本机 AI 服务说明](apps/local/README.md#检查)，其他开发约定见[贡献指南](CONTRIBUTING.md)。
+Python 检查命令见[内容服务说明](apps/server/README.md#检查)和[本机 AI 服务说明](apps/local/README.md#检查)。桌面应用的构建命令见[桌面应用说明](apps/desktop/README.md)，其他开发约定见[贡献指南](CONTRIBUTING.md)。
 
 ## 仓库结构
 
@@ -136,7 +152,8 @@ SolveMate/
 ├── apps/
 │   ├── web/              # 网页应用
 │   ├── server/           # 社区内容服务
-│   └── local/            # 本机数据保存与 AI 连接服务
+│   ├── local/            # 本机数据保存与 AI 连接服务
+│   └── desktop/          # macOS 与 Windows 桌面安装版
 ├── packages/             # 共享代码与接口约定
 ├── scripts/              # 项目维护脚本
 ├── AGENTS.md             # 项目指令文件，私有规范保存在工作区

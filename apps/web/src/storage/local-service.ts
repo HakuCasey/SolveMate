@@ -127,6 +127,7 @@ export class LocalAppStorage implements AppStorage {
         // 先保留未确认的修改。断网、冲突或刷新后仍可在下一次启动时恢复。
         await userCache.pending.put({
           id: this.pendingId,
+          storeId: this.storeId,
           value: copy,
           updatedAt: Date.now(),
         });

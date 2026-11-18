@@ -1,0 +1,42 @@
+appId: com.hakucasey.solvemate
+productName: SolveMate
+asar: true
+directories:
+  output: out
+files:
+  - src/**
+  - package.json
+extraResources:
+  - from: resources/web
+    to: web
+  - from: resources/data
+    to: data
+  - from: resources/local
+    to: local
+  - from: resources/icon.png
+    to: icon.png
+  - from: resources/startup.html
+    to: startup.html
+  - from: resources/LICENSE.txt
+    to: LICENSE.txt
+  - from: resources/third-party-licenses.txt
+    to: third-party-licenses.txt
+mac:
+  category: public.app-category.education
+  icon: assets/icon.icns
+  # 内部安装包使用临时签名，避免未签名应用停在 macOS 启动阶段。
+  # 正式发布时使用开发者证书替换该设置，并启用 hardened runtime 与公证。
+  identity: "-"
+  hardenedRuntime: false
+  target:
+    - dmg
+win:
+  icon: assets/icon.ico
+  target:
+    - nsis
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  artifactName: SolveMate-${version}-${arch}-Setup.${ext}
+dmg:
+  artifactName: SolveMate-${version}-${arch}.${ext}

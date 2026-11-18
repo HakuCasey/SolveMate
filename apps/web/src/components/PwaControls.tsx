@@ -31,10 +31,10 @@ export function PwaControls({
     null,
   );
   const showNotice = useSaveFeedback();
-  const { state, supported, check, reload, clearReloadError } = useAppUpdate(
-    prepareReload,
-    () => showNotice("应用新版本已就绪，可在右下角点击“更新应用”。"),
-  );
+  const { state, supported, desktop, check, reload, clearReloadError } =
+    useAppUpdate(prepareReload, () =>
+      showNotice("应用新版本已就绪，可在右下角点击“更新应用”。"),
+    );
   const view = applicationStatus(state);
   const ready = state.status === "ready";
   const tone = ready
@@ -79,9 +79,11 @@ export function PwaControls({
       status={
         supported
           ? view.status
-          : import.meta.env.PROD
-            ? "当前浏览器不支持应用更新"
-            : "开发预览不提供应用更新"
+          : desktop
+            ? "当前安装版本暂不提供应用内更新"
+            : import.meta.env.PROD
+              ? "当前浏览器不支持应用更新"
+              : "开发预览不提供应用更新"
       }
       icon={Icon}
       tone={tone}

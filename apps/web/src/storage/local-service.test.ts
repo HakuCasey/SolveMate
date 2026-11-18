@@ -424,3 +424,22 @@ it("retains readable caches without overriding the availability of a service rep
   expect(service.userStorageStatus.snapshot().loadFailure).toBeNull();
   service.userCache.close();
 });
+
+it("opens the chosen directory without importing a previous browser profile", async () => {
+  const old = new DexieStorage();
+  await old.save(createStudyFixture());
+  old.close();
+  state = { ...state, value: null, acceptLegacyBrowserData: false };
+  const service = await import("./local-service");
+  await service.userCache.pending.put({
+    id: "previous-directory",
+    storeId: "other-store",
+    value: createStudyFixture(),
+    updatedAt: 1,
+  });
+  expect(await new service.LocalAppStorage().load()).toBeNull();
+  expect(
+    await service.userCache.pending.get("previous-directory"),
+  ).toBeDefined();
+  service.userCache.close();
+});

@@ -1435,7 +1435,6 @@ function Workspace({ content }: { content: OfficialContent }) {
             aiEvent={aiStudyEvent(ai.turns, Date.now())}
           >
             <Sidebar
-              onRefreshData={() => dataRefresh.refresh(undefined, false, true)}
               onOpenBackup={() => setBackupOpen(true)}
               ai={ai}
               view={view}
@@ -1492,12 +1491,18 @@ function Workspace({ content }: { content: OfficialContent }) {
               separatorLabel={
                 view === "notes" ? "调整笔记列表与正文宽度" : undefined
               }
-              ratio={data.settings.readingPaneRatio ?? 0.5}
+              ratio={
+                data.settings.readingPaneRatio ??
+                (view === "notes" || view === "conversations" ? 0.5 : 0.618)
+              }
               onRatioChange={(readingPaneRatio) =>
-                updateData((previous) => ({
-                  ...previous,
-                  settings: { ...previous.settings, readingPaneRatio },
-                }))
+                updateData((previous) => {
+                  const settings = { ...previous.settings };
+                  if (readingPaneRatio === undefined)
+                    delete settings.readingPaneRatio;
+                  else settings.readingPaneRatio = readingPaneRatio;
+                  return { ...previous, settings };
+                })
               }
             >
               {isResearchView && (

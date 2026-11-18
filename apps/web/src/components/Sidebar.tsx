@@ -8,12 +8,13 @@ import {
   CircleHelp,
   Cpu,
   Download,
-  RefreshCw,
   Library,
   LogOut,
   MessagesSquare,
   Moon,
   NotebookPen,
+  PanelLeftClose,
+  PanelLeftOpen,
   PawPrint,
   School,
   Settings as SettingsIcon,
@@ -40,7 +41,6 @@ type View =
   | "library";
 
 interface SidebarProps {
-  onRefreshData: () => Promise<boolean>;
   onOpenBackup: () => void;
   view: View;
   settings: Settings;
@@ -49,6 +49,16 @@ interface SidebarProps {
   disabled?: boolean;
   ai: AiService;
 }
+
+const navigationItems = [
+  { view: "library", label: "学科", icon: Library },
+  { view: "conversations", label: "对话", icon: MessagesSquare },
+  { view: "notes", label: "笔记", icon: NotebookPen },
+  { view: "teaching", label: "教研室", icon: School },
+  { view: "robots", label: "机器人", icon: Bot },
+] as const;
+
+const sidebarPreference = "solvemate.sidebarCollapsed";
 
 const accountActions = [
   {
@@ -79,7 +89,6 @@ const accountActions = [
 ];
 
 export function Sidebar({
-  onRefreshData,
   onOpenBackup,
   view,
   settings,
@@ -88,6 +97,24 @@ export function Sidebar({
   disabled = false,
   ai,
 }: SidebarProps) {
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      return window.localStorage.getItem(sidebarPreference) === "true";
+    } catch {
+      return false;
+    }
+  });
+  const toggleLabel = collapsed ? "展开侧栏" : "收起侧栏";
+
+  function toggleSidebar() {
+    setCollapsed(!collapsed);
+    try {
+      window.localStorage.setItem(sidebarPreference, String(!collapsed));
+    } catch {
+      // 浏览器禁用本地存储时，仍可在当前窗口切换布局。
+    }
+  }
+
   const [accountOpen, setAccountOpen] = useState(false);
   const [accountMessage, setAccountMessage] = useState("");
   const [settingsMenu, setSettingsMenu] = useState<
@@ -96,9 +123,6 @@ export function Sidebar({
   const settingsOpen = settingsMenu !== "closed";
   const settingsPanel =
     settingsMenu === "display" || settingsMenu === "ai" ? settingsMenu : null;
-  const [refreshingData, setRefreshingData] = useState(false);
-  const [dataRefreshed, setDataRefreshed] = useState(false);
-  const [dataFeedback, setDataFeedback] = useState("");
   const modelSettingsOpen = settingsPanel === "ai";
 
   function setSettingsOpen(open: boolean) {
@@ -120,7 +144,11 @@ export function Sidebar({
   }
 
   return (
-    <nav className={styles.sidebar} aria-label="功能菜单">
+    <nav
+      className={styles.sidebar}
+      data-collapsed={collapsed}
+      aria-label="功能菜单"
+    >
       <div className={styles.profile}>
         <div className={styles.profileRow}>
           <Popover.Root
@@ -191,84 +219,52 @@ export function Sidebar({
               )}
             </PopoverPanel>
           </Popover.Root>
+          <button
+            type="button"
+            className={styles.toggle}
+            aria-expanded={!collapsed}
+            aria-label={toggleLabel}
+            title={toggleLabel}
+            onClick={toggleSidebar}
+          >
+            {collapsed ? <PanelLeftOpen /> : <PanelLeftClose />}
+          </button>
         </div>
-        <StudyAchievements />
+        {!collapsed && <StudyAchievements />}
       </div>
 
-      <button
-        className={styles.primaryButton}
-        type="button"
-        aria-pressed={
-          view === "library" || view === "materials" || view === "reading"
-        }
-        disabled={disabled}
-        onClick={() => navigate("library")}
-      >
-        <Library aria-hidden="true" />
-        <span>学科</span>
-      </button>
-
-      <button
-        className={styles.primaryButton}
-        type="button"
-        aria-pressed={view === "conversations"}
-        disabled={disabled}
-        onClick={() => navigate("conversations")}
-      >
-        <MessagesSquare aria-hidden="true" />
-        <span>对话</span>
-      </button>
-      <button
-        className={styles.primaryButton}
-        type="button"
-        aria-pressed={view === "notes"}
-        disabled={disabled}
-        onClick={() => navigate("notes")}
-      >
-        <NotebookPen aria-hidden="true" />
-        <span>笔记</span>
-      </button>
-      <button
-        className={styles.primaryButton}
-        type="button"
-        aria-pressed={view === "teaching"}
-        disabled={disabled}
-        onClick={() => navigate("teaching")}
-      >
-        <School aria-hidden="true" />
-        <span>教研室</span>
-      </button>
-      <button
-        className={styles.primaryButton}
-        type="button"
-        aria-pressed={view === "robots"}
-        disabled={disabled}
-        onClick={() => navigate("robots")}
-      >
-        <Bot aria-hidden="true" />
-        <span>机器人</span>
-      </button>
+      {navigationItems.map(({ view: target, label, icon: Icon }) => (
+        <button
+          key={target}
+          className={styles.primaryButton}
+          type="button"
+          aria-label={label}
+          title={collapsed ? label : undefined}
+          aria-pressed={
+            view === target ||
+            (target === "library" &&
+              (view === "materials" || view === "reading"))
+          }
+          disabled={disabled}
+          onClick={() => navigate(target)}
+        >
+          <Icon aria-hidden="true" />
+          {!collapsed && <span>{label}</span>}
+        </button>
+      ))}
 
       <div className={styles.bottom}>
-        <StudyFootprint />
+        {!collapsed && <StudyFootprint />}
         <div className={styles.settings}>
-          <Popover.Root
-            open={settingsOpen}
-            onOpenChange={(open) => {
-              setSettingsOpen(open);
-              if (open) {
-                setDataRefreshed(false);
-                setDataFeedback("");
-              }
-            }}
-          >
+          <Popover.Root open={settingsOpen} onOpenChange={setSettingsOpen}>
             <Popover.Trigger
               className={styles.primaryButton}
               aria-label="设置"
+              title={collapsed ? "设置" : undefined}
               disabled={disabled}
             >
               <SettingsIcon aria-hidden="true" />
-              <span>设置</span>
+              {!collapsed && <span>设置</span>}
             </Popover.Trigger>
             <PopoverPanel
               className={styles.popover}
@@ -311,45 +307,6 @@ export function Sidebar({
                 <ArchiveRestore aria-hidden="true" />
                 <span>备份与恢复</span>
               </button>
-              <button
-                className={styles.settingsItem}
-                disabled={refreshingData}
-                onClick={async () => {
-                  setRefreshingData(true);
-                  setDataRefreshed(false);
-                  setDataFeedback("");
-                  try {
-                    if (await onRefreshData()) setDataRefreshed(true);
-                    else setDataFeedback("部分数据未能刷新，请重试。");
-                  } catch {
-                    setDataFeedback("数据未能刷新，请重试。");
-                  } finally {
-                    setRefreshingData(false);
-                  }
-                }}
-              >
-                <RefreshCw aria-hidden="true" />
-                <span>{refreshingData ? "正在刷新…" : "刷新数据"}</span>
-                {dataRefreshed && (
-                  <Check
-                    className={styles.refreshSuccess}
-                    role="img"
-                    aria-label="刷新成功"
-                  />
-                )}
-              </button>
-              {dataFeedback && (
-                <p
-                  role="status"
-                  style={{
-                    fontSize: 12,
-                    margin: "6px 12px",
-                    color: "var(--sm-soft)",
-                  }}
-                >
-                  {dataFeedback}
-                </p>
-              )}
               <Popover.Root
                 open={settingsPanel === "display"}
                 onOpenChange={(open) => {
@@ -374,14 +331,14 @@ export function Sidebar({
                   onCloseAutoFocus={(event) => event.preventDefault()}
                 >
                   <div className={styles.settingLabel}>
-                    <label htmlFor="reading-font-size">阅读字号</label>
+                    <label htmlFor="reading-font-size">对话字号</label>
                     <output htmlFor="reading-font-size">
                       {settings.fontSize}px
                     </output>
                   </div>
                   <input
                     id="reading-font-size"
-                    aria-label="阅读字号"
+                    aria-label="对话字号"
                     type="range"
                     min={12}
                     max={21}

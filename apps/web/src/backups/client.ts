@@ -126,7 +126,7 @@ export async function restoreBackup(token: string) {
   } catch (error) {
     if (error instanceof TypeError || error instanceof SyntaxError)
       throw new Error(
-        "恢复结果未能确认，请刷新数据查看。重新操作前请确认当前记录；恢复前的备份已保留。",
+        "恢复结果未能确认，请加载用户数据查看。重新操作前请确认当前记录；恢复前的备份已保留。",
         { cause: error },
       );
     throw error;

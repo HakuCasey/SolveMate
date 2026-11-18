@@ -1,4 +1,5 @@
 .sidebar {
+  width: var(--sidebar-width);
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -53,6 +54,8 @@
   flex-shrink: 0;
 }
 .profileRow {
+  width: 100%;
+  justify-content: space-between;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -205,11 +208,6 @@
 }
 .settingsItem svg {
   color: var(--sm-soft);
-}
-.settingsItem .refreshSuccess {
-  width: 15px;
-  height: 15px;
-  color: var(--sm-accent);
 }
 .settingsItem:hover,
 .settingsItem[data-state="open"] {
@@ -410,4 +408,35 @@
     gap: 7px;
     font-size: 12px;
   }
+}
+
+.toggle {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--sm-soft);
+}
+.toggle:hover,
+.toggle:focus-visible {
+  color: var(--sm-accent);
+  background: var(--sm-active);
+}
+.sidebar[data-collapsed="true"] {
+  width: 56px;
+  padding-inline: 6px;
+}
+.sidebar[data-collapsed="true"] .profile {
+  padding-inline: 0;
+  align-items: center;
+}
+.sidebar[data-collapsed="true"] .profileRow {
+  flex-direction: column;
+}
+.sidebar[data-collapsed="true"] .primaryButton {
+  justify-content: center;
+  padding-inline: 0;
 }

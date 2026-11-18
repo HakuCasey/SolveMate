@@ -23,7 +23,7 @@ interface ResizableColumnsProps {
   hidden: boolean;
   enabled: boolean;
   ratio: number;
-  onRatioChange: (ratio: number) => void;
+  onRatioChange: (ratio?: number) => void;
   separatorLabel?: string;
 }
 
@@ -34,7 +34,7 @@ export function ResizableColumns({
   enabled,
   ratio,
   onRatioChange,
-  separatorLabel = "调整材料栏与会话栏宽度",
+  separatorLabel = "调整资料栏与对话栏宽度",
 }: ResizableColumnsProps) {
   const container = useRef<HTMLDivElement>(null);
   const drag = useRef<{
@@ -120,7 +120,7 @@ export function ResizableColumns({
             aria-valuemax={Math.ceil(max * 100)}
             aria-valuenow={Math.round(visibleRatio * 100)}
             aria-valuetext={`左栏 ${Math.round(visibleRatio * 100)}%`}
-            title="拖动调整宽度，双击恢复等宽；可用左右方向键调整"
+            title="拖动调整宽度，双击恢复默认比例；可用左右方向键调整"
             className={styles.divider}
             data-dragging={preview !== null || undefined}
             onPointerDown={(event) => {
@@ -157,7 +157,7 @@ export function ResizableColumns({
             onPointerUp={() => finish(true)}
             onPointerCancel={() => finish(false)}
             onLostPointerCapture={() => finish(false)}
-            onDoubleClick={() => onRatioChange(0.5)}
+            onDoubleClick={() => onRatioChange()}
             onKeyDown={(event) => {
               if (event.key === "Escape") {
                 finish(false);

@@ -155,7 +155,7 @@ export function MaterialReader({
           message={
             versionError ||
             library.error ||
-            "资料不在当前列表中，请刷新数据或返回列表。"
+            "资料不在当前列表中，请重新读取或返回列表。"
           }
           onBack={onBack}
         />
@@ -174,7 +174,7 @@ export function MaterialReader({
             <button
               onClick={() => void dataRefresh.refresh(undefined, false, true)}
             >
-              刷新数据
+              重新读取
             </button>
           )}
           {(selected.version.status === "failed" ||

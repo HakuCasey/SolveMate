@@ -63,11 +63,13 @@ export default defineConfig({
     react(),
     pdfAssets(),
     VitePWA({
+      // 桌面安装版由应用程序更新，不能同时注册浏览器 Service Worker。
+      disable: process.env.VITE_DESKTOP === "1",
       registerType: "prompt",
       // 注册、检测与重载由应用统一控制，避免生成脚本重复注册。
       injectRegister: false,
       includeAssets: [
-        "icon.svg",
+        "logo.png",
         "icon-192.png",
         "icon-512.png",
         "LICENSE.txt",

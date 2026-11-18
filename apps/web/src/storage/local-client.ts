@@ -11,13 +11,17 @@ interface CacheRecord {
   value: unknown;
 }
 export interface StateEnvelope {
+  acceptLegacyBrowserData?: boolean;
   storeId: string;
   revision: number;
   value: AppData | null;
 }
 export class UserCache extends Dexie {
   records!: Table<CacheRecord, string>;
-  pending!: Table<{ id: string; value: AppData; updatedAt?: number }, string>;
+  pending!: Table<
+    { id: string; value: AppData; updatedAt?: number; storeId?: string },
+    string
+  >;
   constructor(name = "solvemate-server-cache") {
     super(name);
     this.version(1).stores({ records: "key", pending: "id" });

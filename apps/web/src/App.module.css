@@ -7,7 +7,8 @@
 }
 .shell {
   display: grid;
-  grid-template-columns: 156px minmax(0, 1fr);
+  --sidebar-width: 156px;
+  grid-template-columns: auto minmax(0, 1fr);
   flex: 1;
   min-height: 0;
   background: var(--sm-paper);
@@ -164,7 +165,7 @@
   }
   .shell {
     min-height: calc(100dvh - 44px);
-    grid-template-columns: 142px minmax(0, 1fr);
+    --sidebar-width: 142px;
     overflow: clip;
   }
   .columns {
@@ -183,7 +184,7 @@
 }
 @media (max-width: 480px) {
   .shell {
-    grid-template-columns: 106px minmax(0, 1fr);
+    --sidebar-width: 106px;
     border-radius: 12px;
   }
   .noteHeading h1 {

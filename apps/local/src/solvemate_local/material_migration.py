@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import os
 import shutil
 import sqlite3
 import time
@@ -11,7 +12,11 @@ from pathlib import Path
 from .material_repository import MaterialRepository
 from .user_data import UserDataError, atomic_write, encoded
 
-DATA = Path(__file__).resolve().parents[4] / "data"
+DATA = Path(
+    os.environ.get(
+        "SOLVEMATE_BUNDLED_DATA", Path(__file__).resolve().parents[4] / "data"
+    )
+)
 
 
 def index_course(

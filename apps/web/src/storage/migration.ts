@@ -110,8 +110,11 @@ async function initialize() {
         };
     return;
   }
+  const allowLegacy = current.acceptLegacyBrowserData !== false;
   const pending = await userCache.pending.toArray();
   for (const draft of pending) {
+    if (draft.storeId ? draft.storeId !== current.storeId : !allowLegacy)
+      continue;
     // 新窗口不接管其他窗口正在提交的请求；较早留下的未确认记录可在启动时恢复。
     if (draft.id !== writerId && Date.now() - (draft.updatedAt ?? 0) < 120000)
       continue;
@@ -127,6 +130,11 @@ async function initialize() {
       },
     };
     current = await migrate(body, "", draft.id);
+  }
+  if (!allowLegacy) {
+    initialEnvelope = current;
+    await remember("state", current);
+    return;
   }
   const raw = await legacy.rawRecord();
   const oldContent = await legacyContent.load();

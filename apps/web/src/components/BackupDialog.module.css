@@ -1,56 +1,110 @@
-.sections {
+.dialog.dialog {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  width: min(490px, calc(100vw - 32px));
+}
+.body {
+  margin-top: 16px;
+  min-height: 0;
+  overflow-y: auto;
+}
+.rows {
   display: grid;
-  gap: 18px;
-  margin-top: 24px;
 }
-.sections section + section {
-  border-top: 1px solid var(--sm-line);
-  padding-top: 18px;
-}
-.sections h3 {
-  font-size: 14px;
-  margin: 0 0 6px;
-}
-.sections section > p {
-  font-size: 12px;
-  color: var(--sm-soft);
-  line-height: 1.7;
-  margin: 0 0 12px;
-}
-.sections button {
-  display: inline-flex;
+.row {
+  display: grid;
+  width: 100%;
+  grid-template-columns: 20px minmax(0, 1fr) 16px;
   align-items: center;
-  gap: 7px;
-  padding: 9px 14px;
+  gap: 12px;
+  padding: 12px 8px;
   border-radius: 8px;
-  border: 1px solid var(--sm-line);
-  color: var(--sm-accent);
+  text-align: start;
+  color: var(--sm-ink);
 }
-.sections button svg,
-.progress svg {
-  width: 16px;
-  height: 16px;
-}
-.sections dl {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 8px 12px;
-  font-size: 12px;
-  padding: 12px;
-  border-radius: 8px;
+.row:hover:enabled {
   background: var(--sm-ground);
 }
-.sections dt {
+.row > svg {
+  width: 18px;
+  height: 18px;
   color: var(--sm-soft);
 }
-.sections dd {
+.row > svg:last-child {
+  width: 15px;
+  height: 15px;
+}
+.row strong,
+.directoryHeader h3,
+.file {
+  font-size: 14px;
+  font-weight: 600;
   margin: 0;
+}
+.row small,
+.caption,
+.path,
+.pending,
+.progress {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--sm-soft);
+}
+.row small {
+  display: block;
+  margin-top: 3px;
+}
+.directorySection {
+  border-block: 1px solid var(--sm-line);
+  margin: 6px 0;
+  padding: 12px 8px;
+}
+.directoryHeader,
+.pending {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.path,
+.pending,
+.file,
+.warning {
   overflow-wrap: anywhere;
 }
+.path,
+.caption {
+  margin: 4px 0 0;
+}
+.pending {
+  margin-top: 8px;
+}
+.link {
+  flex: none;
+  padding: 3px 0;
+  color: var(--sm-accent);
+  font-size: 13px;
+}
+.migrate,
 .progress {
   display: flex;
   align-items: center;
   gap: 7px;
-  color: var(--sm-soft);
-  font-size: 12px;
+}
+.migrate {
+  margin: 14px 0 5px;
+  font-size: 13px;
+}
+.migrate input {
+  accent-color: var(--sm-accent);
+}
+.progress svg {
+  width: 16px;
+  height: 16px;
+}
+.warning {
+  line-height: 1.6;
+  font-size: 13px;
+  margin: 18px 0 0;
 }

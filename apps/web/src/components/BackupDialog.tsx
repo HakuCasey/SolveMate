@@ -3,6 +3,8 @@ import { Dialog } from "radix-ui";
 import {
   ArchiveRestore,
   Check,
+  ChevronRight,
+  RefreshCw,
   FileArchive,
   LoaderCircle,
   X,
@@ -14,6 +16,7 @@ import {
   restoreBackup,
   type BackupPreview,
 } from "../backups/client";
+import { DataDirectorySettings } from "./DataDirectorySettings";
 import { ExportDialog } from "./ExportDialog";
 import styles from "./ExportDialog.module.css";
 import backupStyles from "./BackupDialog.module.css";
@@ -31,6 +34,10 @@ export function BackupDialog({
   const [phase, setPhase] = useState<
     "idle" | "checking" | "restoring" | "success"
   >("idle");
+  const [reload, setReload] = useState<"idle" | "loading" | "done" | "failed">(
+    "idle",
+  );
+  const [filename, setFilename] = useState("");
   const [error, setError] = useState("");
   const [elapsed, setElapsed] = useState(0);
   const [result, setResult] = useState("");
@@ -55,6 +62,22 @@ export function BackupDialog({
     );
     return () => clearInterval(timer);
   }, [busy, phase]);
+  async function loadUserData() {
+    setReload("loading");
+    try {
+      setReload((await onRefresh()) ? "done" : "failed");
+    } catch {
+      setReload("failed");
+    }
+  }
+  function leavePreview() {
+    const staged = token.current;
+    token.current = "";
+    if (staged) void discardBackup(staged);
+    setPreview(null);
+    setError("");
+    setPhase("idle");
+  }
   async function select(file: File | undefined) {
     if (!file || pending.current) return;
     if (
@@ -75,6 +98,7 @@ export function BackupDialog({
     operation.current = controller;
     try {
       const info = await inspectBackup(file, controller.signal);
+      setFilename(file.name);
       token.current = info.token;
       setPreview(info);
     } catch (failure) {
@@ -102,9 +126,7 @@ export function BackupDialog({
       setResult(`恢复前的数据备份：${restored.safetyBackup}`);
       setPhase("success");
       if (!refreshed)
-        setError(
-          "数据已恢复，部分页面尚未刷新。请在设置中点击“刷新数据”；未保存输入仍保留。",
-        );
+        setError("数据已恢复。部分内容未能加载，请返回后点击“加载用户数据”。");
     } catch (failure) {
       setPhase("idle");
       setError(
@@ -119,32 +141,39 @@ export function BackupDialog({
   if (exporting)
     return (
       <ExportDialog
-        title="数据备份导出"
+        title="导出备份"
         name="SolveMate备份"
         extension="zip"
         icon={FileArchive}
-        description="包含资料、对话、笔记和配置。"
+        description="备份不含第三方 AI 服务的登录信息和原生会话文件。"
         perform={exportBackup}
         onClose={() => setExporting(false)}
       />
     );
+  const detail = !!preview;
+  const locked = busy || reload === "loading";
+  const dismiss = () => {
+    if (locked) return;
+    if (detail) leavePreview();
+    else onClose();
+  };
   return (
     <Dialog.Root
       open
       onOpenChange={(open) => {
-        if (!open && !busy) onClose();
+        if (!open) dismiss();
       }}
     >
       <Dialog.Portal>
         <Dialog.Overlay className={styles.overlay} />
         <Dialog.Content
-          className={styles.dialog}
-          aria-busy={busy}
-          onEscapeKeyDown={(event) => {
-            if (busy) event.preventDefault();
-          }}
+          className={`${styles.dialog} ${backupStyles.dialog}`}
+          aria-describedby={undefined}
           onPointerDownOutside={(event) => {
-            if (busy) event.preventDefault();
+            if (locked || detail) event.preventDefault();
+          }}
+          onEscapeKeyDown={(event) => {
+            if (locked) event.preventDefault();
           }}
         >
           <header className={styles.heading}>
@@ -152,105 +181,148 @@ export function BackupDialog({
               <ArchiveRestore aria-hidden="true" />
             </span>
             <div>
-              <Dialog.Title>备份与恢复</Dialog.Title>
-              <Dialog.Description>
-                保存完整备份，或恢复已有资料和记录。
-              </Dialog.Description>
+              <Dialog.Title>{detail ? "恢复备份" : "备份与恢复"}</Dialog.Title>
             </div>
-            <button
-              className={styles.close}
-              aria-label="关闭备份与恢复"
-              disabled={busy}
-              onClick={onClose}
-            >
-              <X />
-            </button>
-          </header>
-          <div className={backupStyles.sections}>
-            <section>
-              <h3>备份数据</h3>
-              <p>资料、对话、笔记、机器人、AI 配置及学习记录。</p>
-              <button disabled={busy} onClick={() => setExporting(true)}>
-                <FileArchive />
-                导出备份
-              </button>
-            </section>
-            <section>
-              <h3>恢复数据</h3>
-              <p>选择此前导出的 ZIP 备份，默认保存在系统“下载”文件夹。</p>
-              <p>恢复会替换当前资料和记录，替换前会自动备份现有数据。</p>
-              <input
-                ref={fileInput}
-                type="file"
-                accept=".zip,application/zip"
-                hidden
-                onChange={(event) => {
-                  void select(event.target.files?.[0]);
-                  event.target.value = "";
-                }}
-              />
+            {!detail && (
               <button
-                disabled={busy}
-                onClick={() => fileInput.current?.click()}
+                className={styles.close}
+                aria-label="关闭备份与恢复"
+                disabled={locked}
+                onClick={onClose}
               >
-                <ArchiveRestore />
-                选择备份文件
+                <X />
               </button>
-              {preview && (
-                <dl>
-                  <dt>备份时间</dt>
-                  <dd>{new Date(preview.createdAt).toLocaleString()}</dd>
-                  <dt>文件</dt>
-                  <dd>
-                    {preview.files} 个 ·{" "}
-                    {(preview.bytes / 1024 ** 2).toFixed(1)} MiB
-                  </dd>
-                </dl>
-              )}
-            </section>
-            <p className={styles.hint}>
-              备份不含第三方 Harness
-              的登录信息和原生会话文件。恢复后继续对话，需要对应 Harness
-              中仍有原会话。
-            </p>
-          </div>
-          <div className={styles.feedback} aria-live="polite">
-            {busy && (
-              <p className={backupStyles.progress}>
-                <LoaderCircle className={styles.spinning} />
-                {phase === "checking" ? "正在检查备份…" : "正在恢复数据…"}{" "}
-                {elapsed}s
-              </p>
             )}
-            {phase === "success" && (
-              <div className={styles.success} role="status">
-                <Check />
-                <div>
-                  <strong>数据已恢复</strong>
-                  <span>{result}</span>
+          </header>
+          <div className={backupStyles.body}>
+            {detail ? (
+              <>
+                {phase !== "success" ? (
+                  <>
+                    <h3 className={backupStyles.file}>{filename}</h3>
+                    <p className={backupStyles.caption}>
+                      {new Date(preview.createdAt).toLocaleString()} ·{" "}
+                      {preview.files} 个文件 ·{" "}
+                      {(preview.bytes / 1024 ** 2).toFixed(1)} MiB
+                    </p>
+                    <p className={backupStyles.warning}>
+                      恢复将替换当前资料和记录。应用会先备份现有数据。
+                    </p>
+                  </>
+                ) : (
+                  <div className={styles.success} role="status">
+                    <Check />
+                    <div>
+                      <strong>数据已恢复</strong>
+                      <span>{result}</span>
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <div className={backupStyles.rows}>
+                  <button
+                    className={backupStyles.row}
+                    disabled={locked}
+                    onClick={() => setExporting(true)}
+                  >
+                    <FileArchive />
+                    <span>
+                      <strong>导出备份</strong>
+                      <small>将资料、学习记录和配置保存为 ZIP 文件。</small>
+                    </span>
+                    <ChevronRight />
+                  </button>
+                  <button
+                    className={backupStyles.row}
+                    disabled={locked}
+                    onClick={() => fileInput.current?.click()}
+                  >
+                    <ArchiveRestore />
+                    <span>
+                      <strong>恢复备份</strong>
+                      <small>选择 ZIP 备份文件。</small>
+                    </span>
+                    <ChevronRight />
+                  </button>
+                  <input
+                    hidden
+                    ref={fileInput}
+                    type="file"
+                    accept=".zip,application/zip"
+                    onChange={(e) => {
+                      void select(e.target.files?.[0]);
+                      e.target.value = "";
+                    }}
+                  />
                 </div>
-              </div>
+                {busy && (
+                  <p role="status" className={backupStyles.progress}>
+                    <LoaderCircle className={styles.spinning} />
+                    正在检查备份… {elapsed}s
+                  </p>
+                )}
+                {error && (
+                  <p role="alert" className={styles.error}>
+                    {error}
+                  </p>
+                )}
+                <DataDirectorySettings disabled={locked} />
+                <button
+                  className={backupStyles.row}
+                  disabled={locked}
+                  onClick={() => void loadUserData()}
+                >
+                  <RefreshCw
+                    className={
+                      reload === "loading" ? styles.spinning : undefined
+                    }
+                  />
+                  <span>
+                    <strong>加载用户数据</strong>
+                    <small>在其他窗口修改数据后，可在这里读取最新记录。</small>
+                  </span>
+                  {reload === "done" ? (
+                    <Check role="img" aria-label="已加载" />
+                  ) : (
+                    <ChevronRight />
+                  )}
+                </button>
+                {reload === "failed" && (
+                  <p className={styles.error} role="alert">
+                    部分数据未能加载。请检查本机服务后重试。
+                  </p>
+                )}
+                {reload === "loading" && (
+                  <p role="status" className={styles.hint}>
+                    正在加载…
+                  </p>
+                )}
+              </>
             )}
-            {error && (
-              <p className={styles.error} role="alert">
+            {detail && error && (
+              <p role="alert" className={styles.error}>
                 {error}
               </p>
             )}
           </div>
-          <footer className={styles.actions}>
-            <button disabled={busy} onClick={onClose}>
-              {phase === "success" ? "关闭" : "取消"}
-            </button>
-            {preview && phase !== "success" && (
-              <button
-                className={styles.primary}
-                disabled={busy}
-                onClick={() => void restore()}
-              >
-                确认恢复
+          {detail && (
+            <footer className={styles.actions}>
+              <button disabled={busy} onClick={leavePreview}>
+                {phase === "success" ? "返回" : "取消"}
               </button>
-            )}
-          </footer>
+              {phase !== "success" && (
+                <button
+                  className={styles.primary}
+                  disabled={busy}
+                  onClick={() => void restore()}
+                >
+                  {busy ? `正在恢复… ${elapsed}s` : "确认恢复"}
+                </button>
+              )}
+            </footer>
+          )}
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>

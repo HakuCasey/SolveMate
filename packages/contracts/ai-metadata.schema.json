@@ -188,7 +188,8 @@
               "type": "string",
               "enum": [
                 "web",
-                "pwa"
+                "pwa",
+                "desktop"
               ]
             },
             {

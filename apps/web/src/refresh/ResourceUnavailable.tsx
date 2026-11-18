@@ -11,7 +11,7 @@ export function ResourceUnavailable({
     <section role="alert" style={{ padding: 24, lineHeight: 1.8 }}>
       <h2>暂时无法打开内容</h2>
       <p>{message}</p>
-      <button onClick={() => void dataRefresh.refresh()}>刷新数据</button>
+      <button onClick={() => void dataRefresh.refresh()}>重新读取</button>
       {onBack && <button onClick={onBack}>返回列表</button>}
     </section>
   );

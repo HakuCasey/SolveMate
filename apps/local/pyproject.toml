@@ -13,6 +13,9 @@ dependencies = ["fastapi>=0.162,<1", "pydantic>=2.14,<3", "uvicorn>=0.54,<1", "P
 [project.optional-dependencies]
 dev = ["httpx2>=2.16,<3", "pytest>=9,<10", "ruff>=0.17,<1"]
 
+[project.scripts]
+solvemate-local-desktop = "solvemate_local.desktop:main"
+
 [tool.setuptools.packages.find]
 where = ["src"]
 

@@ -17,7 +17,9 @@ export function useAppUpdate(prepareReload: () => void, onReady: () => void) {
   const controller = useRef<AppUpdateController | null>(null);
   const reloadAction = useRef<() => void>(() => undefined);
   const checkAction = useRef<() => void>(() => undefined);
-  const supported = import.meta.env.PROD && "serviceWorker" in navigator;
+  const desktop = import.meta.env.VITE_DESKTOP === "1";
+  const supported =
+    import.meta.env.PROD && !desktop && "serviceWorker" in navigator;
   useEffect(() => {
     if (!supported) return;
     let active = true;
@@ -174,6 +176,7 @@ export function useAppUpdate(prepareReload: () => void, onReady: () => void) {
     state,
     offlineReady,
     supported,
+    desktop,
     check: () => checkAction.current(),
     reload: () => reloadAction.current(),
     clearReloadError: () => {
