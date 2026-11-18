@@ -84,6 +84,8 @@
 - D1 新建对话、发送、收到回复、追问（`e2e/conversation.spec.ts`）
 - D4 指定页码提问正常提交并收到回复（`e2e/reading-context.spec.ts`）
 - D9 空输入按 ↑ 回填上一次发送内容（`e2e/conversation.spec.ts`）
+- E 笔记页渲染、F 机器人页展示预置机器人、G1 显示设置（夜间模式/字号，`e2e/notes-robots-settings.spec.ts`）
+- H 社区内容展示内置资料、I 教研室展示资料与教研工具（`e2e/research-community.spec.ts`）
 
 ### 已修复问题（根因）
 
