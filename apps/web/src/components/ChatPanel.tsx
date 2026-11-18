@@ -105,6 +105,9 @@ export function ChatPanel({
         ? Sparkles
         : Bot;
   const messages = conversation?.messages ?? [];
+  const lastSentText = [...messages].reverse().find(
+    (message) => message.role === "user" && !message.example,
+  )?.content;
   const selectedText = useReadingSelection(
     history,
     conversation?.id ?? "",
@@ -709,6 +712,17 @@ export function ChatPanel({
                   ) {
                     event.preventDefault();
                     submit(draft);
+                  } else if (
+                    event.key === "ArrowUp" &&
+                    !draft.trim() &&
+                    !event.shiftKey &&
+                    !event.altKey &&
+                    !event.metaKey &&
+                    !event.ctrlKey &&
+                    lastSentText
+                  ) {
+                    event.preventDefault();
+                    setDraft(lastSentText);
                   }
                 }}
               />
