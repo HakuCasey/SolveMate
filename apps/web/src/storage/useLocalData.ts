@@ -102,7 +102,10 @@ export function useLocalData(available: Course[] = courses) {
     readData: store.readData,
     readSaveState: () => store.snapshot().saveState,
     setData: store.update,
-    saveChanges: store.commit,
+    saveChanges: async (change: (previous: AppData) => AppData) => {
+      if (store.snapshot().loadState !== "ready") await load(false);
+      return store.commit(change);
+    },
     retrySave: (key?: string) =>
       store.snapshot().loadState !== "ready" ? load() : store.retry(key),
     retryRead: refresh,
