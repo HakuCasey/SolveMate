@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -17,16 +17,22 @@ if (!npmCli)
   throw new Error(
     "Run this script with npm run licenses:generate or npm run licenses:check.",
   );
-const paths = execFileSync(
+// 根 override 为修复 KaTeX 安全公告而把 katex 提到 0.19.1，超出 rehype-katex 等上游
+// 声明的 ^0.16.0；npm ls 会将其标为 "invalid" 并以非零码退出，但包路径与许可证文件
+// 仍然完整。此处沿用其 stdout，只在拿不到任何包路径时才视为失败。
+const listed = spawnSync(
   process.execPath,
   [npmCli, "ls", "--omit=dev", "--all", "--parseable"],
-  {
-    cwd: root,
-    encoding: "utf8",
-  },
-)
-  .trim()
-  .split(/\r?\n/);
+  { cwd: root, encoding: "utf8" },
+);
+if (listed.error) throw listed.error;
+const stdout = (listed.stdout ?? "").trim();
+if (listed.status !== 0 && !stdout) {
+  throw new Error(
+    `npm ls failed with status ${listed.status}: ${(listed.stderr ?? "").trim()}`,
+  );
+}
+const paths = stdout.split(/\r?\n/);
 const notices = new Map();
 // 字体单独使用 OFL；从原字体的 name 表读取版权与保留名称，不套用代码的 MIT。
 function fontLicense(path) {

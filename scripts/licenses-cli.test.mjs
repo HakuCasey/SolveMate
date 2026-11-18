@@ -87,3 +87,30 @@ test("license CLI explains how to run when npm has not supplied its CLI path", a
     /Run this script with npm run licenses:generate/,
   );
 });
+
+test("license CLI tolerates npm ls reporting an invalid override (non-zero exit with package paths)", async (t) => {
+  const { directory, run } = await fixture(t);
+  const npmCli = join(directory, "npm cli invalid.cjs");
+  await writeFile(
+    npmCli,
+    `process.stdout.write(${JSON.stringify(
+      `${directory}\r\n${join(directory, "dependency")}\r\n`,
+    )});\nprocess.exitCode = 1;`,
+  );
+  const generated = run([], npmCli);
+  assert.equal(generated.status, 0, generated.stderr);
+  const text = await readFile(
+    join(directory, "apps/web/public/third-party-licenses.txt"),
+    "utf8",
+  );
+  assert.ok(text.includes("fixture-dependency@1.0.0"));
+});
+
+test("license CLI fails when npm ls returns no package paths", async (t) => {
+  const { directory, run } = await fixture(t);
+  const npmCli = join(directory, "npm cli empty.cjs");
+  await writeFile(npmCli, "process.exitCode = 1;");
+  const generated = run([], npmCli);
+  assert.notEqual(generated.status, 0);
+  assert.match(generated.stderr, /npm ls failed/);
+});
