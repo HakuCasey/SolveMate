@@ -2,7 +2,7 @@ import type { AppData } from "@solvemate/contracts";
 import { migrateAiMetadata } from "../data/migrate-ai-metadata";
 import { ContentStorage } from "../content/storage";
 import { sha256 } from "../content/package";
-import { DexieStorage, LocalDataConflictError } from "./index";
+import { DexieStorage } from "./index";
 import {
   userCache,
   writerId,
@@ -76,10 +76,12 @@ export async function resolveMigration(
   decision: "keep" | "replace",
 ) {
   const current = envelope(await (await localRequest("/state")).json());
-  // 用户确认只针对看到的版本；确认后有新写入时必须重新选择。
-  if (current.revision !== required.request.expectedRevision)
-    throw new LocalDataConflictError();
-  const request = { ...required.request, decision };
+  // 应用自身恢复会推进版本，确认仍以当前版本为准，不再因此拒绝用户选择。
+  const request = {
+    ...required.request,
+    expectedRevision: current.revision,
+    decision,
+  };
   await migrate(
     request,
     await sha256(new TextEncoder().encode(JSON.stringify(request.payload))),
