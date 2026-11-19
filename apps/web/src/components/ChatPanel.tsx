@@ -227,12 +227,13 @@ export function ChatPanel({
     const value = text.trim();
     if (!value || !robot || busy || archived) return;
     setSending(true);
+    setDraft("");
     followReply.current = true;
     try {
       await onSend(value);
-      setDraft("");
       setNotice("");
     } catch (error) {
+      setDraft(text);
       if (isConversationLimitError(error)) return;
       setNotice(
         error instanceof Error ? error.message : "问题未能保存，请重试。",
