@@ -1,4 +1,4 @@
-import { join } from "node:path";
+import { join, posix, win32 } from "node:path";
 
 export const DESKTOP_PORT = 43127;
 
@@ -16,7 +16,8 @@ export function localExecutable(
 ) {
   const filename =
     platform === "win32" ? "solvemate-local.exe" : "solvemate-local";
-  return join(resourcesDirectory, "local", "solvemate-local", filename);
+  const paths = platform === "win32" ? win32 : posix;
+  return paths.join(resourcesDirectory, "local", "solvemate-local", filename);
 }
 
 export function desktopEnvironment({

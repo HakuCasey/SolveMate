@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { join } from "node:path";
 import {
   DESKTOP_PORT,
   belongsToService,
@@ -35,9 +36,9 @@ test("keeps all desktop data beneath the operating system user directory", () =>
     userDirectory: "/users/test/SolveMate",
     port: 43127,
   });
-  assert.equal(environment.SOLVEMATE_USER_DIR, "/users/test/SolveMate/data");
-  assert.equal(environment.SOLVEMATE_BUNDLED_DATA, "/app/resources/data");
-  assert.equal(environment.SOLVEMATE_WEB_DIR, "/app/resources/web");
+  assert.equal(environment.SOLVEMATE_USER_DIR, join("/users/test/SolveMate", "data"));
+  assert.equal(environment.SOLVEMATE_BUNDLED_DATA, join("/app/resources", "data"));
+  assert.equal(environment.SOLVEMATE_WEB_DIR, join("/app/resources", "web"));
   assert.equal(environment.SOLVEMATE_LOCAL_ORIGINS, "http://127.0.0.1:43127");
 });
 

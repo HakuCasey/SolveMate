@@ -72,7 +72,10 @@ def test_source_symlink_cannot_read_files_outside_course(
     private = tmp_path / "private.md"
     private.write_bytes(original.read_bytes())
     original.unlink()
-    original.symlink_to(private)
+    try:
+        original.symlink_to(private)
+    except OSError as error:
+        pytest.skip(f"当前系统无法创建符号链接：{error}")
     with pytest.raises(ValueError):
         publish(content_settings.data_dir, content_settings.content_dir)
 
