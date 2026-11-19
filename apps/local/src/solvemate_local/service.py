@@ -954,12 +954,19 @@ class AiService:
                 self.session_turns.pop(route, None)
                 if process:
                     try:
-                        released = await adapter.finish_turn(process, sid)
+                        released = await asyncio.wait_for(
+                            adapter.finish_turn(process, sid), timeout=10
+                        )
                         if released:
                             self.connections.loaded.get(
                                 turn["connectionId"], set()
                             ).discard(sid)
-                    except (ConnectionError, OSError, TimeoutError):
+                    except (
+                        ConnectionError,
+                        OSError,
+                        TimeoutError,
+                        asyncio.TimeoutError,
+                    ):
                         logger.warning(
                             "Failed to release Harness turn resources: connection=%s",
                             turn["connectionId"],
