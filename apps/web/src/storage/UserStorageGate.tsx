@@ -41,7 +41,7 @@ export function UserStorageRecovery({
       {replacing ? (
         <>
           <button disabled={busy} onClick={() => void decide("replace")}>
-            确认导入
+            {busy ? "正在导入…" : "确认导入"}
           </button>
           <button disabled={busy} onClick={() => setReplacing(false)}>
             取消
@@ -50,7 +50,7 @@ export function UserStorageRecovery({
       ) : (
         <>
           <button disabled={busy} onClick={() => void decide("keep")}>
-            使用本机记录
+            {busy ? "正在读取本机记录…" : "使用本机记录"}
           </button>
           <button disabled={busy} onClick={() => setReplacing(true)}>
             导入浏览器记录
