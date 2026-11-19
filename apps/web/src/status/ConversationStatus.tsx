@@ -1,9 +1,16 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { MessagesSquare, ChevronRight } from "lucide-react";
 import { StatusPopover } from "./StatusPopover";
 import type { AiTurn, Conversation } from "@solvemate/contracts";
 import { conversationTasks } from "./state";
 import styles from "./StatusBar.module.css";
+
+function formatElapsed(milliseconds: number) {
+  const seconds = Math.floor(milliseconds / 1000);
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  return `${minutes}:${String(seconds % 60).padStart(2, "0")}`;
+}
 export function ConversationStatus({
   conversations,
   turns,
@@ -26,6 +33,16 @@ export function ConversationStatus({
     connectionErrors,
   ).filter((item) => item.label !== "回复失败" || !dismissed.includes(item.id));
   const first = tasks[0];
+  const busy = !!first && !first.attention;
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!busy) return;
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [busy]);
+  const startedAt = first?.startedAt;
+  const elapsed =
+    busy && startedAt != null ? formatElapsed(now - startedAt) : undefined;
   const label = first?.attention
     ? first.label
     : tasks.length > 1
@@ -38,7 +55,8 @@ export function ConversationStatus({
       category="对话状态"
       value={label}
       tone={tone}
-      busy={!!first && !first.attention}
+      busy={busy}
+      busyElapsed={elapsed}
       open={open}
       onOpenChange={setOpen}
     >

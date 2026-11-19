@@ -18,6 +18,7 @@ export function StatusPopover({
   status = value,
   tone = "neutral",
   busy = false,
+  busyElapsed,
   open,
   onOpenChange,
   action,
@@ -28,6 +29,7 @@ export function StatusPopover({
   status?: string;
   tone?: StatusTone;
   busy?: boolean;
+  busyElapsed?: string;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   action?: ReactNode;
@@ -42,10 +44,17 @@ export function StatusPopover({
         aria-label={`${category}：${value}`}
         title={`${category}：${value}`}
       >
-        <CategoryIcon
-          aria-hidden="true"
-          className={busy ? styles.busy : undefined}
-        />
+        {busy && busyElapsed !== undefined ? (
+          <div className={styles.spinner} aria-hidden="true">
+            <div className={styles.spinnerRing} />
+            <div className={styles.spinnerTime}>{busyElapsed}</div>
+          </div>
+        ) : (
+          <CategoryIcon
+            aria-hidden="true"
+            className={busy ? styles.busy : undefined}
+          />
+        )}
         <span role="status" aria-atomic="true">
           {value}
         </span>

@@ -67,6 +67,7 @@ export function conversationTasks(
           {
             id: turn.id,
             conversation,
+            startedAt: turn.startedAt,
             label:
               turn === received && received.permissions.length
                 ? "等待确认"
@@ -85,6 +86,7 @@ export function conversationTasks(
           {
             id: turn.id,
             conversation,
+            startedAt: turn.startedAt,
             label: "回复失败",
             error: turn.error || "本次回复未能完成，请进入对话查看。",
             attention: true,

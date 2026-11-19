@@ -217,8 +217,37 @@
     opacity: 0.55;
   }
 }
+.spinner {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+}
+.spinnerRing {
+  position: absolute;
+  inset: 0;
+  border: 2px solid var(--sm-line);
+  border-top-color: var(--sm-accent);
+  border-radius: 50%;
+  animation: status-spin 0.9s linear infinite;
+}
+.spinnerTime {
+  font-size: 8px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--sm-soft);
+}
+@keyframes status-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   .busy {
+    animation: none;
+  }
+  .spinnerRing {
     animation: none;
   }
 }
