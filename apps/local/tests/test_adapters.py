@@ -252,6 +252,7 @@ def test_hermes_launcher_keeps_paths_and_arguments_separate(
 
     monkeypatch.setattr(hermes.sys, "platform", platform)
     monkeypatch.setenv("HERMES_HOME", str(tmp_path / "配置 空格"))
+    monkeypatch.setenv("ELECTRON_RUN_AS_NODE", "1")
     launcher = tmp_path / ("Hermes 中文.exe" if platform == "win32" else "hermes")
     launcher.touch()
     launcher.chmod(0o700)

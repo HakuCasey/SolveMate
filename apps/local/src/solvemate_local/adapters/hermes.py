@@ -89,6 +89,7 @@ class HermesProcess(AcpTransport):
 
     async def prepare_launch(self):
         env = os.environ.copy()
+        env.pop("ELECTRON_RUN_AS_NODE", None)
         env["HERMES_HOME"] = str(hermes_home())
         from .hermes_reasoning import _run, runtime_command
 

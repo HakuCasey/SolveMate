@@ -71,6 +71,7 @@ async def session_reasoning(process, sid, value=None):
     from .hermes import hermes_home
 
     env = os.environ.copy()
+    env.pop("ELECTRON_RUN_AS_NODE", None)
     env["HERMES_HOME"] = str(hermes_home())
     try:
         command = getattr(process, "reasoning_command", None)
