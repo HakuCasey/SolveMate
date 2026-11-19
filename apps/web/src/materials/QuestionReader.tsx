@@ -1,3 +1,4 @@
+import { SidebarToggle } from "../components/SidebarLayout";
 import {
   useEffect,
   useRef,
@@ -95,6 +96,7 @@ export function QuestionReader({
       {header ?? (
         <header className={styles.toolbar}>
           <div className={styles.titleRow}>
+            <SidebarToggle />
             <button
               className={styles.back}
               type="button"

@@ -46,6 +46,10 @@
   border-left: 0;
 }
 @media (max-width: 800px) {
+  .pane > [data-study-area="reading"] {
+    flex: none;
+    height: clamp(320px, 65dvh, 700px);
+  }
   .divider {
     display: none;
   }

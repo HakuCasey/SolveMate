@@ -43,7 +43,7 @@ export function useAiService(update: Update) {
     return accepted;
   }, []);
 
-  const refresh = useCallback(() => {
+  const refreshOrThrow = useCallback(() => {
     const generation = ++settingsGeneration.current;
     const task = localAi.settings().then(
       (next): AiSettings | null | Promise<AiSettings | null> => {
@@ -61,12 +61,17 @@ export function useAiService(update: Update) {
         setError(
           failure instanceof Error ? failure.message : "读取连接设置失败。",
         );
-        return null;
+        throw failure;
       },
     );
     settingsRead.current = task;
     return task;
   }, [setSettings]);
+
+  const refresh = useCallback(
+    () => refreshOrThrow().catch(() => null),
+    [refreshOrThrow],
+  );
 
   const accept = useCallback(
     (turn: AiTurn) => {
@@ -204,9 +209,7 @@ export function useAiService(update: Update) {
     [accept],
   );
 
-  useRefreshResource("ai", async () => {
-    if (!(await refresh())) throw new Error("AI 连接未能刷新。");
-  });
+  useRefreshResource("ai", refreshOrThrow);
   useEffect(() => {
     mounted.current = true;
     void refresh();

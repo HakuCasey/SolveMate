@@ -78,7 +78,6 @@
 .trigger[data-emphasized="true"] {
   color: var(--sm-accent);
   background: var(--sm-active);
-  font-weight: 500;
 }
 .trigger[data-emphasized="true"] .chevron {
   color: inherit;

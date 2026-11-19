@@ -83,15 +83,10 @@ export function ReadingContextControl({
       <Popover.Portal>
         <PopoverPanel
           aria-label="参考页码"
-          className={styles.panel}
           side="top"
           align="start"
           padding={10}
-          style={{
-            width: "max-content",
-            minWidth: 292,
-            maxWidth: "min(380px, calc(100vw - 24px))",
-          }}
+          maxWidth={380}
         >
           <label className={styles.optionRow}>
             <input

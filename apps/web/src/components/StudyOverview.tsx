@@ -17,80 +17,47 @@ export function StudyAchievements() {
   const panelId = useId();
   const trigger = useRef<HTMLButtonElement | null>(null);
   const selected = badges.find((badge) => badge.id === selectedId)!;
-  const collection = (compact: boolean) => (
-    <div
-      className={compact ? styles.badges : styles.collection}
-      data-study-achievement-entry={compact ? panelId : undefined}
-    >
-      {(["total", "streak"] as const).map((kind) => (
-        <div
-          className={styles.achievementGroup}
-          key={kind}
-          role="group"
-          aria-label={kind === "total" ? "累计学习勋章" : "连续学习勋章"}
-        >
-          {!compact && (
-            <span className={styles.groupLabel}>
-              {kind === "total" ? "累计学习" : "连续学习"}
-            </span>
-          )}
-          <div className={styles.badgeRow}>
-            {badges
-              .filter((badge) => badge.kind === kind)
-              .map((badge) => {
-                const state = !summary
-                  ? "统计尚未读取"
-                  : badge.earned
-                    ? "已点亮"
-                    : "未点亮";
-                const label = `${badge.name} · ${state}`;
-                const icon = (
-                  <StudyBadgeIcon
-                    symbol={badge.symbol}
-                    days={badge.kind === "streak" ? badge.threshold : undefined}
-                    earned={badge.earned}
-                    className={styles.badgeIcon}
-                  />
-                );
-                const button = (
-                  <button
-                    key={badge.id}
-                    type="button"
-                    className={styles.badge}
-                    data-earned={badge.earned}
-                    data-selected={
-                      (!compact && selectedId === badge.id) || undefined
-                    }
-                    aria-label={label}
-                    aria-pressed={
-                      !compact ? selectedId === badge.id : undefined
-                    }
-                    aria-haspopup={compact ? "dialog" : undefined}
-                    aria-expanded={
-                      compact ? open && selectedId === badge.id : undefined
-                    }
-                    aria-controls={compact && open ? panelId : undefined}
-                    onClick={(event) => {
-                      setSelectedId(badge.id);
-                      if (compact) {
-                        trigger.current = event.currentTarget;
-                        setOpen(true);
-                      }
-                    }}
-                  >
-                    {icon}
-                  </button>
-                );
-                return button;
-              })}
-          </div>
-        </div>
-      ))}
-    </div>
+  const kinds = ["total", "streak"] as const;
+  const highest = kinds.map((kind) => {
+    const family = badges.filter((badge) => badge.kind === kind);
+    return family.filter((badge) => badge.earned).at(-1) ?? family[0];
+  });
+  const icon = (badge: (typeof badges)[number]) => (
+    <StudyBadgeIcon
+      symbol={badge.symbol}
+      days={badge.kind === "streak" ? badge.threshold : undefined}
+      earned={badge.earned}
+      className={styles.badgeIcon}
+    />
   );
+  function entry(badge: (typeof badges)[number]) {
+    return (
+      <button
+        key={badge.kind}
+        type="button"
+        className={`${styles.badge} ${styles.entry}`}
+        data-earned={badge.earned}
+        aria-label={`${badge.name} · ${!summary ? "统计尚未读取" : badge.earned ? "已点亮" : "未点亮"}`}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-controls={open ? panelId : undefined}
+        onClick={(event) => {
+          trigger.current = event.currentTarget;
+          setSelectedId(badge.id);
+          setOpen(true);
+        }}
+      >
+        {icon(badge)}
+      </button>
+    );
+  }
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>
-      <Popover.Anchor asChild>{collection(true)}</Popover.Anchor>
+      <Popover.Anchor asChild>
+        <div className={styles.badges} data-study-achievement-entry={panelId}>
+          {highest.map(entry)}
+        </div>
+      </Popover.Anchor>
       <Popover.Portal>
         <PopoverPanel
           id={panelId}
@@ -147,7 +114,34 @@ export function StudyAchievements() {
             累计学习 {stats ? Math.floor(stats.totalMs / 3_600_000) : "—"} 小时{" "}
             {stats ? Math.floor(stats.totalMs / 60_000) % 60 : "—"} 分钟
           </p>
-          {collection(false)}
+          <div className={styles.collection}>
+            {kinds.map((kind) => {
+              const label = kind === "total" ? "累计学习" : "连续学习";
+              return (
+                <div key={kind} role="group" aria-label={label + "勋章"}>
+                  <span className={styles.groupLabel}>{label}</span>
+                  <div className={styles.badgeRow}>
+                    {badges
+                      .filter((badge) => badge.kind === kind)
+                      .map((badge) => (
+                        <button
+                          key={badge.id}
+                          type="button"
+                          className={styles.badge}
+                          data-earned={badge.earned}
+                          data-selected={selectedId === badge.id || undefined}
+                          aria-pressed={selectedId === badge.id}
+                          aria-label={`${badge.name} · ${!summary ? "统计尚未读取" : badge.earned ? "已点亮" : "未点亮"}`}
+                          onClick={() => setSelectedId(badge.id)}
+                        >
+                          {icon(badge)}
+                        </button>
+                      ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
           <div className={styles.achievementDetail} aria-live="polite">
             <div className={styles.detailHeading}>
               <strong>{selected.name}</strong>

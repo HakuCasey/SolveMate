@@ -118,7 +118,7 @@ export function recordQuestion(
     !!effective.model;
   const error = ready
     ? ""
-    : contextError || effective.error || "请先在设置中配置 AI。";
+    : contextError || effective.error || "请先在系统设置中配置 AI。";
   const message = original
     ? {
         ...original,

@@ -1,5 +1,14 @@
 import { isConversationLimitError } from "../state/conversation-limits";
-import { Fragment, useEffect, useId, useRef, useState } from "react";
+import { Popover, Slider } from "radix-ui";
+import { PopoverPanel } from "./PopoverPanel";
+import {
+  type CSSProperties,
+  Fragment,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from "react";
 import {
   ArrowUp,
   Bot,
@@ -38,12 +47,18 @@ import {
   ReadingContextControl,
   type ReadingPageSelection,
 } from "./ReadingContextControl";
+import paneHeader from "./PaneHeader.module.css";
 import styles from "./ChatPanel.module.css";
+
+// AI 推荐问题功能未实现，暂不向用户展示推荐栏。
+const showRecommendedQuestions = false;
 
 const stoppedReplyNote = "已停止生成，内容可能不完整。";
 
 interface ChatPanelProps extends ConversationActionsProps {
   researchMode?: boolean;
+  fontSize: number;
+  onFontSizeChange: (fontSize: number) => void;
   suggestions?: string[];
   focusMessage?: { id: string; request: number; conversationId: string };
   draft: string;
@@ -68,6 +83,8 @@ interface ChatPanelProps extends ConversationActionsProps {
 
 export function ChatPanel({
   researchMode = false,
+  fontSize,
+  onFontSizeChange,
   suggestions,
   focusMessage,
   draft,
@@ -93,6 +110,8 @@ export function ChatPanel({
   onAiSelectionSave,
 }: ChatPanelProps) {
   const [notice, setNotice] = useState("");
+  const [previewSize, setPreviewSize] = useState<number | null>(null);
+  const displayedSize = previewSize ?? fontSize;
   const [sending, setSending] = useState(false);
   const recommendationsId = useId();
   const history = useRef<HTMLDivElement>(null);
@@ -105,9 +124,9 @@ export function ChatPanel({
         ? Sparkles
         : Bot;
   const messages = conversation?.messages ?? [];
-  const lastSentText = [...messages].reverse().find(
-    (message) => message.role === "user" && !message.example,
-  )?.content;
+  const lastSentText = [...messages]
+    .reverse()
+    .find((message) => message.role === "user" && !message.example)?.content;
   const selectedText = useReadingSelection(
     history,
     conversation?.id ?? "",
@@ -132,7 +151,7 @@ export function ChatPanel({
       message.role === "assistant" && message.turnId === lastTurn?.id,
   );
   const effectiveAi = resolveConversationAi(conversation, robot, ai.settings);
-  const configured = effectiveAi.configured;
+
   const failure = lastTurn?.error || turn?.error;
   const failedMessage = lastTurn
     ? messages.find(
@@ -155,7 +174,7 @@ export function ChatPanel({
       disabled={!conversation}
     >
       <MessagesSquare aria-hidden="true" />
-      对话管理
+      <span>对话管理</span>
     </button>
   );
 
@@ -363,13 +382,12 @@ export function ChatPanel({
   return (
     <section
       className={styles.chat}
+      style={{ "--sm-chat-font-size": `${displayedSize}px` } as CSSProperties}
       aria-label="聊天栏"
       data-study-area="conversation"
     >
       <header className={styles.heading}>
-        <span className={styles.avatar}>
-          <Icon aria-hidden="true" />
-        </span>
+        <Icon className={paneHeader.titleIcon} aria-hidden="true" />
         <select
           aria-label="选择机器人"
           value={robot?.id ?? ""}
@@ -403,35 +421,79 @@ export function ChatPanel({
         ) : (
           managementButton
         )}
-        <div className={styles.connectionGroup}>
-          {robot && (
-            <AiSelectionPopover
-              key={conversation?.id ?? robot.id}
-              robot={robot}
-              saved={aiSelection}
-              scopeId={conversation?.id ?? robot.id}
-              ai={ai}
-              onSave={onAiSelectionSave}
+        <div className={styles.chatSettings}>
+          <Popover.Root
+            onOpenChange={(open) => {
+              if (!open) setPreviewSize(null);
+            }}
+          >
+            <Popover.Trigger
+              className={styles.fontTrigger}
+              aria-label="调整对话字号"
+              title="对话字号"
             >
-              <button
-                className={styles.connection}
-                disabled={busy || archived}
-                title={`${robot.name} · ${effectiveAi.label}`}
-                aria-label="打开 AI 选择"
+              Aa
+            </Popover.Trigger>
+            <Popover.Portal>
+              <PopoverPanel
+                aria-label="对话字号"
+                width={232}
+                padding={12}
+                align="end"
               >
-                <Brain aria-hidden="true" />
-                <span>{!effectiveAi.error ? effectiveAi.label : ""}</span>
-              </button>
-            </AiSelectionPopover>
-          )}
-          {(!configured || effectiveAi.error) && (
-            <small
-              className={styles.configurationWarning}
-              title={effectiveAi.error || "请先在设置中配置 AI"}
-            >
-              {effectiveAi.error || "请先在设置中配置 AI"}
-            </small>
-          )}
+                <div className={styles.fontRow}>
+                  <span>对话字号</span>
+                  <Slider.Root
+                    className={styles.fontSlider}
+                    min={8}
+                    max={21}
+                    step={1}
+                    value={[displayedSize]}
+                    onValueChange={([size]) => setPreviewSize(size)}
+                    onValueCommit={([size]) => {
+                      onFontSizeChange(size);
+                      setPreviewSize(null);
+                    }}
+                  >
+                    <Slider.Track className={styles.fontTrack}>
+                      <Slider.Range />
+                    </Slider.Track>
+                    <Slider.Thumb
+                      className={styles.fontThumb}
+                      aria-label="对话字号"
+                      aria-valuetext={`${displayedSize}px`}
+                    />
+                  </Slider.Root>
+                  <output>{displayedSize}px</output>
+                </div>
+              </PopoverPanel>
+            </Popover.Portal>
+          </Popover.Root>
+          <div className={styles.connectionGroup}>
+            {robot && (
+              <AiSelectionPopover
+                key={conversation?.id ?? robot.id}
+                robot={robot}
+                saved={aiSelection}
+                scopeId={conversation?.id ?? robot.id}
+                ai={ai}
+                onSave={onAiSelectionSave}
+              >
+                <button
+                  className={styles.connection}
+                  disabled={busy || archived}
+                  title={
+                    effectiveAi.error || `${robot.name} · ${effectiveAi.label}`
+                  }
+                  aria-description={effectiveAi.error || undefined}
+                  aria-label="打开 AI 选择"
+                >
+                  <Brain aria-hidden="true" />
+                  <span>{effectiveAi.label}</span>
+                </button>
+              </AiSelectionPopover>
+            )}
+          </div>
         </div>
       </header>
       <div className={styles.main}>
@@ -617,7 +679,7 @@ export function ChatPanel({
           </p>
         ) : (
           <>
-            {!!robot && (
+            {showRecommendedQuestions && !!robot && (
               <section
                 className={styles.recommendations}
                 aria-label="AI 推荐问题"

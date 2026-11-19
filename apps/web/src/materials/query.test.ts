@@ -43,7 +43,7 @@ describe("material query ordering", () => {
     expect(publish).not.toHaveBeenCalled();
     const failure = deferred<ReturnType<typeof list>>();
     const failing = createMaterialQuery(() => failure.promise, publish, fail);
-    const old = failing.refresh();
+    const old = failing.refreshOrThrow();
     failing.invalidate();
     failure.reject(new Error("Old connection failure"));
     await old;
@@ -75,6 +75,7 @@ describe("material query ordering", () => {
       publish,
       fail,
     );
+    await expect(query.refreshOrThrow()).rejects.toThrow("Service unavailable");
     expect(await query.refresh()).toBeNull();
     expect(publish).not.toHaveBeenCalled();
     expect(fail).toHaveBeenCalledWith("Service unavailable");

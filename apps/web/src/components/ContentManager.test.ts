@@ -1,3 +1,4 @@
+import { SidebarLayout } from "./SidebarLayout";
 import type { PersonalMaterials } from "../materials/useMaterials";
 import { materialFixtures } from "../content/library.test-support";
 import { createInitialData } from "../data/catalog";
@@ -34,49 +35,52 @@ function render(
     cancel: () => undefined,
   };
   return renderToStaticMarkup(
-    createElement(ContentManager, {
-      content,
-      tools: {
-        items: [],
-        remote: [],
-        checking: false,
-        error: "",
-        busy: null,
-        refresh: async () => {},
-        save: async () => createInitialData(),
-        select: async () => createInitialData(),
-        rename: async () => createInitialData(),
-        remove: async () => createInitialData(),
-        download: async () => createInitialData(),
-      },
-      onUseTool: async () => {},
-      library: new OfficialLibrary(
-        snapshot,
-        {
-          materials: materialFixtures(snapshot.activeCourses).map((item) => ({
-            ...item,
-            availability: {
-              originalAvailable: hasLocalFiles,
-              readerAvailable: hasLocalFiles,
-              error: null,
-            },
-            updatedAt:
-              snapshot.installed.find(
-                (saved) => saved.courseId === item.subjectId,
-              )?.installedAt ?? 0,
-          })),
+    createElement(SidebarLayout, {
+      className: "workspace",
+      children: createElement(ContentManager, {
+        content,
+        tools: {
+          items: [],
+          remote: [],
+          checking: false,
+          error: "",
+          busy: null,
+          refresh: async () => {},
+          save: async () => createInitialData(),
+          select: async () => createInitialData(),
+          rename: async () => createInitialData(),
+          remove: async () => createInitialData(),
+          download: async () => createInitialData(),
         },
-        [],
-        updates,
-      ),
-      operation: { busy: false, error: "" },
-      onInstall: async () => false,
-      onRead: async () => undefined,
-      materials: {
-        items: materialFixtures(snapshot.activeCourses),
-        busy: "",
-        error: "",
-      } as PersonalMaterials,
+        onUseTool: async () => {},
+        library: new OfficialLibrary(
+          snapshot,
+          {
+            materials: materialFixtures(snapshot.activeCourses).map((item) => ({
+              ...item,
+              availability: {
+                originalAvailable: hasLocalFiles,
+                readerAvailable: hasLocalFiles,
+                error: null,
+              },
+              updatedAt:
+                snapshot.installed.find(
+                  (saved) => saved.courseId === item.subjectId,
+                )?.installedAt ?? 0,
+            })),
+          },
+          [],
+          updates,
+        ),
+        operation: { busy: false, error: "" },
+        onInstall: async () => false,
+        onRead: async () => undefined,
+        materials: {
+          items: materialFixtures(snapshot.activeCourses),
+          busy: "",
+          error: "",
+        } as PersonalMaterials,
+      }),
     }),
   );
 }

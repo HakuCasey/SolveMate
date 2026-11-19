@@ -1,3 +1,4 @@
+import { FileLabel } from "./FileLabel";
 import { useEffect, useRef, useState } from "react";
 import { Dialog } from "radix-ui";
 import {
@@ -18,6 +19,7 @@ import {
   type ExportExtension,
   type ExportReceipt,
 } from "../exports/files";
+import paneHeader from "./PaneHeader.module.css";
 import styles from "./ExportDialog.module.css";
 
 type ExportDialogProps = {
@@ -171,9 +173,7 @@ export function ExportDialog({
           }}
         >
           <header className={styles.heading}>
-            <span className={styles.mark}>
-              <Icon aria-hidden="true" />
-            </span>
+            <Icon className={paneHeader.titleIcon} aria-hidden="true" />
             <div>
               <Dialog.Title>{title}</Dialog.Title>
               <Dialog.Description>{description || name}</Dialog.Description>
@@ -207,12 +207,10 @@ export function ExportDialog({
             <label htmlFor="export-location">保存位置</label>
             <div className={styles.location}>
               <Folder aria-hidden="true" />
-              <span
+              <FileLabel
                 id="export-location"
-                title={directory?.name || defaultDirectory}
-              >
-                {directory?.name || defaultDirectory}
-              </span>
+                value={directory?.name || defaultDirectory}
+              />
               <button
                 aria-label="选择保存位置"
                 title={
@@ -251,7 +249,7 @@ export function ExportDialog({
                 <Check />
                 <div>
                   <strong>导出成功</strong>
-                  <span>{receipt?.filename}</span>
+                  {receipt && <FileLabel value={receipt.filename} />}
                   <small>3 秒后自动关闭</small>
                 </div>
               </div>

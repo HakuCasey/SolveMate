@@ -16,7 +16,7 @@
     "desktop:start": "npm run start --workspace @solvemate/desktop",
     "desktop:package": "npm run package --workspace @solvemate/desktop",
     "desktop:make": "npm run make --workspace @solvemate/desktop",
-    "build": "npm run licenses:check && npm run build --workspace @solvemate/web",
+    "build": "npm run contracts:check && npm run licenses:check && npm run build --workspace @solvemate/web",
     "preview": "npm run preview --workspace @solvemate/web",
     "check": "npm run contracts:check && npm run check --workspace @solvemate/web && npm run check --workspace @solvemate/desktop",
     "test": "node --test scripts/generate-ai-contracts.test.mjs scripts/licenses-cli.test.mjs scripts/start.test.mjs scripts/generate-license-notices.test.mjs packages/deepmerge/test/*.test.cjs && npm run test --workspace @solvemate/web && npm run test --workspace @solvemate/desktop",

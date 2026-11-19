@@ -1,3 +1,4 @@
+import { SidebarToggle } from "../components/SidebarLayout";
 import { useState, type ReactNode } from "react";
 import { Dialog } from "radix-ui";
 import { BookOpen, ChevronDown, Trash2, Wrench, X } from "lucide-react";
@@ -12,6 +13,7 @@ import { toolTitle } from "./state";
 import type { TeachingWorkspace } from "./state";
 import { ToolChoiceDialog } from "./ToolChoiceDialog";
 import type { TeachingTools } from "./useTeachingTools";
+import paneHeader from "../components/PaneHeader.module.css";
 import styles from "./QuestionResearchPanel.module.css";
 
 export function QuestionResearchPanel({
@@ -53,10 +55,11 @@ export function QuestionResearchPanel({
   }
   const toolbar = (
     <header className={styles.toolbar} aria-label="教研室选项">
+      <SidebarToggle />
       <div className={styles.fieldRow}>
         <label htmlFor="research-source">
-          <BookOpen aria-hidden="true" />
-          资料
+          <BookOpen className={paneHeader.titleIcon} aria-hidden="true" />
+          <span>资料</span>
         </label>
         <button
           id="research-source"
@@ -71,13 +74,14 @@ export function QuestionResearchPanel({
       </div>
       <div className={styles.fieldRow}>
         <label htmlFor="research-tool">
-          <Wrench aria-hidden="true" />
-          工具
+          <Wrench className={paneHeader.titleIcon} aria-hidden="true" />
+          <span>工具</span>
         </label>
         <button
           id="research-tool"
           className={styles.selectTrigger}
           aria-label="选择教研工具"
+          title={current ? toolTitle(current) : "选择工具"}
           onClick={() =>
             setChoice({
               original: current ? structuredClone(current) : undefined,
@@ -100,7 +104,6 @@ export function QuestionResearchPanel({
           <div className={styles.empty}>
             <BookOpen />
             <h2>教研室</h2>
-            <p>选择资料和工具，在右侧说明任务要求。</p>
             <button onClick={openSources}>
               <BookOpen />
               选择资料

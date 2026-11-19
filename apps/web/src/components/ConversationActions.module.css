@@ -7,7 +7,7 @@
   z-index: 70;
 }
 .menu {
-  min-width: 168px;
+  width: max-content;
   padding: 5px;
 }
 .menuItem {
@@ -53,8 +53,8 @@
   z-index: 101;
 }
 .deleteDialog h2 {
+  font: var(--sm-ui-title-font);
   margin: 0 0 14px;
-  font-size: 18px;
 }
 .deleteDialog p {
   margin: 0;

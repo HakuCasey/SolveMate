@@ -1,3 +1,4 @@
+import { SidebarToggle } from "./SidebarLayout";
 import type { PersonalMaterials } from "../materials/useMaterials";
 import { OfficialTools } from "../research/OfficialTools";
 import type { TeachingTools } from "../research/useTeachingTools";
@@ -65,10 +66,8 @@ export function ContentManager({
   return (
     <section className={styles.page} aria-label="社区内容">
       <header className={styles.heading}>
-        <div>
-          <h1>社区内容</h1>
-          <p>下载或更新社区资料与教研工具。</p>
-        </div>
+        <SidebarToggle />
+        <h1>社区内容</h1>
         <button
           className={styles.secondary}
           disabled={
@@ -111,6 +110,8 @@ export function ContentManager({
                       : "检查完成，可下载下列社区内容。"}
             </p>
           )}
+        <OfficialTools tools={tools} onUse={onUseTool} />
+        <h2 className={styles.sectionTitle}>学习资料与题目</h2>
         {connectionError && (
           <p className={styles.notice} role="alert">
             {connectionError}
@@ -121,8 +122,6 @@ export function ContentManager({
             {operation.error}
           </p>
         )}
-        <OfficialTools tools={tools} onUse={onUseTool} />
-        <h2 className={styles.sectionTitle}>学习资料与题目</h2>
         <div className={styles.list}>
           {library.entries.map((item) => {
             const { source: entry, packageState: state } = item;

@@ -1,4 +1,5 @@
 .chat {
+  container: chat-pane / inline-size;
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -6,29 +7,13 @@
   border-left: 1px solid var(--sm-line);
 }
 .heading {
-  min-height: 52px;
-  flex-shrink: 0;
-  padding: 6px 20px;
-  border-bottom: 1px solid var(--sm-line);
+  composes: frame from "../components/PaneHeader.module.css";
   display: flex;
   align-items: center;
   gap: 8px;
 }
-.avatar {
-  background: var(--sm-active);
-  color: var(--sm-accent);
-  border-radius: 9px;
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  flex-shrink: 0;
-}
-.avatar svg {
-  width: 17px;
-  height: 17px;
-}
 .heading select {
+  font: inherit;
   max-width: 30%;
   min-width: 0;
   height: 28px;
@@ -36,31 +21,77 @@
   border: 1px solid transparent;
   border-radius: 7px;
   background: var(--sm-paper);
-  font-size: 14px;
-  font-weight: 500;
 }
 .heading select:hover {
   border-color: var(--sm-line);
 }
-.connectionGroup {
+.chatSettings {
   margin-left: auto;
-  flex: 1;
-  min-width: 0;
   max-width: 55%;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.fontTrigger {
+  flex-shrink: 0;
+  padding: 2px 4px;
+  min-height: 24px;
+  border-radius: 5px;
+  color: var(--sm-soft);
+  font-size: 13px;
+}
+.fontTrigger:hover,
+.fontTrigger[data-state="open"] {
+  background: var(--sm-ground);
+  color: var(--sm-ink);
+}
+.fontRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  white-space: nowrap;
+}
+.fontRow output {
+  min-width: 4ch;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.fontSlider {
+  flex: 1;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  position: relative;
+  touch-action: none;
+  user-select: none;
+}
+.fontTrack {
+  position: relative;
+  flex: 1;
+  height: 4px;
+  background: var(--sm-line);
+  border-radius: 2px;
+}
+.fontTrack > span {
+  position: absolute;
+  height: 100%;
+  background: var(--sm-accent);
+  border-radius: inherit;
+}
+.fontThumb {
+  display: block;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--sm-accent);
+}
+.connectionGroup {
+  min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 1px;
-}
-.configurationWarning {
-  color: var(--sm-danger);
-  font-size: 10px;
-  line-height: 1.4;
-  text-align: right;
-  max-width: 100%;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  gap: 0;
 }
 .connection {
   font-size: 11px;
@@ -111,7 +142,7 @@
   letter-spacing: -0.4px;
 }
 .welcome p {
-  font-size: var(--sm-reading-font-size, 14px);
+  font-size: var(--sm-chat-font-size);
   color: var(--sm-soft);
   margin: 0;
   max-width: 30em;
@@ -125,7 +156,7 @@
 .assistantMessage {
   max-width: 88%;
   min-width: 0;
-  font-size: var(--sm-reading-font-size, 14px);
+  font-size: var(--sm-chat-font-size);
   flex-shrink: 0;
   overflow-wrap: anywhere;
 }
@@ -342,7 +373,7 @@
   max-height: 160px;
   width: 100%;
   padding: 2px 3px;
-  font-size: var(--sm-reading-font-size, 14px);
+  font-size: var(--sm-chat-font-size);
   background: transparent;
 }
 .compose textarea:focus-visible {
@@ -457,8 +488,14 @@
   .main {
     padding: 20px 12px 12px;
   }
-  .compose textarea {
-    font-size: max(16px, var(--sm-reading-font-size, 14px));
+}
+
+@container chat-pane (max-width: 350px) {
+  .heading {
+    gap: 4px;
+  }
+  .manage span {
+    display: none;
   }
 }
 

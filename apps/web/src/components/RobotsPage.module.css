@@ -1,6 +1,5 @@
 .page {
   display: grid;
-  --robot-header-height: 64px;
   grid-template-columns: 250px minmax(0, 1fr);
   flex: 1;
   min-width: 0;
@@ -13,19 +12,15 @@
   flex-direction: column;
   min-width: 0;
   min-height: 0;
-  padding: 0 10px;
   border-right: 1px solid var(--sm-line);
 }
 
 .listHeading {
+  composes: frame from "./PaneHeader.module.css";
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  height: var(--robot-header-height);
-  flex-shrink: 0;
-  padding: 10px 6px;
-  border-bottom: 1px solid var(--sm-line);
 }
 
 .listTitle {
@@ -35,16 +30,8 @@
   gap: 8px;
   line-height: 20px;
 }
-.listTitle > svg {
-  width: 18px;
-  height: 18px;
-  flex-shrink: 0;
-  color: var(--sm-accent);
-}
 .listTitle h2 {
   margin: 0;
-  font-size: 14px;
-  font-weight: 600;
   white-space: nowrap;
 }
 .listTitle > span {
@@ -75,7 +62,7 @@
 .list {
   min-height: 0;
   overflow: auto;
-  padding: 12px 0;
+  padding: 12px 10px;
   overscroll-behavior: contain;
   scrollbar-width: thin;
 }
@@ -99,8 +86,7 @@
   background: var(--sm-active);
 }
 
-.avatar,
-.headingAvatar {
+.avatar {
   display: grid;
   place-items: center;
   flex-shrink: 0;
@@ -132,8 +118,7 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 6px;
-  font-size: 13px;
-  font-weight: 500;
+  font: var(--sm-ui-body-font);
   overflow-wrap: anywhere;
 }
 
@@ -166,13 +151,10 @@
 }
 
 .robotHeading {
+  composes: frame from "./PaneHeader.module.css";
   display: flex;
   align-items: center;
   gap: 12px;
-  height: var(--robot-header-height);
-  flex-shrink: 0;
-  padding: 10px 26px;
-  border-bottom: 1px solid var(--sm-line);
 }
 
 .headingCopy {
@@ -182,24 +164,15 @@
 
 .robotHeading > button {
   flex-shrink: 0;
-}
-
-.headingAvatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
-}
-
-.headingAvatar svg {
-  width: 21px;
-  height: 21px;
+  padding: 2px 8px;
+  white-space: nowrap;
 }
 
 .robotHeading h1 {
-  margin: 0 0 3px;
-  font-size: 20px;
-  font-weight: 500;
-  overflow-wrap: anywhere;
+  margin: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .tabsRoot {
@@ -335,8 +308,7 @@
   font-size: 11px;
 }
 
-.hint,
-.footerHint {
+.hint {
   margin: 0;
   color: var(--sm-soft);
   font-size: 11px;
@@ -393,10 +365,6 @@
 .secondaryButton {
   border: 1px solid var(--sm-line);
   background: var(--sm-ground);
-}
-
-.footerHint {
-  flex-basis: 100%;
 }
 
 .empty {
@@ -495,14 +463,6 @@
 
   .editor {
     min-height: 680px;
-  }
-
-  .robotHeading {
-    flex-wrap: wrap;
-  }
-
-  .robotHeading {
-    padding: 10px 12px;
   }
 
   .fields,

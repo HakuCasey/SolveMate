@@ -1,6 +1,6 @@
 .menu {
   z-index: 90;
-  min-width: 160px;
+  width: max-content;
   padding: 6px;
   border: 1px solid var(--sm-line);
   border-radius: 10px;
@@ -56,12 +56,11 @@
   box-shadow: var(--sm-shadow-dialog);
 }
 .dialog h2 {
+  font: var(--sm-ui-title-font);
   display: flex;
   align-items: center;
   gap: 8px;
   margin: 0 0 12px;
-  font-size: 18px;
-  font-weight: 600;
 }
 .dialog p {
   font-size: 13px;

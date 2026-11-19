@@ -19,8 +19,8 @@
   z-index: 101;
 }
 .dialog h2 {
+  font: var(--sm-ui-title-font);
   margin: 0 0 14px;
-  font-size: 18px;
 }
 .dialog p {
   line-height: 1.7;

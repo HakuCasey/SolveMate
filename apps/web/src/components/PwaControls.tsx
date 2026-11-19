@@ -1,17 +1,9 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useAppUpdate } from "../pwa/useAppUpdate";
 import { useSaveFeedback } from "./SaveFeedback";
-import { RefreshCw, CircleArrowUp, CircleAlert, Check } from "lucide-react";
 import { StatusPopover } from "../status/StatusPopover";
 import { applicationStatus } from "../status/state";
 import styles from "../status/StatusBar.module.css";
-import { logError } from "../logger";
-
-interface InstallPrompt extends Event {
-  prompt(): Promise<void>;
-  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
-}
-
 export function PwaControls({
   prepareReload,
   saveFailure,
@@ -27,13 +19,10 @@ export function PwaControls({
 }) {
   const [open, setOpen] = useState(false);
   const [retryingSave, setRetryingSave] = useState(false);
-  const [installPrompt, setInstallPrompt] = useState<InstallPrompt | null>(
-    null,
-  );
   const showNotice = useSaveFeedback();
   const { state, supported, desktop, check, reload, clearReloadError } =
     useAppUpdate(prepareReload, () =>
-      showNotice("应用新版本已就绪，可在右下角点击“更新应用”。"),
+      showNotice("应用新版本已就绪，可在侧栏状态栏中点击“更新应用”。"),
     );
   const view = applicationStatus(state);
   const ready = state.status === "ready";
@@ -44,32 +33,6 @@ export function PwaControls({
       : view.busy
         ? "active"
         : "neutral";
-  const Icon = ready
-    ? CircleArrowUp
-    : state.status === "error"
-      ? CircleAlert
-      : state.status === "current"
-        ? Check
-        : RefreshCw;
-  useEffect(() => {
-    const capturePrompt = (event: Event) => {
-      event.preventDefault();
-      setInstallPrompt(event as InstallPrompt);
-    };
-    const installed = () => setInstallPrompt(null);
-    window.addEventListener("beforeinstallprompt", capturePrompt);
-    window.addEventListener("appinstalled", installed);
-    return () => {
-      window.removeEventListener("beforeinstallprompt", capturePrompt);
-      window.removeEventListener("appinstalled", installed);
-    };
-  }, []);
-  async function install() {
-    if (!installPrompt) return;
-    await installPrompt.prompt();
-    await installPrompt.userChoice;
-    setInstallPrompt(null);
-  }
   return (
     <StatusPopover
       open={open}
@@ -85,7 +48,23 @@ export function PwaControls({
               ? "当前浏览器不支持应用更新"
               : "开发预览不提供应用更新"
       }
-      icon={Icon}
+      action={
+        supported &&
+        !view.busy &&
+        !(ready && saveFailure) && (
+          <button
+            type="button"
+            className={
+              ready
+                ? `${styles.inlineAction} ${styles.primary}`
+                : styles.inlineAction
+            }
+            onClick={ready ? reload : check}
+          >
+            {view.action}
+          </button>
+        )
+      }
       tone={tone}
       busy={view.busy}
     >
@@ -127,30 +106,6 @@ export function PwaControls({
           >
             {saveConflict ? "处理修改冲突" : "查看保存详情"}
           </button>
-        </div>
-      )}
-      {((supported && !view.busy) || installPrompt) && (
-        <div className={styles.actions}>
-          {supported && !view.busy && (
-            <button
-              className={styles.primary}
-              disabled={view.busy || retryingSave || (!!saveFailure && ready)}
-              onClick={ready ? reload : check}
-            >
-              {view.action}
-            </button>
-          )}
-          {installPrompt && (
-            <button
-              onClick={() => {
-                void install().catch((error: unknown) =>
-                  logError("Failed to show the installation prompt.", error),
-                );
-              }}
-            >
-              安装应用
-            </button>
-          )}
         </div>
       )}
     </StatusPopover>

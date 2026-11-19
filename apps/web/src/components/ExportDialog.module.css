@@ -25,28 +25,13 @@
   align-items: center;
   gap: 12px;
 }
-.mark {
-  display: grid;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  flex-shrink: 0;
-  border-radius: 12px;
-  background: var(--sm-active);
-  color: var(--sm-accent);
-}
-.mark svg {
-  width: 21px;
-  height: 21px;
-}
 .heading > div {
   min-width: 0;
   flex: 1;
 }
 .heading h2 {
+  font: var(--sm-ui-title-font);
   margin: 0;
-  font-size: 17px;
-  font-weight: 600;
 }
 .heading p {
   margin: 3px 0 0;
@@ -70,14 +55,13 @@
 }
 .fields {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
   margin-top: 26px;
 }
 .fields > label {
   margin-top: 9px;
-  font-size: 12px;
-  font-weight: 500;
+  font: var(--sm-ui-body-font);
 }
 .filename,
 .location {
@@ -123,9 +107,6 @@
 .location > span {
   flex: 1;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   font-size: 12px;
 }
 .location button {
@@ -181,8 +162,7 @@
   min-width: 0;
 }
 .success strong {
-  font-size: 13px;
-  font-weight: 500;
+  font: var(--sm-ui-body-font);
 }
 .success span {
   color: var(--sm-ink);

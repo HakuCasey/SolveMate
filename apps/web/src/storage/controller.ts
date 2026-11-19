@@ -121,7 +121,9 @@ export class LocalDataController {
   private persist(data: AppData, transactional = false) {
     if (!this.base)
       return Promise.reject(
-        new Error("原记录尚未读取成功，输入已保留。请在“操作状态”中重新读取。"),
+        new Error(
+          "原记录尚未读取成功，输入已保留。请在“备份与恢复”中加载用户数据。",
+        ),
       );
     const generation = ++this.generation;
     // 未发布的配置提交独立保留，后续回复或阅读进度不能覆盖这份候选内容。
@@ -241,7 +243,7 @@ export class LocalDataController {
       if (!this.base) {
         await this.retain(next);
         throw new Error(
-          "原记录尚未读取成功，输入已保留。请在“操作状态”中重新读取。",
+          "原记录尚未读取成功，输入已保留。请在“备份与恢复”中加载用户数据。",
         );
       }
       await this.persist(next, true);

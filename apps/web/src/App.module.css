@@ -1,20 +1,23 @@
 .app {
   height: 100dvh;
   min-height: 600px;
-  padding: 16px 16px 0;
   display: flex;
   flex-direction: column;
 }
 .shell {
   display: grid;
+  --pane-toolbar-height: 36px;
   --sidebar-width: 156px;
   grid-template-columns: auto minmax(0, 1fr);
   flex: 1;
   min-height: 0;
   background: var(--sm-paper);
-  border: 1px solid var(--sm-line);
-  border-radius: 16px;
   overflow: clip;
+}
+@media (pointer: coarse) {
+  .shell {
+    --pane-toolbar-height: 46px;
+  }
 }
 .workspace {
   display: flex;
@@ -88,7 +91,7 @@
   box-shadow:
     0 3px 16px var(--sm-shadow-soft-color),
     inset 0 0 24px var(--sm-note-inset);
-  font-size: var(--sm-reading-font-size, 14px);
+  font-size: var(--sm-reading-font-size, 12px);
   overflow-wrap: anywhere;
 }
 .notePaper::before,
@@ -161,10 +164,9 @@
   .app {
     height: auto;
     min-height: 100dvh;
-    padding: 8px 8px 0;
   }
   .shell {
-    min-height: calc(100dvh - 44px);
+    min-height: 100dvh;
     --sidebar-width: 142px;
     overflow: clip;
   }
@@ -185,7 +187,6 @@
 @media (max-width: 480px) {
   .shell {
     --sidebar-width: 106px;
-    border-radius: 12px;
   }
   .noteHeading h1 {
     font-size: 20px;
@@ -225,12 +226,6 @@
   font-size: 18px;
   font-weight: 500;
 }
-.libraryWelcome p {
-  font-size: 13px;
-  color: var(--sm-soft);
-  line-height: 1.8;
-  max-width: 320px;
-}
 .noteTags {
   display: flex;
   flex-wrap: wrap;
@@ -257,7 +252,4 @@
 .noteEmpty h2 {
   font-size: 16px;
   font-weight: 500;
-}
-.noteEmpty p {
-  font-size: 13px;
 }

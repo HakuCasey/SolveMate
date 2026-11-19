@@ -51,7 +51,7 @@ describe("saved metadata transactions", () => {
           }
         : previous,
     );
-    expect(controller.snapshot().data?.settings.fontSize).toBe(14);
+    expect(controller.snapshot().data?.settings.fontSize).toBe(12);
     gate.resolve();
     await pending;
     expect(controller.snapshot().data?.settings.fontSize).toBe(21);
@@ -241,7 +241,7 @@ describe("refresh conflict recovery", () => {
       })),
     ).rejects.toThrow("Offline");
     await controller.refresh();
-    expect(controller.readData()?.settings.fontSize).toBe(14);
+    expect(controller.readData()?.settings.fontSize).toBe(12);
     expect(controller.snapshot().recoveries[0].value.settings.fontSize).toBe(
       21,
     );
@@ -414,7 +414,7 @@ it("retries the failed committed change instead of saving the unchanged old conf
       settings: { ...data.settings, fontSize: 21 },
     })),
   ).rejects.toThrow("Unavailable");
-  expect(controller.readData()?.settings.fontSize).toBe(14);
+  expect(controller.readData()?.settings.fontSize).toBe(12);
   await controller.retry();
   expect(controller.readData()?.settings.fontSize).toBe(21);
   expect(save.mock.lastCall?.[0].settings.fontSize).toBe(21);

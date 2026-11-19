@@ -23,7 +23,7 @@ test("社区内容展示内置资料与工具", async ({ page }) => {
   test.setTimeout(60_000);
   await page.goto("/");
   await page.waitForTimeout(3000);
-  await page.getByRole("button", { name: "设置", exact: true }).click();
+  await page.getByRole("button", { name: "系统设置", exact: true }).click();
   await page.getByText("社区内容", { exact: true }).click();
   await expect(page.getByText("高等数学示例教材").first()).toBeVisible();
   await expect(page.getByText("C 语言示例教材").first()).toBeVisible();

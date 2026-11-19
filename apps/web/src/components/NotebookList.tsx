@@ -88,6 +88,7 @@ export function NotebookList({
   return (
     <section className={styles.library} aria-label="笔记列表">
       <PaneHeader
+        sidebarToggle
         icon={NotebookPen}
         title="笔记"
         detail={`${notebooks.length} 个笔记本 · ${notes.length} 篇笔记`}

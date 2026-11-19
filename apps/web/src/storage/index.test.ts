@@ -229,7 +229,7 @@ describe("local storage", () => {
     );
     const saved = await createStore(name).load();
     expect(saved?.conversations[0]?.messages.at(-1)?.id).toBe("new-message");
-    expect(saved?.settings.fontSize).toBe(14);
+    expect(saved?.settings.fontSize).toBe(12);
 
     const reloaded = (await second.load())!;
     reloaded.settings.fontSize = 20;

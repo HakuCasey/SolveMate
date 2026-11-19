@@ -1,10 +1,5 @@
 import { useState } from "react";
-import {
-  MessagesSquare,
-  LoaderCircle,
-  CircleAlert,
-  ChevronRight,
-} from "lucide-react";
+import { MessagesSquare, ChevronRight } from "lucide-react";
 import { StatusPopover } from "./StatusPopover";
 import type { AiTurn, Conversation } from "@solvemate/contracts";
 import { conversationTasks } from "./state";
@@ -36,18 +31,12 @@ export function ConversationStatus({
     : tasks.length > 1
       ? `${tasks.length} 个对话正在回复…`
       : (first?.label ?? "AI 空闲");
-  const Icon = first?.attention
-    ? CircleAlert
-    : first
-      ? LoaderCircle
-      : MessagesSquare;
   const tone =
     first?.label === "回复失败" ? "danger" : first ? "active" : "neutral";
   return (
     <StatusPopover
       category="对话状态"
       value={label}
-      icon={Icon}
       tone={tone}
       busy={!!first && !first.attention}
       open={open}

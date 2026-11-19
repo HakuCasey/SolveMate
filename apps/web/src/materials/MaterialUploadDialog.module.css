@@ -31,23 +31,13 @@
 }
 .heading {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
+  justify-content: space-between;
   gap: 16px;
 }
-.heading > div {
-  flex: 1;
-  min-width: 0;
-}
 .heading h2 {
-  font-size: 18px;
-  font-weight: 600;
-  margin: 0 0 7px;
-}
-.heading p {
+  font: var(--sm-ui-title-font);
   margin: 0;
-  font-size: 12px;
-  color: var(--sm-soft);
-  line-height: 1.7;
 }
 .close {
   padding: 4px;
@@ -140,8 +130,7 @@
   gap: 5px;
 }
 .files strong {
-  font-size: 13px;
-  font-weight: 500;
+  font: var(--sm-ui-body-font);
   overflow-wrap: anywhere;
 }
 .files small {

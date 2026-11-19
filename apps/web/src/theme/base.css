@@ -2,7 +2,8 @@
   color-scheme: light dark;
   /* 原始图片及 PDF 的白底不随界面主题重着色。 */
   --sm-original-paper: #ffffff;
-  --sm-reading-font-size: 14px;
+  --sm-reading-font-size: 12px;
+  --sm-chat-font-size: 12px;
   --sm-shadow-popover:
     0 4px 10px var(--sm-shadow-soft-color), 0 18px 48px var(--sm-shadow-color);
   --sm-shadow-menu: 0 8px 32px var(--sm-shadow-color);

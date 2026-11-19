@@ -1,3 +1,4 @@
+import { SidebarToggle } from "./SidebarLayout";
 import { useEffect, useState } from "react";
 import { ContextMenu } from "radix-ui";
 import {
@@ -27,6 +28,7 @@ import type { PersonalMaterials } from "../materials/useMaterials";
 import { materialsInCourse, type LibraryScope } from "../reading/library";
 import { useSaveFeedback } from "./SaveFeedback";
 import { dataRefresh } from "../refresh/coordinator";
+import paneHeader from "../components/PaneHeader.module.css";
 import styles from "./SubjectContentList.module.css";
 
 export function SubjectContentList({
@@ -146,7 +148,7 @@ export function SubjectContentList({
   }
   return (
     <section
-      className={`${styles.library} ${subjectPicker ? styles.pickerLibrary : ""} ${pickerTitle ? styles.titledPickerLibrary : ""}`}
+      className={`${styles.library} ${subjectPicker ? styles.pickerLibrary : ""}`}
       aria-label={questions ? "题目列表" : "学习资料列表"}
       onDragOver={(event) => {
         if (event.dataTransfer.types.includes("Files")) {
@@ -168,7 +170,8 @@ export function SubjectContentList({
     >
       {pickerTitle && (
         <header className={styles.pickerTitle}>
-          <BookOpen aria-hidden="true" />
+          <SidebarToggle />
+          <BookOpen className={paneHeader.titleIcon} aria-hidden="true" />
           <h1>{pickerTitle}</h1>
         </header>
       )}
@@ -233,12 +236,14 @@ export function SubjectContentList({
           {subjectPicker.onSubjectAction && (
             <button
               className={styles.createSubject}
+              aria-label="新增学科"
+              title="新增学科"
               onClick={() =>
                 subjectPicker.onSubjectAction?.({ kind: "create" })
               }
             >
               <Plus />
-              新增学科
+              <span>新增学科</span>
             </button>
           )}
         </nav>
@@ -298,6 +303,8 @@ export function SubjectContentList({
               <>
                 <button
                   className={styles.upload}
+                  aria-label="上传资料"
+                  title="上传资料"
                   disabled={!!library.busy}
                   onClick={() => {
                     setNotice("");
@@ -305,7 +312,7 @@ export function SubjectContentList({
                   }}
                 >
                   <Upload aria-hidden="true" />
-                  上传资料
+                  <span>上传资料</span>
                 </button>
                 <button
                   aria-label={

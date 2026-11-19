@@ -7,41 +7,27 @@
 }
 .pickerLibrary {
   display: grid;
+  container: subject-picker / inline-size;
   grid-template-columns: 148px minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr);
   height: 100%;
 }
 .pickerLibrary .subjectRail,
 .pickerLibrary .listPane {
-  grid-row: 1;
-}
-.titledPickerLibrary {
-  grid-template-rows: 54px minmax(0, 1fr);
-}
-.titledPickerLibrary .subjectRail,
-.titledPickerLibrary .listPane {
-  grid-row: 2;
+  grid-row: 3;
 }
 .pickerTitle {
+  composes: frame from "./PaneHeader.module.css";
   display: flex;
   grid-column: 1 / -1;
   grid-row: 1;
   align-items: center;
   gap: 8px;
   min-width: 0;
-  padding: 0 16px;
-  border-bottom: 1px solid var(--sm-line);
   background: var(--sm-paper);
 }
 .pickerTitle h1 {
   margin: 0;
-  font-size: 17px;
-  font-weight: 600;
-}
-.pickerTitle svg {
-  width: 20px;
-  height: 20px;
-  color: var(--sm-ink);
 }
 .listPane {
   display: flex;
@@ -85,7 +71,6 @@
 .subjectRail button[aria-current="true"] {
   color: var(--sm-accent);
   background: var(--sm-active);
-  font-weight: 600;
 }
 .subjectRail .createSubject {
   display: flex;
@@ -95,7 +80,6 @@
   margin-top: 8px;
   color: var(--sm-accent);
   background: var(--sm-active);
-  font-weight: 600;
 }
 .subjectRail .createSubject svg {
   width: 14px;
@@ -118,14 +102,13 @@
   gap: 10px;
 }
 .pickerHeading {
+  font: var(--sm-ui-title-font);
   display: flex;
   align-items: baseline;
   gap: 8px;
   flex: 1;
   min-width: 0;
   margin: 0;
-  font-size: 14px;
-  font-weight: 600;
 }
 .pickerHeading small {
   color: var(--sm-soft);
@@ -156,7 +139,6 @@
 .kindPicker button[aria-pressed="true"] {
   color: var(--sm-accent);
   background: var(--sm-active);
-  font-weight: 600;
 }
 .kindCount {
   color: var(--sm-soft);
@@ -177,8 +159,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 13px;
-  font-weight: 500;
+  font: var(--sm-ui-body-font);
   color: var(--sm-soft);
 }
 .heading .separator {
@@ -188,9 +169,8 @@
   opacity: 0.6;
 }
 .title {
+  font: var(--sm-ui-title-font);
   flex-shrink: 0;
-  font-size: 16px;
-  font-weight: 600;
 }
 .count {
   flex-shrink: 0;
@@ -308,8 +288,7 @@
   gap: 5px;
 }
 .copy strong {
-  font-size: 14px;
-  font-weight: 500;
+  font: var(--sm-ui-body-font);
   overflow-wrap: anywhere;
 }
 .copy small {
@@ -368,4 +347,52 @@
   background: var(--sm-paper);
   opacity: 0.96;
   color: var(--sm-accent);
+}
+
+/* 栏宽不足以并排展示时，学科改在列表上方横向选择。 */
+@container subject-picker (max-width: 440px) {
+  .pickerLibrary .subjectRail {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    flex-direction: row;
+    align-items: center;
+    gap: 4px;
+    width: auto;
+    padding: 4px 8px;
+    border-right: 0;
+    border-bottom: 1px solid var(--sm-line);
+  }
+  .subjectRailItems {
+    display: flex;
+    min-width: 0;
+    overflow: auto;
+  }
+  .subjectRail button {
+    width: auto;
+    flex: none;
+    max-width: 13em;
+  }
+  .subjectRail .createSubject {
+    margin: 0;
+  }
+  .createSubject span {
+    display: none;
+  }
+  .pickerLibrary .listPane {
+    grid-column: 1 / -1;
+  }
+  .pickerHeader {
+    padding: 6px 8px;
+    gap: 6px;
+  }
+  .kindPicker button {
+    white-space: nowrap;
+    padding: 5px 8px;
+  }
+  .pickerHeader .upload {
+    padding: 6px;
+  }
+  .upload span {
+    display: none;
+  }
 }

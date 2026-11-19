@@ -1,144 +1,75 @@
-.overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 95;
-  background: var(--sm-overlay);
-}
-.dialog {
-  position: fixed;
-  z-index: 100;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: min(640px, calc(100vw - 32px));
-  max-height: calc(100dvh - 48px);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  border: 1px solid var(--sm-line);
-  border-radius: 16px;
-  background: var(--sm-paper);
+.records {
+  margin: 4px 0;
+  border-block-end: 1px solid var(--sm-line);
   color: var(--sm-ink);
-  box-shadow: var(--sm-shadow-dialog);
+  font-size: 13px;
 }
-.dialog h2 {
+.records > summary {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 18px;
-  margin: 0 0 12px;
-}
-.header {
-  flex-shrink: 0;
-  padding: 20px 24px 12px;
-}
-.header p {
-  margin: 0;
-}
-.records {
-  min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding: 0 24px;
-  scrollbar-width: thin;
-}
-.footer {
-  flex-shrink: 0;
-  padding: 14px 24px;
-  border-top: 1px solid var(--sm-line);
-}
-.dialog .footer {
-  margin-top: 0;
-}
-.dialog h3 {
-  font-size: 14px;
-  margin: 0 0 12px;
-}
-.dialog p {
-  font-size: 13px;
-  color: var(--sm-soft);
-  line-height: 1.8;
-}
-.dialog section,
-.dialog details {
-  padding: 14px 0;
-  border-top: 1px solid var(--sm-line);
-}
-.dialog summary {
+  gap: 12px;
+  padding: 12px 8px;
   cursor: pointer;
-  font-size: 14px;
-  line-height: 1.8;
+  font: var(--sm-ui-body-font);
+}
+.records > summary::-webkit-details-marker {
+  display: none;
+}
+.records > summary svg {
+  width: 18px;
+  height: 18px;
+  color: var(--sm-soft);
+}
+.records > summary::after {
+  content: "";
+  width: 7px;
+  height: 7px;
+  margin-inline: auto 5px;
+  border-block-start: 1.5px solid var(--sm-soft);
+  border-inline-end: 1.5px solid var(--sm-soft);
+  transform: rotate(45deg);
+}
+.records[open] > summary::after {
+  transform: rotate(135deg);
+}
+.records > div {
+  padding: 0 8px 12px;
   overflow-wrap: anywhere;
 }
-.dialog summary time {
-  display: block;
-  margin-left: 18px;
-  font-size: 12px;
+.records section {
+  padding-block: 8px;
+}
+.records p,
+.records time {
   color: var(--sm-soft);
+  margin: 4px 0;
 }
-.dialog label {
+.records time {
   display: block;
-  font-size: 13px;
-  margin-top: 10px;
+  font-size: 12px;
 }
-.dialog textarea {
+.records h3 {
+  margin: 4px 0;
+  font-size: 14px;
+}
+.records label,
+.records textarea {
   display: block;
   width: 100%;
-  min-height: 86px;
-  max-height: 220px;
-  margin-top: 8px;
-  padding: 10px;
-  border: 1px solid var(--sm-line);
-  border-radius: 8px;
-  background: var(--sm-ground);
-  color: var(--sm-ink);
-  font: inherit;
-  font-size: 13px;
-  line-height: 1.7;
+}
+.records textarea {
   resize: vertical;
+  min-height: 76px;
+  font: inherit;
+}
+.records button {
+  margin: 4px 8px 0 0;
+  padding: 5px 8px;
+  border: 1px solid var(--sm-line);
+  border-radius: 6px;
+  color: var(--sm-accent);
 }
 .actions {
   display: flex;
-  justify-content: flex-end;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 14px;
-}
-.actions button,
-.dialog details button {
-  padding: 8px 12px;
-  border: 1px solid var(--sm-line);
-  border-radius: 8px;
-  background: var(--sm-ground);
-  color: var(--sm-ink);
-  cursor: pointer;
-}
-
-.dialog .error {
-  color: var(--sm-danger);
-}
-@media (max-width: 480px) {
-  .header {
-    padding: 16px 16px 10px;
-  }
-  .records {
-    padding-inline: 16px;
-  }
-  .footer {
-    padding: 12px 16px;
-  }
-}
-
-.diagnostics {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 8px 16px;
-  font-size: 12px;
-}
-.diagnostics dt {
-  color: var(--sm-soft);
-}
-.diagnostics dd {
-  margin: 0;
-  overflow-wrap: anywhere;
 }

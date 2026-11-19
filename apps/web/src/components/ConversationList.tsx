@@ -113,6 +113,7 @@ export function ConversationList({
   return (
     <section className={styles.library} aria-label="会话列表">
       <PaneHeader
+        sidebarToggle
         icon={MessagesSquare}
         title="对话"
         detail={`${active.length + archived.length}`}

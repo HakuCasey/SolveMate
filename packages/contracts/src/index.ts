@@ -85,6 +85,9 @@ export {
   assertUserData,
   assertNoteMetadata,
   maxNoteTitleLength,
+  maxUserNameLength,
+  maxPetNameLength,
+  maxSignatureLength,
   truncateNoteTitle,
 } from "./metadata";
 import type {
@@ -188,7 +191,14 @@ export interface NoteLibrary {
 }
 
 export interface Settings {
+  userName?: string;
+  profileAvatar?: string | null;
+  profileSignature?: string;
+  /** 未设置时使用默认宠物；null 表示尚未领养。 */
+  petName?: string | null;
+  /** 题目与笔记字号，旧记录也用此值初始化对话字号。 */
   fontSize: number;
+  chatFontSize?: number;
   appearance: "light" | "dark";
   themeId?: string;
   globalModel: string;

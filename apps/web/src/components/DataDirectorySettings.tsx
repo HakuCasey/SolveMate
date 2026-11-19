@@ -1,7 +1,9 @@
+import { FileLabel } from "./FileLabel";
 import { useEffect, useState } from "react";
 import { Dialog } from "radix-ui";
 import { FolderOpen } from "lucide-react";
 import { localRequest } from "../storage/local-client";
+import paneHeader from "./PaneHeader.module.css";
 import styles from "./BackupDialog.module.css";
 import shared from "./ExportDialog.module.css";
 
@@ -93,9 +95,10 @@ export function DataDirectorySettings({ disabled }: { disabled: boolean }) {
               onPointerDownOutside={(e) => e.preventDefault()}
             >
               <header className={shared.heading}>
-                <span className={shared.mark}>
-                  <FolderOpen />
-                </span>
+                <FolderOpen
+                  className={paneHeader.titleIcon}
+                  aria-hidden="true"
+                />
                 <Dialog.Title>更改用户数据路径</Dialog.Title>
               </header>
               <form
@@ -156,12 +159,17 @@ export function DataDirectorySettings({ disabled }: { disabled: boolean }) {
           </Dialog.Portal>
         </Dialog.Root>
       </div>
-      <p className={styles.path}>{info?.current ?? (error ? "" : "读取中…")}</p>
+      <p className={styles.path}>
+        {info ? <FileLabel value={info.current} /> : error ? "" : "读取中…"}
+      </p>
       {info?.pending && (
         <div className={styles.pending}>
-          <span role="status">
-            将切换到 {info.pending.path}。{restart}
-          </span>
+          <div role="status" className={styles.pendingTarget}>
+            <div className={styles.targetLine}>
+              将切换到 <FileLabel value={info.pending.path} />
+            </div>
+            {restart}
+          </div>
           <button
             className={styles.link}
             disabled={disabled || saving}

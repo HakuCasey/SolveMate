@@ -5,7 +5,7 @@
 ## 运行环境
 
 1. 依赖：仓库根 `npm ci`，再 `npm i -D @playwright/test`、`npx playwright install chromium`（国内可设 `PLAYWRIGHT_DOWNLOAD_HOST=https://registry.npmmirror.com/-/binary/playwright`）。
-2. 前置服务：`npm start`（网页 4173 + 内容服务 8000 + 本机 AI 8765），AI 用例需在「设置 → AI 配置」配好 DeepSeek Harness。
+2. 前置服务：`npm start`（网页 4173 + 内容服务 8000 + 本机 AI 8765），AI 用例需在「系统设置 → AI 配置」配好 DeepSeek Harness。
 3. 运行：仓库根 `npx playwright test`（配置见 `playwright.config.ts`，串行执行、失败保留 trace 与截图）。
 
 ## 测试用例清单
@@ -79,7 +79,7 @@
 ### 已通过用例（真实浏览器 + 真实 DSH）
 
 - A1 应用加载、侧边栏功能菜单、导航切换（`e2e/smoke.spec.ts`）
-- 各主页面（学科/对话/笔记/教研室/机器人）导航、设置菜单（`e2e/navigation.spec.ts`）
+- 各主页面（学科/对话/笔记/教研室/机器人）导航、侧栏折叠和标题对齐、账号菜单、宠物改名与重新加载（`e2e/navigation.spec.ts`）
 - B1 学科切换（高等数学 / C 语言）、B2 学习资料/题目切换、C1 打开 PDF 阅读（`e2e/subjects.spec.ts`）
 - C3 阅读位置在重新打开后恢复（`e2e/reading-position.spec.ts`）
 - D1 新建对话、发送、收到回复、追问（`e2e/conversation.spec.ts`）
@@ -88,7 +88,7 @@
 - D9 空输入按 ↑ 回填上一次发送内容（`e2e/conversation.spec.ts`）
 - D3 会话归档与移回进行中（`e2e/conversation-manage.spec.ts`）
 - D2 切换机器人触发确认并新建对话（`e2e/robot-switch.spec.ts`）
-- E 笔记页渲染、F 机器人页展示预置机器人、G1 显示设置（夜间模式/字号，`e2e/notes-robots-settings.spec.ts`）
+- E 笔记页渲染、F 机器人页展示预置机器人、G1 显示设置（夜间模式）和聊天栏对话字号（`e2e/notes-robots-settings.spec.ts`）
 - H 社区内容展示内置资料、I 教研室展示资料与教研工具（`e2e/research-community.spec.ts`）
 - G3/G4 备份与恢复对话框、导出窗口、数据路径（`e2e/backup.spec.ts`）
 

@@ -112,6 +112,22 @@ def migration(value=None, **kwargs):
     }
 
 
+def test_rename_pet_on_existing_records(tmp_path):
+    endpoint = "/local-api/v1/user/state"
+    with TestClient(create_app(tmp_path / "ai"), headers=HEADERS) as client:
+        original = data()
+        assert "petName" not in original["settings"]
+        saved = client.put(endpoint, json={"value": original, "expectedRevision": 0})
+        assert saved.status_code == 200
+        original["settings"]["petName"] = "墨团"
+        renamed = client.put(
+            endpoint,
+            json={"value": original, "expectedRevision": saved.json()["revision"]},
+        )
+        assert renamed.status_code == 200
+        assert client.get(endpoint).json()["value"] == original
+
+
 def test_two_clients_share_state_and_reject_stale_writes(tmp_path):
     app = create_app(tmp_path / "ai")
     with (
@@ -801,7 +817,7 @@ def test_unsubmitted_question_with_no_connection_is_saved_and_read_back(tmp_path
         "startedAt": 1,
         "completedAt": 1,
         "userMessageId": "question",
-        "error": "请先在设置中配置 AI。",
+        "error": "请先在系统设置中配置 AI。",
         "snapshot": None,
         "dispatch": None,
         "reportedModelId": None,

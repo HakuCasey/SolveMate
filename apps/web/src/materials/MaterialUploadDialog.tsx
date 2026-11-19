@@ -1,3 +1,4 @@
+import { FileLabel } from "../components/FileLabel";
 import { useRef, useState } from "react";
 import { Dialog } from "radix-ui";
 import {
@@ -140,6 +141,7 @@ export function MaterialUploadDialog({
         <Dialog.Overlay className={styles.overlay} />
         <Dialog.Content
           className={styles.dialog}
+          aria-describedby={undefined}
           onDragOver={(event) => {
             event.preventDefault();
             event.stopPropagation();
@@ -152,14 +154,7 @@ export function MaterialUploadDialog({
           }}
         >
           <div className={styles.heading}>
-            <div>
-              <Dialog.Title>上传资料</Dialog.Title>
-              <Dialog.Description>
-                {step === 3
-                  ? "上传与处理完成后，资料即可阅读。"
-                  : "先选择文件，再确定所属学科和内容类型。"}
-              </Dialog.Description>
-            </div>
+            <Dialog.Title>上传资料</Dialog.Title>
             <Dialog.Close
               className={styles.close}
               disabled={saving}
@@ -213,7 +208,9 @@ export function MaterialUploadDialog({
                   <li key={`${file.name}-${index}`}>
                     <FileText aria-hidden="true" />
                     <div>
-                      <strong>{file.name}</strong>
+                      <strong>
+                        <FileLabel value={file.name} />
+                      </strong>
                       <small>{(file.size / 1024 / 1024).toFixed(1)} MiB</small>
                       {uploadFileError(file) && (
                         <span className={styles.error}>
@@ -305,9 +302,9 @@ export function MaterialUploadDialog({
               aria-label="上传与处理进度"
             >
               <div className={styles.progressHeading} role="status">
-                <strong>
+                <span>
                   已处理 {finished} / {entries.length} 份
-                </strong>
+                </span>
                 {failures.length > 0 && (
                   <span className={styles.error}>{failures.length} 份失败</span>
                 )}
@@ -323,7 +320,9 @@ export function MaterialUploadDialog({
                     <li key={index}>
                       <FileText aria-hidden="true" />
                       <div>
-                        <strong>{entry.file.name}</strong>
+                        <strong>
+                          <FileLabel value={entry.file.name} />
+                        </strong>
                         <span role="status">{label}</span>
                         {entry.phase === "uploading" && (
                           <>

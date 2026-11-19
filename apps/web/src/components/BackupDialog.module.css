@@ -35,9 +35,12 @@
   width: 15px;
   height: 15px;
 }
-.row strong,
-.directoryHeader h3,
+.row .rowLabel,
 .file {
+  font: var(--sm-ui-body-font);
+  margin: 0;
+}
+.directoryHeader h3 {
   font-size: 14px;
   font-weight: 600;
   margin: 0;
@@ -67,15 +70,20 @@
   justify-content: space-between;
   gap: 10px;
 }
-.path,
-.pending,
-.file,
 .warning {
   overflow-wrap: anywhere;
 }
 .path,
 .caption {
   margin: 4px 0 0;
+}
+.pendingTarget {
+  min-width: 0;
+}
+.targetLine {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 4px;
 }
 .pending {
   margin-top: 8px;
@@ -107,4 +115,11 @@
   line-height: 1.6;
   font-size: 13px;
   margin: 18px 0 0;
+}
+
+.records {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
 }

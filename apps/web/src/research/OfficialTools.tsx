@@ -61,7 +61,7 @@ export function OfficialTools({
           {tools.error}
         </p>
       )}
-      {!catalog.length && (
+      {!catalog.length && !tools.error && (
         <p className={styles.notice}>
           {tools.checking
             ? "正在读取工具目录…"

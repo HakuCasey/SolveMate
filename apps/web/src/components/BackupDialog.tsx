@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { FileLabel } from "./FileLabel";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Dialog } from "radix-ui";
 import {
   ArchiveRestore,
@@ -18,6 +19,7 @@ import {
 } from "../backups/client";
 import { DataDirectorySettings } from "./DataDirectorySettings";
 import { ExportDialog } from "./ExportDialog";
+import paneHeader from "./PaneHeader.module.css";
 import styles from "./ExportDialog.module.css";
 import backupStyles from "./BackupDialog.module.css";
 
@@ -25,22 +27,22 @@ import backupStyles from "./BackupDialog.module.css";
 export function BackupDialog({
   onClose,
   onRefresh,
+  children,
 }: {
   onClose: () => void;
   onRefresh: () => Promise<boolean>;
+  children: ReactNode;
 }) {
   const [exporting, setExporting] = useState(false);
   const [preview, setPreview] = useState<BackupPreview | null>(null);
   const [phase, setPhase] = useState<
     "idle" | "checking" | "restoring" | "success"
   >("idle");
-  const [reload, setReload] = useState<"idle" | "loading" | "done" | "failed">(
-    "idle",
-  );
+  const [reload, setReload] = useState<"idle" | "loading" | "done">("idle");
   const [filename, setFilename] = useState("");
   const [error, setError] = useState("");
   const [elapsed, setElapsed] = useState(0);
-  const [result, setResult] = useState("");
+  const [safetyBackup, setSafetyBackup] = useState("");
   const fileInput = useRef<HTMLInputElement>(null);
   const operation = useRef<AbortController | null>(null);
   const pending = useRef(false);
@@ -65,9 +67,12 @@ export function BackupDialog({
   async function loadUserData() {
     setReload("loading");
     try {
-      setReload((await onRefresh()) ? "done" : "failed");
-    } catch {
-      setReload("failed");
+      setReload((await onRefresh()) ? "done" : "idle");
+    } catch (failure) {
+      setReload("idle");
+      setError(
+        failure instanceof Error ? failure.message : "加载用户数据失败。",
+      );
     }
   }
   function leavePreview() {
@@ -123,7 +128,7 @@ export function BackupDialog({
       const restored = await restoreBackup(preview.token);
       token.current = "";
       const refreshed = await onRefresh().catch(() => false);
-      setResult(`恢复前的数据备份：${restored.safetyBackup}`);
+      setSafetyBackup(restored.safetyBackup);
       setPhase("success");
       if (!refreshed)
         setError("数据已恢复。部分内容未能加载，请返回后点击“加载用户数据”。");
@@ -177,9 +182,10 @@ export function BackupDialog({
           }}
         >
           <header className={styles.heading}>
-            <span className={styles.mark}>
-              <ArchiveRestore aria-hidden="true" />
-            </span>
+            <ArchiveRestore
+              className={paneHeader.titleIcon}
+              aria-hidden="true"
+            />
             <div>
               <Dialog.Title>{detail ? "恢复备份" : "备份与恢复"}</Dialog.Title>
             </div>
@@ -199,7 +205,9 @@ export function BackupDialog({
               <>
                 {phase !== "success" ? (
                   <>
-                    <h3 className={backupStyles.file}>{filename}</h3>
+                    <h3 className={backupStyles.file}>
+                      <FileLabel value={filename} />
+                    </h3>
                     <p className={backupStyles.caption}>
                       {new Date(preview.createdAt).toLocaleString()} ·{" "}
                       {preview.files} 个文件 ·{" "}
@@ -213,14 +221,18 @@ export function BackupDialog({
                   <div className={styles.success} role="status">
                     <Check />
                     <div>
-                      <strong>数据已恢复</strong>
-                      <span>{result}</span>
+                      <span>数据已恢复</span>
+                      <span>恢复前的数据备份</span>
+                      <FileLabel value={safetyBackup} />
                     </div>
                   </div>
                 )}
               </>
             ) : (
               <>
+                <fieldset className={backupStyles.records} disabled={locked}>
+                  {children}
+                </fieldset>
                 <div className={backupStyles.rows}>
                   <button
                     className={backupStyles.row}
@@ -229,7 +241,7 @@ export function BackupDialog({
                   >
                     <FileArchive />
                     <span>
-                      <strong>导出备份</strong>
+                      <span className={backupStyles.rowLabel}>导出备份</span>
                       <small>将资料、学习记录和配置保存为 ZIP 文件。</small>
                     </span>
                     <ChevronRight />
@@ -241,7 +253,7 @@ export function BackupDialog({
                   >
                     <ArchiveRestore />
                     <span>
-                      <strong>恢复备份</strong>
+                      <span className={backupStyles.rowLabel}>恢复备份</span>
                       <small>选择 ZIP 备份文件。</small>
                     </span>
                     <ChevronRight />
@@ -280,7 +292,7 @@ export function BackupDialog({
                     }
                   />
                   <span>
-                    <strong>加载用户数据</strong>
+                    <span className={backupStyles.rowLabel}>加载用户数据</span>
                     <small>在其他窗口修改数据后，可在这里读取最新记录。</small>
                   </span>
                   {reload === "done" ? (
@@ -289,11 +301,6 @@ export function BackupDialog({
                     <ChevronRight />
                   )}
                 </button>
-                {reload === "failed" && (
-                  <p className={styles.error} role="alert">
-                    部分数据未能加载。请检查本机服务后重试。
-                  </p>
-                )}
                 {reload === "loading" && (
                   <p role="status" className={styles.hint}>
                     正在加载…

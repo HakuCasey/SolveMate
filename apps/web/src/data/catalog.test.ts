@@ -23,6 +23,19 @@ describe("built-in study content", () => {
     data.settings.readingPaneRatio = 0.65;
     expect(() => assertAppData(data)).not.toThrow();
   });
+  it("keeps the reading size of older records and validates the separate chat size", () => {
+    const data = createInitialData();
+    data.settings.fontSize = 18;
+    expect(() => assertAppData(data)).not.toThrow();
+    for (const size of [8, 12, 21]) {
+      data.settings.chatFontSize = size;
+      expect(() => assertAppData(data)).not.toThrow();
+    }
+    for (const size of [7, 22, 8.5]) {
+      data.settings.chatFontSize = size;
+      expect(() => assertAppData(data)).toThrow();
+    }
+  });
   it("rejects malformed external session metadata rather than coercing it", () => {
     const data = createStudyFixture();
     const malformed = {
@@ -106,7 +119,7 @@ describe("built-in study content", () => {
     expect(second.noteLibrary!.notebooks.map((item) => item.id)).toEqual([
       "notebook-unclassified",
     ]);
-    expect(second.settings.fontSize).toBe(14);
+    expect(second.settings.fontSize).toBe(12);
   });
 
   it("reads a selected question or PDF page from its own course", () => {

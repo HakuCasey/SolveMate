@@ -1,3 +1,5 @@
+import { useDataRefresh } from "./refresh/useDataRefresh";
+import { useOperationAttention } from "./operations/useOperationAttention";
 import { operations } from "./operations/store";
 import { materialLocation as toMaterialLocation } from "./materials/location";
 import { activeSessionBinding, serviceSwitchKind } from "./ai/session-bindings";
@@ -93,6 +95,7 @@ import {
 import { NotebookList } from "./components/NotebookList";
 import { PaneHeader } from "./components/PaneHeader";
 import { ConversationList } from "./components/ConversationList";
+import { SidebarLayout } from "./components/SidebarLayout";
 import { Sidebar } from "./components/Sidebar";
 import { BackupDialog } from "./components/BackupDialog";
 import { SubjectDialog, type SubjectAction } from "./components/SubjectDialog";
@@ -602,8 +605,14 @@ function Workspace({ content }: { content: OfficialContent }) {
         pendingAiIds ? pendingAiIds.split(",") : [],
       );
   }, [restoreConversationId, pendingAiIds, restoreAiConversation]);
-  const [recordDetailsOpen, setRecordDetailsOpen] = useState(false);
-  const [unsavedRecordsOpen, setUnsavedRecordsOpen] = useState(false);
+  const hasOperationFailures = useOperationAttention();
+  const refresh = useDataRefresh();
+  const recordLoadError = loadFailure ?? storageStatus.loadFailure;
+  const needsAttention =
+    hasOperationFailures ||
+    !!recordLoadError ||
+    !!content.loadError ||
+    conflict;
   const [noteId, setNoteId] = useState<string | null>(null);
   const [recommendationsExpanded, setRecommendationsExpanded] = useState(false);
 
@@ -1426,15 +1435,45 @@ function Workspace({ content }: { content: OfficialContent }) {
           <BackupDialog
             onClose={() => setBackupOpen(false)}
             onRefresh={() => dataRefresh.refresh(undefined, false, true)}
-          />
+          >
+            <RefreshControls
+              loadFailure={recordLoadError}
+              refreshing={refresh.refreshing}
+              readError={content.loadError}
+              onRetryRead={retryRead}
+              conflict={conflict}
+              needsAttention={needsAttention}
+              onRefresh={() => dataRefresh.refresh(undefined, false, true)}
+              onRetry={retrySave}
+              data={data}
+              conflicts={conflicts}
+              onResolve={(index, choice) => {
+                const item = conflicts[index];
+                resolveConflict(index, choice);
+                if (choice === "remote" && item?.path[0] === "drafts") {
+                  setChatDrafts((previous) => {
+                    const next = { ...previous };
+                    const key = item.path[1];
+                    if (key) {
+                      if (typeof item.remote === "string")
+                        next[key] = item.remote;
+                      else delete next[key];
+                    }
+                    return next;
+                  });
+                }
+              }}
+            />
+          </BackupDialog>
         )}
-        <div className={styles.shell}>
+        <SidebarLayout className={styles.shell}>
           <StudyProvider
             allowed={studyAllowed}
             sceneKey={`${view}:${documentKey}:${currentConversation?.id ?? ""}:${note?.id ?? ""}:${noteEditor?.id ?? ""}:${selectionNote?.id ?? ""}`}
             aiEvent={aiStudyEvent(ai.turns, Date.now())}
           >
             <Sidebar
+              needsAttention={needsAttention}
               onOpenBackup={() => setBackupOpen(true)}
               ai={ai}
               view={view}
@@ -1469,10 +1508,49 @@ function Workspace({ content }: { content: OfficialContent }) {
                 }
                 setView(next);
               }}
+              onSaveProfile={(changes) =>
+                saveChanges((previous) => ({
+                  ...previous,
+                  settings: { ...previous.settings, ...changes },
+                }))
+              }
               onSettingsChange={(settings) =>
                 updateData((previous) => ({ ...previous, settings }))
               }
-            />
+            >
+              <StatusBar>
+                <PwaControls
+                  prepareReload={prepareReload}
+                  saveFailure={
+                    loadState === "ready" &&
+                    !storageStatus.loadFailure &&
+                    (saveState === "error" || conflict)
+                      ? conflict
+                        ? "记录存在修改冲突，请先选择要保留的内容。"
+                        : saveError || "学习记录未能保存。"
+                      : ""
+                  }
+                  saveConflict={conflict}
+                  onRetrySave={async () => {
+                    await retrySave();
+                    return readSaveState() === "saved";
+                  }}
+                  onReviewSave={() => setBackupOpen(true)}
+                />
+                <ConversationStatus
+                  conversations={data.conversations}
+                  turns={ai.turns}
+                  connectionErrors={ai.connectionErrors}
+                  activeId={currentConversation?.id ?? activeConversationId}
+                  onOpen={(conversation) =>
+                    openConversation(
+                      conversation,
+                      conversation.status === "active",
+                    )
+                  }
+                />
+              </StatusBar>
+            </Sidebar>
           </StudyProvider>
           <section
             className={styles.workspace}
@@ -1635,11 +1713,6 @@ function Workspace({ content }: { content: OfficialContent }) {
                       ? "打开学习资料，开始讨论"
                       : "选择题目，开始讨论"}
                   </h2>
-                  <p>
-                    {libraryScope.kind === "textbooks"
-                      ? "在左侧列表中打开资料，即可围绕阅读内容提问。"
-                      : "在左侧列表中打开题目，即可查看内容、参考答案并提问。"}
-                  </p>
                 </section>
               )}
               {view === "conversations" && (
@@ -1746,7 +1819,6 @@ function Workspace({ content }: { content: OfficialContent }) {
                       <div className={styles.noteEmpty}>
                         <NotebookPen aria-hidden="true" />
                         <h2>暂无笔记</h2>
-                        <p>可以在左侧展开笔记本查看内容。</p>
                       </div>
                     )}
                   </div>
@@ -1760,6 +1832,15 @@ function Workspace({ content }: { content: OfficialContent }) {
                   key={`chat:${chatDraftKey}`}
                   researchMode={
                     isResearchView || !!currentConversation?.research
+                  }
+                  fontSize={
+                    data.settings.chatFontSize ?? data.settings.fontSize
+                  }
+                  onFontSizeChange={(chatFontSize) =>
+                    updateData((previous) => ({
+                      ...previous,
+                      settings: { ...previous.settings, chatFontSize },
+                    }))
                   }
                   suggestions={
                     isResearchView || currentConversation?.research
@@ -1850,7 +1931,7 @@ function Workspace({ content }: { content: OfficialContent }) {
               />
             </div>
           </section>
-        </div>
+        </SidebarLayout>
         {selectionNote && (
           <SelectionNoteDialog
             key={selectionNote.id}
@@ -1940,74 +2021,6 @@ function Workspace({ content }: { content: OfficialContent }) {
             }}
           />
         )}
-        <StatusBar>
-          <RefreshControls
-            saveState={saveState}
-            loadFailure={loadFailure ?? storageStatus.loadFailure}
-            loadingRecords={loadState === "loading"}
-            readError={content.loadError}
-            onRetryRead={retryRead}
-            onOpenBackup={() => {
-              setRecordDetailsOpen(false);
-              setBackupOpen(true);
-            }}
-            conflict={conflict}
-            online={storageStatus.online}
-            unsavedOpen={unsavedRecordsOpen}
-            onUnsavedOpenChange={setUnsavedRecordsOpen}
-            detailsOpen={recordDetailsOpen}
-            onDetailsOpenChange={setRecordDetailsOpen}
-            onRetry={retrySave}
-            data={data}
-            conflicts={conflicts}
-            onResolve={(index, choice) => {
-              const item = conflicts[index];
-              resolveConflict(index, choice);
-              if (choice === "remote" && item?.path[0] === "drafts") {
-                setChatDrafts((previous) => {
-                  const next = { ...previous };
-                  const key = item.path[1];
-                  if (key) {
-                    if (typeof item.remote === "string")
-                      next[key] = item.remote;
-                    else delete next[key];
-                  }
-                  return next;
-                });
-              }
-            }}
-          />
-          <PwaControls
-            prepareReload={prepareReload}
-            saveFailure={
-              loadState === "ready" &&
-              !storageStatus.loadFailure &&
-              (saveState === "error" || conflict)
-                ? conflict
-                  ? "记录存在修改冲突，请先选择要保留的内容。"
-                  : saveError || "学习记录未能保存。"
-                : ""
-            }
-            saveConflict={conflict}
-            onRetrySave={async () => {
-              await retrySave();
-              return readSaveState() === "saved";
-            }}
-            onReviewSave={() => {
-              if (conflict) setUnsavedRecordsOpen(true);
-              else setRecordDetailsOpen(true);
-            }}
-          />
-          <ConversationStatus
-            conversations={data.conversations}
-            turns={ai.turns}
-            connectionErrors={ai.connectionErrors}
-            activeId={currentConversation?.id ?? activeConversationId}
-            onOpen={(conversation) =>
-              openConversation(conversation, conversation.status === "active")
-            }
-          />
-        </StatusBar>
       </main>
     </SelectionActionsProvider>
   );

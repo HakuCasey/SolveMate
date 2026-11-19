@@ -35,6 +35,42 @@
     "settings": {
       "type": "object",
       "properties": {
+        "profileAvatar": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "maxLength": 150000,
+              "pattern": "^data:image/png;base64,[A-Za-z0-9+/]+=*$"
+            }
+          ]
+        },
+        "petName": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "maxLength": 24,
+          "pattern": "\\S"
+        },
+        "profileSignature": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "userName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 14,
+          "pattern": "\\S"
+        },
+        "chatFontSize": {
+          "type": "integer",
+          "minimum": 8,
+          "maximum": 21
+        },
         "fontSize": {
           "type": "integer",
           "minimum": 12,

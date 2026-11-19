@@ -1,3 +1,4 @@
+import { SidebarToggle } from "../components/SidebarLayout";
 import { QuestionReader } from "./QuestionReader";
 import { ResourceUnavailable } from "../refresh/ResourceUnavailable";
 import { dataRefresh } from "../refresh/coordinator";
@@ -135,14 +136,16 @@ export function MaterialReader({
     >
       {header ?? (
         <header className={styles.toolbar}>
+          <SidebarToggle />
           <button
             className={styles.back}
             type="button"
             aria-label="返回学习资料列表"
+            title="返回学习资料列表"
             onClick={onBack}
           >
             <ArrowLeft aria-hidden="true" />
-            学习资料
+            <span>学习资料</span>
           </button>
           <span className={styles.documentTitle} title={selected?.title}>
             {selected?.title ?? "资料不可用"}

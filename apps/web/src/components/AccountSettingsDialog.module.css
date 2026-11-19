@@ -1,0 +1,34 @@
+.avatarRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 16px 0;
+}
+.avatarRow img {
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  object-fit: contain;
+  background: var(--sm-original-paper);
+}
+.avatarRow button {
+  padding: 6px 8px;
+  border-radius: 6px;
+  color: var(--sm-accent);
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+}
+.avatarRow button:hover:enabled {
+  background: var(--sm-active);
+}
+.signature {
+  width: 100%;
+  resize: vertical;
+  padding: 10px 12px;
+  border: 1px solid var(--sm-line);
+  border-radius: 8px;
+  font: inherit;
+  color: var(--sm-ink);
+  background: var(--sm-ground);
+}

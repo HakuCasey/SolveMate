@@ -1,3 +1,4 @@
+import { SidebarToggle } from "./SidebarLayout";
 import { useEditRevision } from "../refresh/useEditRevision";
 import {
   useId,
@@ -43,6 +44,7 @@ import {
   parseRobotConfiguration,
   robotConfigurationBlob,
 } from "../state/robot-transfer";
+import paneHeader from "../components/PaneHeader.module.css";
 import styles from "./RobotsPage.module.css";
 
 interface RobotsPageProps {
@@ -63,14 +65,20 @@ const skills: { value: Robot["skills"][number]; label: string }[] = [
   { value: "notes", label: "笔记讨论" },
 ];
 
-function RobotAvatar({ icon }: { icon: Robot["icon"] }) {
+function RobotAvatar({
+  icon,
+  className,
+}: {
+  icon: Robot["icon"];
+  className?: string;
+}) {
   const Icon =
     icon === "graduation-cap"
       ? GraduationCap
       : icon === "sparkles"
         ? Sparkles
         : Bot;
-  return <Icon aria-hidden="true" />;
+  return <Icon className={className} aria-hidden="true" />;
 }
 
 export function RobotsPage({
@@ -351,7 +359,8 @@ export function RobotsPage({
       <aside className={styles.roster}>
         <header className={styles.listHeading}>
           <div className={styles.listTitle}>
-            <Bot aria-hidden="true" />
+            <SidebarToggle />
+            <Bot className={paneHeader.titleIcon} aria-hidden="true" />
             <h2>机器人</h2>
             <span>
               {robots.length}/{maxRobots}
@@ -499,11 +508,11 @@ export function RobotsPage({
       {draft ? (
         <div className={styles.editor}>
           <header className={styles.robotHeading}>
-            <span className={styles.headingAvatar}>
-              <RobotAvatar icon={draft.icon} />
-            </span>
+            <RobotAvatar icon={draft.icon} className={paneHeader.titleIcon} />
             <div className={styles.headingCopy}>
-              <h1>{draft.name || "未命名机器人"}</h1>
+              <h1 title={draft.name || undefined}>
+                {draft.name || "未命名机器人"}
+              </h1>
             </div>
             <button
               type="button"
@@ -607,6 +616,7 @@ export function RobotsPage({
                   />
                 </Tabs.Content>
                 <Tabs.Content value="memory" className={styles.panel}>
+                  <p className={styles.hint}>记忆与能力选项目前仅保存配置。</p>
                   <h3 className={styles.sectionTitle}>记忆</h3>
                   <label className={styles.checkField}>
                     <input
@@ -693,15 +703,11 @@ export function RobotsPage({
                 {saving ? "保存中…" : "保存配置"}
               </button>
             </div>
-            <p className={styles.footerHint}>
-              角色指令和模型用于实际对话；记忆与能力选项目前仅保存配置。
-            </p>
           </footer>
         </div>
       ) : (
         <div className={styles.empty}>
           <h2>还没有机器人</h2>
-          <p>新建一个机器人，设置它的交流方式和能力。</p>
           <button
             type="button"
             className={styles.primaryButton}

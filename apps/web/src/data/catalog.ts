@@ -81,7 +81,7 @@ export function createInitialData(): AppData {
     defaultRobotId: "scholar",
     conversations: [],
     settings: {
-      fontSize: 14,
+      fontSize: 12,
       appearance:
         typeof matchMedia === "function" &&
         matchMedia("(prefers-color-scheme: dark)").matches

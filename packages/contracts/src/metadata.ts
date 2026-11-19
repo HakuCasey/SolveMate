@@ -3,6 +3,13 @@ import schema from "../ai-metadata.schema.json";
 import legacySchema from "../legacy/ai-metadata-v2.schema.json";
 import appSchema from "../app-data.schema.json";
 
+export const maxPetNameLength =
+  appSchema.properties.settings.properties.petName.maxLength;
+export const maxSignatureLength =
+  appSchema.properties.settings.properties.profileSignature.maxLength;
+export const maxUserNameLength =
+  appSchema.properties.settings.properties.userName.maxLength;
+
 export const maxNoteTitleLength =
   appSchema.$defs.Note.properties.title.maxLength;
 

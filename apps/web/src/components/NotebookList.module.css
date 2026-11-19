@@ -31,8 +31,7 @@
 .notebookButton strong {
   flex: 1;
   min-width: 0;
-  font-size: 14px;
-  font-weight: 500;
+  font: var(--sm-ui-body-font);
   overflow-wrap: anywhere;
 }
 .notebookButton > span {
@@ -94,8 +93,7 @@
   flex: 1;
 }
 .copy strong {
-  font-size: 13px;
-  font-weight: 500;
+  font: var(--sm-ui-body-font);
   overflow-wrap: anywhere;
 }
 .copy > span {

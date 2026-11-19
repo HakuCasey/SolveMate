@@ -67,8 +67,7 @@
 }
 .entry strong {
   display: block;
-  font-weight: 500;
-  line-height: 1.5;
+  font: var(--sm-ui-body-font);
   overflow-wrap: anywhere;
 }
 .entry small {

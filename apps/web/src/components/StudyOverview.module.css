@@ -1,12 +1,6 @@
-/* 两排始终共用七列；小屏侧栏较窄时随列宽收缩，不撑宽菜单。 */
 .badges {
-  width: calc(100% + 12px);
-  margin-inline: -6px;
-  display: grid;
-  gap: 4px;
-}
-.achievementGroup {
-  min-width: 0;
+  display: flex;
+  gap: var(--profile-badge-gap, 3px);
 }
 .badgeRow {
   display: grid;
@@ -44,10 +38,14 @@
   outline: 1px solid var(--sm-ink);
   outline-offset: 2px;
 }
-.badges .badgeIcon {
+.entry {
+  width: var(--profile-badge-size, 24px);
+  height: var(--profile-badge-size, 24px);
+}
+.entry .badgeIcon {
   width: 100%;
   height: auto;
-  max-width: 22px;
+  max-width: 15px;
 }
 .collection {
   display: grid;
@@ -92,8 +90,7 @@
   gap: 12px;
 }
 .detailHeading strong {
-  font-size: 13px;
-  font-weight: 500;
+  font: var(--sm-ui-body-font);
 }
 .detailHeading span {
   color: var(--sm-soft);
@@ -170,7 +167,6 @@
 }
 .value {
   font-size: 20px;
-  font-weight: 500;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.4px;
 }

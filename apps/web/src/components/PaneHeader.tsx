@@ -1,3 +1,4 @@
+import { SidebarToggle } from "./SidebarLayout";
 import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import styles from "./PaneHeader.module.css";
@@ -8,17 +9,18 @@ export function PaneHeader({
   title,
   detail,
   actions,
+  sidebarToggle,
 }: {
   icon: LucideIcon;
   title: string;
   detail?: ReactNode;
   actions?: ReactNode;
+  sidebarToggle?: boolean;
 }) {
   return (
     <header className={styles.header}>
-      <span className={styles.icon}>
-        <Icon aria-hidden="true" />
-      </span>
+      {sidebarToggle && <SidebarToggle />}
+      <Icon className={styles.titleIcon} aria-hidden="true" />
       <div className={styles.content}>
         <h2 title={title}>{title}</h2>
         {detail && <div className={styles.detail}>{detail}</div>}

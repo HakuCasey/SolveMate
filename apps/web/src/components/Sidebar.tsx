@@ -1,8 +1,16 @@
+import {
+  AccountSettingsDialog,
+  type ProfileSettings,
+} from "./AccountSettingsDialog";
+import { PetPanel } from "./PetPanel";
+import badgeStyles from "./StudyOverview.module.css";
+import { useSidebarLayout } from "./SidebarLayout";
 import { PopoverPanel } from "./PopoverPanel";
-import { useState, type CSSProperties } from "react";
+import { useRef, useState, type ReactNode, type CSSProperties } from "react";
 import { Popover } from "radix-ui";
 import {
   ArchiveRestore,
+  BookOpen,
   Bot,
   Check,
   CircleHelp,
@@ -13,11 +21,10 @@ import {
   MessagesSquare,
   Moon,
   NotebookPen,
-  PanelLeftClose,
-  PanelLeftOpen,
+  UserRoundCog,
   PawPrint,
   School,
-  Settings as SettingsIcon,
+  MessageSquarePlus,
   SlidersHorizontal,
   Sun,
   UserRoundPlus,
@@ -27,6 +34,7 @@ import type { AiService } from "../ai/useAiService";
 import { AiSettings } from "./AiSettings";
 import { StudyFootprint, StudyAchievements } from "./StudyOverview";
 import userAvatar from "../assets/user-avatar.png";
+import wordmark from "../assets/solvemate-wordmark.png";
 import { findTheme, themes } from "../theme/presets";
 import styles from "./Sidebar.module.css";
 
@@ -41,10 +49,15 @@ type View =
   | "library";
 
 interface SidebarProps {
+  children: ReactNode;
+  needsAttention: boolean;
   onOpenBackup: () => void;
   view: View;
   settings: Settings;
   onNavigate: (view: View) => void;
+  onSaveProfile: (
+    changes: ProfileSettings & Pick<Settings, "petName">,
+  ) => Promise<unknown>;
   onSettingsChange: (settings: Settings) => void;
   disabled?: boolean;
   ai: AiService;
@@ -58,71 +71,125 @@ const navigationItems = [
   { view: "robots", label: "机器人", icon: Bot },
 ] as const;
 
-const sidebarPreference = "solvemate.sidebarCollapsed";
+const projectUrl = "https://github.com/HakuCasey/SolveMate";
 
-const accountActions = [
-  {
-    name: "虚拟宠物",
-    description: "学习路上的小伙伴",
-    icon: PawPrint,
-    message: "虚拟宠物功能尚未开放。",
-  },
-  {
-    name: "邀请好友",
-    description: "邀请朋友一起学习",
-    icon: UserRoundPlus,
-    message: "邀请好友功能尚未开放。",
-  },
-  {
-    name: "帮助",
-    description: "使用说明与常见问题",
-    icon: CircleHelp,
-    message:
-      "从学科中选择学习资料或题目，再从列表打开内容。学习记录保存在本机，浏览器保留缓存。AI 连接可在“设置 → AI 配置”中配置。",
-  },
-  {
-    name: "退出登录",
-    description: "",
-    icon: LogOut,
-    message: "当前使用本地数据，没有已登录的账号。",
-  },
-];
+const sidebarMenuLayout = {
+  maxWidth: 200,
+  padding: 10,
+  side: "right",
+  sideOffset: 12,
+  collisionPadding: 12,
+} as const;
+
+function AccountMenu({
+  profile,
+  disabled,
+  onSave,
+  onOpenPet,
+}: {
+  onOpenPet: () => void;
+  profile: ProfileSettings;
+  disabled: boolean;
+  onSave: (changes: ProfileSettings) => Promise<unknown>;
+}) {
+  const [panel, setPanel] = useState<"closed" | "menu" | "settings">("closed");
+  const avatar = useRef<HTMLButtonElement>(null);
+
+  return (
+    <>
+      <Popover.Root
+        open={panel === "menu"}
+        onOpenChange={(next) =>
+          setPanel((current) =>
+            next ? "menu" : current === "menu" ? "closed" : current,
+          )
+        }
+      >
+        <Popover.Trigger
+          ref={avatar}
+          className={styles.avatarButton}
+          aria-label="用户菜单"
+          disabled={disabled}
+        >
+          <img
+            className={styles.avatarImage}
+            src={profile.profileAvatar ?? userAvatar}
+            alt=""
+          />
+        </Popover.Trigger>
+        <PopoverPanel
+          {...sidebarMenuLayout}
+          className={styles.popover}
+          align="start"
+          onCloseAutoFocus={(event) => {
+            if (panel === "settings") event.preventDefault();
+          }}
+          aria-label="用户账户"
+        >
+          <button
+            type="button"
+            className={styles.settingsItem}
+            onClick={() => setPanel("settings")}
+          >
+            <UserRoundCog aria-hidden="true" />
+            账号设置
+          </button>
+          <hr className={styles.accountDivider} />
+          <button
+            className={styles.settingsItem}
+            onClick={() => {
+              setPanel("closed");
+              onOpenPet();
+            }}
+          >
+            <PawPrint aria-hidden="true" />
+            虚拟宠物
+          </button>
+          <button className={styles.settingsItem} disabled>
+            <UserRoundPlus aria-hidden="true" />
+            邀请好友
+          </button>
+          <hr className={styles.accountDivider} />
+          <button className={styles.settingsItem} disabled>
+            <LogOut aria-hidden="true" />
+            退出登录
+          </button>
+        </PopoverPanel>
+      </Popover.Root>
+      {panel === "settings" && (
+        <AccountSettingsDialog
+          profile={profile}
+          defaultAvatar={userAvatar}
+          onSave={onSave}
+          onClose={() => setPanel("closed")}
+          onReturnFocus={() => avatar.current?.focus()}
+        />
+      )}
+    </>
+  );
+}
 
 export function Sidebar({
+  children,
+  needsAttention,
   onOpenBackup,
   view,
   settings,
   onNavigate,
+  onSaveProfile,
   onSettingsChange,
   disabled = false,
   ai,
 }: SidebarProps) {
-  const [collapsed, setCollapsed] = useState(() => {
-    try {
-      return window.localStorage.getItem(sidebarPreference) === "true";
-    } catch {
-      return false;
-    }
-  });
-  const toggleLabel = collapsed ? "展开侧栏" : "收起侧栏";
-
-  function toggleSidebar() {
-    setCollapsed(!collapsed);
-    try {
-      window.localStorage.setItem(sidebarPreference, String(!collapsed));
-    } catch {
-      // 浏览器禁用本地存储时，仍可在当前窗口切换布局。
-    }
-  }
-
-  const [accountOpen, setAccountOpen] = useState(false);
-  const [accountMessage, setAccountMessage] = useState("");
+  const { collapsed } = useSidebarLayout();
+  const [petOpen, setPetOpen] = useState(false);
+  const petName = settings.petName === undefined ? "小黑" : settings.petName;
   const [settingsMenu, setSettingsMenu] = useState<
-    "closed" | "menu" | "display" | "ai"
+    "closed" | "menu" | "display" | "ai" | "help"
   >("closed");
   const settingsOpen = settingsMenu !== "closed";
   const settingsPanel =
-    settingsMenu === "display" || settingsMenu === "ai" ? settingsMenu : null;
+    settingsMenu === "closed" || settingsMenu === "menu" ? null : settingsMenu;
   const modelSettingsOpen = settingsPanel === "ai";
 
   function setSettingsOpen(open: boolean) {
@@ -130,7 +197,7 @@ export function Sidebar({
   }
 
   // 菜单与子气泡共用一个状态；迟到的关闭事件不能关闭另一个气泡或重开菜单。
-  function setSettingsPanel(panel: "display" | "ai", open: boolean) {
+  function setSettingsPanel(panel: "display" | "ai" | "help", open: boolean) {
     setSettingsMenu((current) => {
       if (current === "closed") return current;
       return open ? panel : current === panel ? "menu" : current;
@@ -138,100 +205,54 @@ export function Sidebar({
   }
 
   function navigate(nextView: View) {
-    setAccountOpen(false);
     setSettingsOpen(false);
     onNavigate(nextView);
   }
 
   return (
     <nav
+      id="main-sidebar"
       className={styles.sidebar}
       data-collapsed={collapsed}
       aria-label="功能菜单"
     >
-      <div className={styles.profile}>
-        <div className={styles.profileRow}>
-          <Popover.Root
-            open={accountOpen}
-            onOpenChange={(open) => {
-              setAccountOpen(open);
-              if (open) setAccountMessage("");
-            }}
-          >
-            <Popover.Trigger
-              className={styles.avatarButton}
-              aria-label="用户菜单"
+      <Popover.Root open={petOpen} onOpenChange={setPetOpen}>
+        <Popover.Anchor asChild>
+          <div className={styles.profile}>
+            <AccountMenu
+              profile={settings}
               disabled={disabled}
-            >
-              <img className={styles.avatarImage} src={userAvatar} alt="" />
-            </Popover.Trigger>
-            <PopoverPanel
-              className={styles.popover}
-              width={256}
-              padding={7}
-              side="right"
-              align="start"
-              sideOffset={12}
-              collisionPadding={12}
-              aria-label="用户账户"
-            >
-              <div className={styles.accountName}>
-                <span className={styles.accountAvatar}>
-                  <img className={styles.avatarImage} src={userAvatar} alt="" />
-                </span>
-                <span>mumumeow</span>
+              onSave={onSaveProfile}
+              onOpenPet={() => setPetOpen(true)}
+            />
+            {!collapsed && (
+              <div className={styles.profileBadges}>
+                <StudyAchievements />
+                <Popover.Trigger
+                  type="button"
+                  disabled={disabled}
+                  aria-label="虚拟宠物"
+                  className={`${badgeStyles.badge} ${badgeStyles.entry}`}
+                  data-earned={petName !== null}
+                >
+                  <PawPrint
+                    className={badgeStyles.badgeIcon}
+                    aria-hidden="true"
+                  />
+                </Popover.Trigger>
               </div>
-              {[accountActions.slice(0, 2), accountActions.slice(2)].map(
-                (group, index) => (
-                  <div
-                    className={styles.accountGroup}
-                    role="group"
-                    aria-label={index === 0 ? "用户功能" : "帮助与登录"}
-                    key={index}
-                  >
-                    {group.map(({ name, description, icon: Icon, message }) => (
-                      <button
-                        key={name}
-                        className={styles.accountItem}
-                        type="button"
-                        onClick={() => setAccountMessage(message)}
-                      >
-                        <span className={styles.accountIcon}>
-                          <Icon aria-hidden="true" />
-                        </span>
-                        <span className={styles.accountCopy}>
-                          <span className={styles.accountTitle}>{name}</span>
-                          {description && (
-                            <span className={styles.accountDescription}>
-                              {description}
-                            </span>
-                          )}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                ),
-              )}
-              {accountMessage && (
-                <p className={styles.accountMessage} role="status">
-                  {accountMessage}
-                </p>
-              )}
-            </PopoverPanel>
-          </Popover.Root>
-          <button
-            type="button"
-            className={styles.toggle}
-            aria-expanded={!collapsed}
-            aria-label={toggleLabel}
-            title={toggleLabel}
-            onClick={toggleSidebar}
-          >
-            {collapsed ? <PanelLeftOpen /> : <PanelLeftClose />}
-          </button>
-        </div>
-        {!collapsed && <StudyAchievements />}
-      </div>
+            )}
+          </div>
+        </Popover.Anchor>
+        {petOpen && (
+          <Popover.Portal>
+            <PetPanel
+              name={petName}
+              onRename={(petName) => onSaveProfile({ petName })}
+            />
+          </Popover.Portal>
+        )}
+      </Popover.Root>
 
       {navigationItems.map(({ view: target, label, icon: Icon }) => (
         <button
@@ -258,23 +279,28 @@ export function Sidebar({
         <div className={styles.settings}>
           <Popover.Root open={settingsOpen} onOpenChange={setSettingsOpen}>
             <Popover.Trigger
-              className={styles.primaryButton}
-              aria-label="设置"
-              title={collapsed ? "设置" : undefined}
+              className={`${styles.primaryButton} ${styles.settingsTrigger}`}
+              data-attention={needsAttention || undefined}
+              aria-label="系统设置"
+              aria-description={
+                needsAttention ? "备份与恢复中有待处理的操作" : undefined
+              }
+              title={needsAttention ? "系统设置 · 有操作需要处理" : "系统设置"}
               disabled={disabled}
             >
-              <SettingsIcon aria-hidden="true" />
-              {!collapsed && <span>设置</span>}
+              <svg
+                className={styles.settingsLogo}
+                viewBox={collapsed ? "40 35 410 320" : "0 0 1564 392"}
+                aria-hidden="true"
+              >
+                <image href={wordmark} width="1564" height="392" />
+              </svg>
             </Popover.Trigger>
             <PopoverPanel
+              {...sidebarMenuLayout}
               className={styles.popover}
-              width={190}
-              padding={7}
-              side="right"
               align="end"
-              sideOffset={12}
-              collisionPadding={12}
-              aria-label="设置选项"
+              aria-label="系统设置选项"
               onOpenAutoFocus={(event) => {
                 if (modelSettingsOpen) event.preventDefault();
               }}
@@ -290,23 +316,48 @@ export function Sidebar({
                   event.preventDefault();
               }}
             >
-              <button
-                className={styles.settingsItem}
-                onClick={() => navigate("content")}
-              >
-                <Download aria-hidden="true" />
-                <span>社区内容</span>
-              </button>
-              <button
-                className={styles.settingsItem}
-                onClick={() => {
-                  setSettingsOpen(false);
-                  onOpenBackup();
+              <Popover.Root
+                open={modelSettingsOpen}
+                onOpenChange={(open) => {
+                  setSettingsPanel("ai", open);
+                  if (open) void ai.refresh();
                 }}
               >
-                <ArchiveRestore aria-hidden="true" />
-                <span>备份与恢复</span>
-              </button>
+                <Popover.Trigger className={styles.settingsItem}>
+                  <Cpu aria-hidden="true" />
+                  <span>AI 配置</span>
+                </Popover.Trigger>
+                <Popover.Portal>
+                  <PopoverPanel
+                    className={styles.popover}
+                    title="AI 配置"
+                    icon={Cpu}
+                    titleId="ai-settings-heading"
+                    onCloseAutoFocus={(event) => event.preventDefault()}
+                    width={340}
+                    side="right"
+                    align="end"
+                    collisionPadding={12}
+                    onInteractOutside={(event) => {
+                      if (
+                        event.target instanceof Element &&
+                        event.target.closest(
+                          "[data-settings-select], [data-connection-delete-dialog]",
+                        )
+                      )
+                        event.preventDefault();
+                    }}
+                  >
+                    <AiSettings
+                      key={ai.settings ? "ready" : "loading"}
+                      settings={ai.settings}
+                      serviceError={ai.error}
+                      onRefresh={ai.refresh}
+                      onSaved={ai.setSettings}
+                    />
+                  </PopoverPanel>
+                </Popover.Portal>
+              </Popover.Root>
               <Popover.Root
                 open={settingsPanel === "display"}
                 onOpenChange={(open) => {
@@ -318,11 +369,11 @@ export function Sidebar({
                   <span>显示设置</span>
                 </Popover.Trigger>
                 <PopoverPanel
-                  className={`${styles.popover} ${styles.settingsPanel}`}
+                  className={styles.popover}
                   title="显示设置"
                   icon={SlidersHorizontal}
                   titleId="display-settings-heading"
-                  width={236}
+                  maxWidth={236}
                   side="right"
                   align="end"
                   sideOffset={12}
@@ -330,27 +381,6 @@ export function Sidebar({
                   aria-labelledby="display-settings-heading"
                   onCloseAutoFocus={(event) => event.preventDefault()}
                 >
-                  <div className={styles.settingLabel}>
-                    <label htmlFor="reading-font-size">对话字号</label>
-                    <output htmlFor="reading-font-size">
-                      {settings.fontSize}px
-                    </output>
-                  </div>
-                  <input
-                    id="reading-font-size"
-                    aria-label="对话字号"
-                    type="range"
-                    min={12}
-                    max={21}
-                    step={1}
-                    value={settings.fontSize}
-                    onChange={(event) =>
-                      onSettingsChange({
-                        ...settings,
-                        fontSize: Number(event.target.value),
-                      })
-                    }
-                  />
                   <fieldset className={styles.appearance}>
                     <legend>外观</legend>
                     <div
@@ -428,51 +458,69 @@ export function Sidebar({
                   </fieldset>
                 </PopoverPanel>
               </Popover.Root>
-              <Popover.Root
-                open={modelSettingsOpen}
-                onOpenChange={(open) => {
-                  setSettingsPanel("ai", open);
-                  if (open) void ai.refresh();
+              <button
+                className={styles.settingsItem}
+                onClick={() => navigate("content")}
+              >
+                <Download aria-hidden="true" />
+                <span>社区内容</span>
+              </button>
+              <button
+                className={styles.settingsItem}
+                onClick={() => {
+                  setSettingsOpen(false);
+                  onOpenBackup();
                 }}
               >
+                <ArchiveRestore aria-hidden="true" />
+                <span>备份与恢复</span>
+                {needsAttention && (
+                  <span
+                    className={styles.issueDot}
+                    role="img"
+                    aria-label="有操作需要处理"
+                  />
+                )}
+              </button>
+              <Popover.Root
+                open={settingsPanel === "help"}
+                onOpenChange={(open) => setSettingsPanel("help", open)}
+              >
                 <Popover.Trigger className={styles.settingsItem}>
-                  <Cpu aria-hidden="true" />
-                  <span>AI 配置</span>
+                  <CircleHelp aria-hidden="true" />
+                  <span>帮助与反馈</span>
                 </Popover.Trigger>
-                <Popover.Portal>
-                  <PopoverPanel
-                    className={styles.popover}
-                    title="AI 配置"
-                    icon={Cpu}
-                    titleId="ai-settings-heading"
-                    onCloseAutoFocus={(event) => event.preventDefault()}
-                    width={340}
-                    side="right"
-                    align="end"
-                    collisionPadding={12}
-                    onInteractOutside={(event) => {
-                      if (
-                        event.target instanceof Element &&
-                        event.target.closest(
-                          "[data-settings-select], [data-connection-delete-dialog]",
-                        )
-                      )
-                        event.preventDefault();
-                    }}
+                <PopoverPanel
+                  title="帮助与反馈"
+                  icon={CircleHelp}
+                  {...sidebarMenuLayout}
+                  align="end"
+                >
+                  <a
+                    className={styles.settingsItem}
+                    href={`${projectUrl}/blob/HEAD/docs/product/manual/README.md`}
+                    target="_blank"
+                    rel="noreferrer"
                   >
-                    <AiSettings
-                      key={ai.settings ? "ready" : "loading"}
-                      settings={ai.settings}
-                      serviceError={ai.error}
-                      onRefresh={ai.refresh}
-                      onSaved={ai.setSettings}
-                    />
-                  </PopoverPanel>
-                </Popover.Portal>
+                    <BookOpen aria-hidden="true" />
+                    使用指南
+                  </a>
+                  <a
+                    className={styles.settingsItem}
+                    href={`${projectUrl}/issues/new`}
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={() => setSettingsOpen(false)}
+                  >
+                    <MessageSquarePlus aria-hidden="true" />
+                    <span>意见反馈</span>
+                  </a>
+                </PopoverPanel>
               </Popover.Root>
             </PopoverPanel>
           </Popover.Root>
         </div>
+        {children}
       </div>
     </nav>
   );

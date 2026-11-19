@@ -21,9 +21,8 @@
   z-index: 101;
 }
 .dialog h2 {
+  font: var(--sm-ui-title-font);
   margin: 0 0 12px;
-  font-size: 18px;
-  font-weight: 600;
 }
 .createTitle {
   color: var(--sm-accent);

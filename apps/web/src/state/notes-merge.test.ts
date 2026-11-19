@@ -1,3 +1,4 @@
+import { SidebarLayout } from "../components/SidebarLayout";
 import { locationForOrigin } from "@solvemate/contracts";
 import { describe, expect, it } from "vitest";
 import { createElement } from "react";
@@ -36,20 +37,23 @@ describe("merge notes in one notebook", () => {
     const directory = createSubjectDirectory(courses);
     const render = () =>
       renderToStaticMarkup(
-        createElement(NotebookList, {
-          library: data.noteLibrary!,
-          directory,
-          activeNoteId: note.id,
-          relations: new LearningRelations(
-            data,
-            courses,
-            [],
-            new OfficialLibrary(makeSnapshot(), data),
-          ),
-          onSelect: () => undefined,
-          onAction: async () => undefined,
-          onLocation: () => undefined,
-          onMessage: () => undefined,
+        createElement(SidebarLayout, {
+          className: "workspace",
+          children: createElement(NotebookList, {
+            library: data.noteLibrary!,
+            directory,
+            activeNoteId: note.id,
+            relations: new LearningRelations(
+              data,
+              courses,
+              [],
+              new OfficialLibrary(makeSnapshot(), data),
+            ),
+            onSelect: () => undefined,
+            onAction: async () => undefined,
+            onLocation: () => undefined,
+            onMessage: () => undefined,
+          }),
         }),
       );
     const original = structuredClone(note);

@@ -1,21 +1,8 @@
-import { createElement, Fragment, type ReactNode } from "react";
+import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { expect, it, vi } from "vitest";
+import { expect, it } from "vitest";
 import { RefreshControls } from "./RefreshControls";
 import { operations } from "../operations/store";
-
-// 这里只验证详情内容，Portal 在服务端渲染时改为原位输出。
-vi.mock("radix-ui", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("radix-ui")>();
-  return {
-    ...actual,
-    Dialog: {
-      ...actual.Dialog,
-      Portal: ({ children }: { children: ReactNode }) =>
-        createElement(Fragment, null, children),
-    },
-  };
-});
 
 const render = () =>
   renderToStaticMarkup(
@@ -23,16 +10,12 @@ const render = () =>
       data: null,
       conflicts: [],
       onResolve: () => {},
-      saveState: "saved",
       onRetryRead: async () => {},
-      onOpenBackup: () => {},
+      onRefresh: async () => true,
+      refreshing: false,
+      needsAttention: operations.snapshot().failures.length > 0,
       conflict: false,
-      online: true,
       onRetry: () => {},
-      detailsOpen: false,
-      onDetailsOpenChange: () => {},
-      unsavedOpen: true,
-      onUnsavedOpenChange: () => {},
     }),
   );
 

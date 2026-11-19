@@ -163,9 +163,9 @@ function resolveSelection(
         ? "原模型所属连接尚未确认，请重新选择服务和模型。"
         : configuredConnections(settings).length
           ? "请选择 AI 服务和模型。"
-          : "请先在设置中配置 AI。"
+          : "请先在系统设置中配置 AI。"
     : !connectionIsConnected(connection)
-      ? "所选 AI 服务未连接，请在设置中检测连接。"
+      ? "所选 AI 服务未连接，请在系统设置中检测连接。"
       : !option
         ? "所选模型已不可用，请重新配置 AI 或选择其他模型。"
         : invalidReasoning

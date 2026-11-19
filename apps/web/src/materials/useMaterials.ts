@@ -27,9 +27,7 @@ export function useMaterials(readSubjects: () => SubjectDirectory) {
     ),
   );
   const refresh = query.refresh;
-  useRefreshResource("materials", async () => {
-    if (!(await refresh())) throw new Error("资料列表未能刷新。");
-  });
+  useRefreshResource("materials", query.refreshOrThrow);
   const applyRecord = useCallback(
     (record: Material) => {
       query.invalidate();

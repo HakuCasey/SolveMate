@@ -1,5 +1,9 @@
 .sidebar {
+  --nav-inset: 12px;
+  --avatar-size: 36px;
   width: var(--sidebar-width);
+  overflow-y: auto;
+  scrollbar-width: thin;
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -33,43 +37,29 @@
   flex-shrink: 0;
 }
 .avatarButton {
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  flex-shrink: 0;
-  margin: 0;
+  display: flex;
+  align-items: center;
   padding: 0;
   border: 0;
-  border-radius: 50%;
-  color: var(--sm-accent);
-  background: var(--sm-active);
+  border-radius: 8px;
+  color: var(--sm-ink);
+  background: transparent;
 }
 .profile {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
-  padding: 0 6px 10px;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding-inline: calc(var(--nav-inset) + 9px - var(--avatar-size) / 2)
+    calc(var(--nav-inset) + 1px);
+  padding-bottom: 10px;
   flex-shrink: 0;
 }
-.profileRow {
-  width: 100%;
-  justify-content: space-between;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.avatarButton,
-.accountAvatar {
-  position: relative;
-  overflow: hidden;
+.avatarImage {
+  width: var(--avatar-size);
+  height: var(--avatar-size);
+  flex: none;
   border-radius: 8px;
   background: var(--sm-original-paper);
-}
-.avatarImage {
-  width: 100%;
-  height: 100%;
   object-fit: contain;
 }
 .avatarButton:hover,
@@ -83,7 +73,7 @@
   width: 100%;
   height: 42px;
   min-height: 42px;
-  padding: 9px 12px;
+  padding: 9px var(--nav-inset);
   border: 1px solid var(--sm-line);
   border-radius: 10px;
   background: var(--sm-paper);
@@ -95,11 +85,33 @@
   color: var(--sm-ink);
   border-color: var(--sm-accent);
 }
-.primaryButton[aria-pressed="true"],
-.settings .primaryButton[data-state="open"] {
+.primaryButton[aria-pressed="true"] {
   background: var(--sm-active);
   color: var(--sm-accent);
   border-color: var(--sm-accent);
+}
+.settingsTrigger {
+  justify-content: center;
+  padding: 3px 0;
+  border: 0;
+  background: transparent;
+}
+.settingsTrigger:hover,
+.settingsTrigger[data-state="open"] {
+  background: var(--sm-active);
+  color: var(--sm-ink);
+}
+.settingsTrigger .settingsLogo {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+.sidebar[data-collapsed="true"] .settingsLogo {
+  width: 28px;
+  height: 24px;
+}
+:global([data-appearance="dark"]) .settingsLogo {
+  filter: invert(1);
 }
 .bottom {
   margin-top: auto;
@@ -111,86 +123,10 @@
 .settings {
   width: 100%;
 }
-.accountName {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 15px 12px 17px;
-  font-size: 14px;
-  font-weight: 500;
-  letter-spacing: 0.2px;
-}
-.accountAvatar {
-  display: grid;
-  place-items: center;
-  width: 38px;
-  height: 38px;
-  flex-shrink: 0;
-  border-radius: 8px;
-  color: var(--sm-accent);
-}
-.accountGroup {
-  padding: 6px 0;
-  margin: 0 6px;
-  border-top: 1px solid var(--sm-line);
-}
-.accountItem {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  min-height: 52px;
-  padding: 11px 8px;
+.accountDivider {
+  margin: 4px 10px;
   border: 0;
-  border-radius: 11px;
-  font-size: 13px;
-  background: transparent;
-  color: var(--sm-ink);
-  text-align: left;
-}
-.accountItem:hover,
-.accountItem:focus-visible {
-  background: var(--sm-active);
-  color: var(--sm-accent);
-}
-.accountIcon {
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  flex-shrink: 0;
-  border: 1px solid var(--sm-line);
-  border-radius: 10px;
-  color: var(--sm-soft);
-  background: var(--sm-ground);
-}
-.accountItem:hover .accountIcon {
-  background: var(--sm-paper);
-  border-color: var(--sm-accent);
-  color: var(--sm-accent);
-}
-.accountCopy {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-.accountTitle {
-  font-weight: 500;
-  line-height: 1.6;
-}
-.accountDescription {
-  color: var(--sm-soft);
-  font-size: 11px;
-  line-height: 1.6;
-}
-.accountMessage {
-  padding: 10px 12px;
-  margin: 0 6px 4px;
   border-top: 1px solid var(--sm-line);
-  color: var(--sm-soft);
-  font-size: 12px;
-  line-height: 1.8;
 }
 .settingsItem {
   display: flex;
@@ -206,36 +142,23 @@
   background: transparent;
   text-align: left;
 }
+.settingsItem {
+  text-decoration: none;
+  white-space: nowrap;
+}
 .settingsItem svg {
   color: var(--sm-soft);
 }
-.settingsItem:hover,
+.settingsItem:enabled:hover,
+a.settingsItem:hover,
 .settingsItem[data-state="open"] {
   background: var(--sm-active);
   color: var(--sm-accent);
 }
-.settingLabel {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 10px;
-  color: var(--sm-soft);
-  font-size: 12px;
-}
-.settingLabel output {
-  color: var(--sm-ink);
-  font-variant-numeric: tabular-nums;
-}
-.settingsPanel input[type="range"] {
-  width: 100%;
-  margin: 3px 0 0;
-  accent-color: var(--sm-accent);
-}
 .appearance {
   border: 0;
   padding: 0;
-  margin: 20px 0 0;
+  margin: 0;
   min-width: 0;
 }
 .appearance legend {
@@ -388,37 +311,34 @@
   }
 }
 @media (max-width: 480px) {
-  .profile {
-    padding-inline: 4px;
-  }
-  .profileRow {
-    gap: 6px;
-  }
-  .avatarButton {
-    width: 32px;
-    height: 32px;
-  }
-}
-@media (max-width: 420px) {
   .sidebar {
+    --nav-inset: 8px;
+    --avatar-size: 32px;
     padding: 16px 5px 12px;
   }
   .primaryButton {
-    padding: 8px;
+    padding: 8px var(--nav-inset);
     gap: 7px;
     font-size: 12px;
   }
 }
 
-.toggle {
+button.toggle {
+  flex: none;
+  border: 0;
+  cursor: pointer;
   display: grid;
   place-items: center;
-  width: 32px;
+  width: 28px;
   height: 32px;
   padding: 0;
   border-radius: 8px;
   background: transparent;
   color: var(--sm-soft);
+}
+.toggle .toggleIcon {
+  width: 21px;
+  height: 21px;
 }
 .toggle:hover,
 .toggle:focus-visible {
@@ -426,17 +346,104 @@
   background: var(--sm-active);
 }
 .sidebar[data-collapsed="true"] {
+  --rail-button-size: 36px;
   width: 56px;
-  padding-inline: 6px;
+  padding-inline: 3px;
 }
 .sidebar[data-collapsed="true"] .profile {
   padding-inline: 0;
-  align-items: center;
+  justify-content: center;
 }
-.sidebar[data-collapsed="true"] .profileRow {
-  flex-direction: column;
+.sidebar[data-collapsed="true"] .avatarImage,
+.sidebar[data-collapsed="true"] .primaryButton {
+  width: var(--rail-button-size);
+  height: var(--rail-button-size);
+  min-height: var(--rail-button-size);
 }
 .sidebar[data-collapsed="true"] .primaryButton {
+  margin-inline: auto;
   justify-content: center;
   padding-inline: 0;
+}
+
+.settingsTrigger[data-attention="true"] {
+  background: color-mix(in srgb, var(--sm-danger) 12%, var(--sm-paper));
+  box-shadow: inset 0 0 0 1px
+    color-mix(in srgb, var(--sm-danger) 55%, transparent);
+}
+.issueDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--sm-danger);
+}
+
+@media (max-width: 800px) {
+  .sidebar {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100dvh;
+  }
+}
+
+.profileBadges {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--profile-badge-gap, 3px);
+  --profile-badge-size: 22px;
+}
+.petName,
+.petActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.petName {
+  justify-content: space-between;
+}
+.petName > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.petName button {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  color: var(--sm-soft);
+}
+.petShow,
+.petActions button {
+  border-radius: 6px;
+  background: var(--sm-ground);
+  padding: 4px 8px;
+}
+.petShow {
+  width: 100%;
+  margin: 6px 0;
+}
+.petActions {
+  gap: 4px;
+  margin-top: 8px;
+}
+.petActions button {
+  flex: 1;
+}
+.petNote {
+  display: block;
+  color: var(--sm-soft);
+  margin: 8px 0 0;
+  font-size: 11px;
+}
+@media (max-width: 480px) {
+  .profile {
+    padding-right: 0;
+  }
+  .profileBadges {
+    --profile-badge-size: 18px;
+    --profile-badge-gap: 2px;
+  }
 }

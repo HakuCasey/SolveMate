@@ -35,16 +35,16 @@ class ConnectionManager:
                     "connection_deleted",
                 )
             raise ConnectionError(
-                "该对话使用的 AI 服务尚未配置，请先在设置中检测并保存。",
+                "该对话使用的 AI 服务尚未配置，请先在系统设置中检测并保存。",
                 "not_configured",
             )
         if not value["enabled"]:
             raise ConnectionError(
-                "该 AI 服务未连接，请先在设置中检测连接。", "connection_disabled"
+                "该 AI 服务未连接，请先在系统设置中检测连接。", "connection_disabled"
             )
         if value["check"]["status"] == "error":
             raise ConnectionError(
-                "该 AI 服务未连接，请先在设置中重新检测。", "connection_unavailable"
+                "该 AI 服务未连接，请先在系统设置中重新检测。", "connection_unavailable"
             )
         return self.registry.connection(ident), value
 

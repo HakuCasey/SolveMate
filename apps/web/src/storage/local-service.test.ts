@@ -179,10 +179,10 @@ describe("local service storage and migration", () => {
       required = error as typeof required;
     }
     expect(required).toBeInstanceOf(service.MigrationRequired);
-    expect(state.value?.settings.fontSize).toBe(14);
+    expect(state.value?.settings.fontSize).toBe(12);
     await service.resolveMigration(required, "keep");
     await service.ensureUserStorage();
-    expect(state.value?.settings.fontSize).toBe(14);
+    expect(state.value?.settings.fontSize).toBe(12);
     expect(imported.size).toBe(0);
     expect(migrations).toHaveLength(2);
     service.userCache.close();
@@ -214,12 +214,12 @@ describe("local service storage and migration", () => {
     await storage.load();
     await storage.save(createStudyFixture());
     available = false;
-    expect((await storage.load())?.settings.fontSize).toBe(14);
+    expect((await storage.load())?.settings.fontSize).toBe(12);
     expect(service.userStorageStatus.snapshot().online).toBe(false);
     const next = createStudyFixture();
     next.settings.fontSize = 17;
     await expect(storage.save(next)).rejects.toThrow("无法连接本机服务");
-    expect(state.value?.settings.fontSize).toBe(14);
+    expect(state.value?.settings.fontSize).toBe(12);
     expect(
       (await service.userCache.pending.toArray())[0].value.settings.fontSize,
     ).toBe(17);
