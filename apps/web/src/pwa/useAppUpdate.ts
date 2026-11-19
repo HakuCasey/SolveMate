@@ -28,6 +28,7 @@ export function useAppUpdate(prepareReload: () => void, onReady: () => void) {
     let reloadTimer: ReturnType<typeof setTimeout> | undefined;
     let stopWaiting: (() => void) | undefined;
     let committingReload = false;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
     const base = new URL(import.meta.env.BASE_URL, window.location.href);
     const url = new URL("sw.js", base).href;
     const updates = new AppUpdateController({
@@ -61,6 +62,13 @@ export function useAppUpdate(prepareReload: () => void, onReady: () => void) {
     const unsubscribe = updates.subscribe(() => {
       const next = updates.snapshot();
       setState(next);
+      if (next.status === "error") {
+        if (retryTimer) clearTimeout(retryTimer);
+        retryTimer = setTimeout(() => {
+          if (active && updates.snapshot().status === "error")
+            void updates.check();
+        }, 30000);
+      }
       if (next.status === "ready" && !notified) {
         notified = true;
         callbacks.current.onReady();
@@ -162,6 +170,7 @@ export function useAppUpdate(prepareReload: () => void, onReady: () => void) {
       updates.dispose();
       stopWaiting?.();
       if (reloadTimer) clearTimeout(reloadTimer);
+      if (retryTimer) clearTimeout(retryTimer);
       clearInterval(interval);
       navigator.serviceWorker.removeEventListener(
         "controllerchange",
