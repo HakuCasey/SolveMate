@@ -146,7 +146,9 @@ class DshStream:
                 self.turn = data["turn"]
                 self.send(kind="turn", externalTurnId=str(self.turn))
             elif kind == "assistant/message":
-                pieces.append(message_text(data))
+                text = message_text(data)
+                if text and not text.startswith("请求已经保存"):
+                    pieces.append(text)
             elif kind == "tool/call":
                 tools[data["callId"]] = {
                     "id": data["callId"],
