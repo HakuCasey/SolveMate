@@ -218,6 +218,7 @@ function Workspace({ content }: { content: OfficialContent }) {
     loadState,
     loadFailure,
     retryRead,
+    reload,
     saveState,
     conflict,
     retrySave,
@@ -1471,7 +1472,7 @@ function Workspace({ content }: { content: OfficialContent }) {
               loadFailure={recordLoadError}
               refreshing={refresh.refreshing}
               readError={content.loadError}
-              onRetryRead={retryRead}
+              onReload={reload}
               conflict={conflict}
               needsAttention={needsAttention}
               onRefresh={() => dataRefresh.refresh(undefined, false, true)}

@@ -109,6 +109,7 @@ export function useLocalData(available: Course[] = courses) {
     retrySave: (key?: string) =>
       store.snapshot().loadState !== "ready" ? load() : store.retry(key),
     retryRead: refresh,
+    reload: () => load(false),
     restoreRecovery: store.restoreRecovery,
     resolveConflict: store.resolve,
   };

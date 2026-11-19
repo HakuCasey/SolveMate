@@ -10,7 +10,7 @@ const render = () =>
       data: null,
       conflicts: [],
       onResolve: () => {},
-      onRetryRead: async () => {},
+      onReload: async () => {},
       onRefresh: async () => true,
       refreshing: false,
       needsAttention: operations.snapshot().failures.length > 0,

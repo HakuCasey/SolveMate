@@ -78,7 +78,7 @@ export function RefreshControls({
   onResolve,
   loadFailure,
   readError,
-  onRetryRead,
+  onReload,
   onRetry,
   onRefresh,
   refreshing,
@@ -90,7 +90,7 @@ export function RefreshControls({
   onResolve: (index: number, choice: "local" | "remote") => void;
   loadFailure?: unknown;
   readError?: string;
-  onRetryRead: () => Promise<void>;
+  onReload: () => Promise<void>;
   onRetry: (key?: string) => void;
   onRefresh: () => Promise<boolean>;
   refreshing: boolean;
@@ -133,7 +133,7 @@ export function RefreshControls({
         !snapshot.failures.some((item) => item.key === "records:load") && (
           <p>读取学习记录失败：{loadFailure.message}</p>
         )}
-      <UserStorageRecovery failure={loadFailure} onReload={onRetryRead} />
+      <UserStorageRecovery failure={loadFailure} onReload={onReload} />
       {conflicts.map((item, index) => (
         <section key={JSON.stringify(item.path)}>
           <h3>{titleOf(item.path, data)}</h3>
