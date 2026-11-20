@@ -3,6 +3,20 @@ import { LoaderCircle } from "lucide-react";
 import type { SessionTurn } from "@solvemate/contracts";
 import styles from "./ChatPanel.module.css";
 
+export function ReplyTimer({ startedAt }: { startedAt: number }) {
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  const elapsed = Math.max(0, Math.floor((now - startedAt) / 1000));
+  return (
+    <span className={styles.elapsed} aria-label={`已用时 ${elapsed} 秒`}>
+      {Math.floor(elapsed / 60)}:{String(elapsed % 60).padStart(2, "0")}
+    </span>
+  );
+}
+
 export function ReplyActivity({
   phase,
   startedAt,
@@ -14,12 +28,17 @@ export function ReplyActivity({
   received: boolean;
   disconnected: boolean;
 }) {
-  const [time, setTime] = useState(Date.now);
+  const [longWait, setLongWait] = useState(
+    () => Date.now() - startedAt >= 20000,
+  );
   useEffect(() => {
-    const timer = setInterval(() => setTime(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, []);
-  const elapsed = Math.max(0, Math.floor((time - startedAt) / 1000));
+    if (received || disconnected || longWait) return;
+    const timer = setTimeout(
+      () => setLongWait(true),
+      Math.max(0, startedAt + 20000 - Date.now()),
+    );
+    return () => clearTimeout(timer);
+  }, [received, disconnected, startedAt, longWait]);
   const label = disconnected
     ? "连接暂时中断，正在重连…"
     : {
@@ -39,13 +58,12 @@ export function ReplyActivity({
         <LoaderCircle className={styles.activitySpinner} aria-hidden="true" />
         <span>{label}</span>
       </div>
-      <span className={styles.elapsed}>已用时 {elapsed} 秒</span>
       {phase === "stopping" && !disconnected && (
         <p className={styles.waitHint}>
           正在等待 AI 服务确认停止，期间可能收到已生成的内容。
         </p>
       )}
-      {phase !== "stopping" && elapsed >= 20 && !received && !disconnected && (
+      {phase !== "stopping" && longWait && !received && !disconnected && (
         <p className={styles.waitHint}>
           还未收到回复正文，可以继续等待或停止生成。
         </p>

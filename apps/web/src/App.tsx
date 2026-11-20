@@ -85,7 +85,8 @@ import {
   createConversation,
   replaceRobots,
   latestConversation,
-  conversationForReading,
+  conversationsForSource,
+  preferredConversation,
   conversationForMaterial,
   updateConversation,
   type ConversationChange,
@@ -448,6 +449,8 @@ function Workspace({ content }: { content: OfficialContent }) {
   const [robotDrafts, setRobotDrafts] = useState<Record<string, Robot>>({});
   useUnsavedForm("robot-configurations", Object.keys(robotDrafts).length > 0);
   const submitting = useRef(false);
+  // 本窗口尚在保存或发送的请求由 start 接管，此时恢复接口可能还查不到它。
+  const launchingTurns = useRef(new Set<string>());
   function reportFailure(label: string, error: unknown) {
     const operation = operations.start({ key: `workspace:${label}`, label });
     operations.finish(
@@ -533,32 +536,31 @@ function Workspace({ content }: { content: OfficialContent }) {
     researchSource,
   ]);
 
+  const inReader = view === "materials" || view === "reading";
+  const readingSource =
+    view === "materials" ? data?.materialSelection : data?.selection;
+  const storedConversations = data?.conversations;
+  const readerTabs = useMemo(
+    () =>
+      storedConversations && inReader && readingSource
+        ? conversationsForSource(storedConversations, readingSource)
+        : [],
+    [storedConversations, inReader, readingSource],
+  );
   const currentConversation = data
     ? isResearchView
       ? researchConversation(data)
       : view === "library"
         ? undefined
-        : view === "materials"
-          ? data.materialSelection
-            ? conversationForMaterial(
-                data.conversations,
-                data.materialSelection,
-                activeConversationId,
-              )
-            : undefined
-          : view === "reading"
-            ? conversationForReading(
-                data.conversations,
-                data.selection,
-                activeConversationId,
-              )
-            : (data.conversations.find(
-                (item) =>
-                  item.status !== "deleted" && item.id === activeConversationId,
-              ) ??
-              (view === "conversations" && activeConversationId === null
-                ? latestConversation(data.conversations)
-                : undefined))
+        : inReader
+          ? preferredConversation(readerTabs, activeConversationId)
+          : (data.conversations.find(
+              (item) =>
+                item.status !== "deleted" && item.id === activeConversationId,
+            ) ??
+            (view === "conversations" && activeConversationId === null
+              ? latestConversation(data.conversations)
+              : undefined))
     : undefined;
   const legacyReferenceKey = isResearchView
     ? "question-research"
@@ -602,7 +604,11 @@ function Workspace({ content }: { content: OfficialContent }) {
     if (restoreConversationId)
       void restoreAiConversation(
         restoreConversationId,
-        pendingAiIds ? pendingAiIds.split(",") : [],
+        pendingAiIds
+          ? pendingAiIds
+              .split(",")
+              .filter((id) => !launchingTurns.current.has(id))
+          : [],
       );
   }, [restoreConversationId, pendingAiIds, restoreAiConversation]);
   const hasOperationFailures = useOperationAttention();
@@ -703,6 +709,32 @@ function Workspace({ content }: { content: OfficialContent }) {
     linkedLocation.material || linkedLocation.selection
       ? relations.material(linkedLocation.material ?? linkedLocation.selection!)
       : null;
+  const matchingTabs = inReader
+    ? readerTabs
+    : conversationsForSource(
+        data.conversations,
+        isResearchView
+          ? researchSource
+          : (currentConversation?.material ??
+              currentConversation?.selection ??
+              null),
+        isResearchView || !!currentConversation?.research,
+      );
+  const conversationTabs =
+    currentConversation &&
+    !matchingTabs.some((item) => item.id === currentConversation.id)
+      ? [...matchingTabs, currentConversation]
+      : matchingTabs;
+
+  function selectConversationTab(conversation: Conversation) {
+    setActiveConversationId(conversation.id);
+    setActiveRobotId(conversation.robotId);
+    if (isResearchView)
+      updateData((previous) =>
+        restoreResearch(previous, conversation, researchSource),
+      );
+  }
+
   const chatSelection =
     linkedReading && !("materialId" in linkedReading.source)
       ? linkedReading.source
@@ -1020,67 +1052,50 @@ function Workspace({ content }: { content: OfficialContent }) {
     );
   }
 
-  async function newConversation(robot?: Robot) {
+  async function newConversation(
+    robot?: Robot,
+    origin: "list" | "chat" | "teacher-switch" = "list",
+  ) {
+    const keepContext = origin !== "list";
     const saved = await saveChanges((previous) => {
-      const teacher =
-        robot ??
-        previous.robots.find((item) => item.id === previous.defaultRobotId);
-      if (!teacher) return previous;
+      const id = robot?.id ?? previous.defaultRobotId;
+      const teacher = previous.robots.find((item) => item.id === id);
+      if (!teacher) throw new Error("请先选择可用的机器人。");
       const conversation = createConversation(
         previous,
-        null,
+        keepContext ? chatSelection : null,
         teacher.id,
         ai.settings,
+        origin === "teacher-switch" ? "teacher-switch" : "new",
+        origin === "teacher-switch" ? (currentConversation?.id ?? null) : null,
+        keepContext ? materialLocation : null,
       );
-      return {
+      const toolContext = isResearchView
+        ? research.context
+        : currentConversation?.research;
+      if (keepContext && toolContext)
+        conversation.research = structuredClone(toolContext);
+      const next = {
         ...previous,
         conversations: [conversation, ...previous.conversations],
       };
+      return keepContext && isResearchView
+        ? changeResearch(next, { conversationId: conversation.id })
+        : next;
     });
     const conversation = saved.conversations[0];
-    if (conversation) {
-      setActiveConversationId(conversation.id);
-      setActiveRobotId(conversation.robotId);
-      setView("conversations");
-    }
+    setActiveConversationId(conversation.id);
+    setActiveRobotId(conversation.robotId);
+    if (!keepContext) setView("conversations");
   }
 
-  async function startFreshConversation(robot: Robot) {
-    const saved = await saveChanges((previous) => {
-      if (!previous.robots.some((item) => item.id === robot.id))
-        throw new Error("所选机器人已删除，请重新选择。");
-      const conversation = createConversation(
-        previous,
-        chatSelection,
-        robot.id,
-        ai.settings,
-        "teacher-switch",
-        currentConversation?.id ?? null,
-        materialLocation,
-      );
-      return {
-        ...previous,
-        conversations: [
-          {
-            ...conversation,
-            ...(isResearchView
-              ? { research: structuredClone(research.context) }
-              : {}),
-          },
-          ...previous.conversations,
-        ],
-        ...(isResearchView
-          ? {
-              questionResearch: {
-                ...researchWorkspace(previous),
-                conversationId: conversation.id,
-              },
-            }
-          : {}),
-      };
+  function requestNewConversation(origin: "list" | "chat") {
+    return newConversation(
+      origin === "chat" ? currentRobot : undefined,
+      origin,
+    ).catch((error) => {
+      if (!isConversationLimitError(error)) reportFailure("新建对话", error);
     });
-    setActiveConversationId(saved.conversations[0].id);
-    setActiveRobotId(robot.id);
   }
 
   function changeRobot(id: string) {
@@ -1090,7 +1105,7 @@ function Workspace({ content }: { content: OfficialContent }) {
     if (currentConversation) {
       setPendingSwitch({
         kind: "teacher",
-        confirm: () => startFreshConversation(robot),
+        confirm: () => newConversation(robot, "teacher-switch"),
       });
     } else setActiveRobotId(id);
   }
@@ -1112,6 +1127,9 @@ function Workspace({ content }: { content: OfficialContent }) {
       throw new Error("此对话正在生成，请稍后提问。");
     if (!retryMessageId) validateReferenceCount(draftReferences);
     submitting.current = true;
+    const turnId = crypto.randomUUID();
+    launchingTurns.current.add(turnId);
+    let dispatched = false;
     try {
       const selected =
         currentConversation ??
@@ -1124,8 +1142,7 @@ function Workspace({ content }: { content: OfficialContent }) {
           null,
           materialLocation,
         );
-      const turnId = crypto.randomUUID(),
-        messageId = retryMessageId ?? crypto.randomUUID(),
+      const messageId = retryMessageId ?? crypto.randomUUID(),
         createdAt = Date.now();
       const references = retryMessageId
         ? []
@@ -1183,6 +1200,7 @@ function Workspace({ content }: { content: OfficialContent }) {
             text,
             references,
             createdAt,
+            draftKey: chatDraftKey,
             retry: !!retryMessageId,
             create: !currentConversation,
             readingContext,
@@ -1191,10 +1209,18 @@ function Workspace({ content }: { content: OfficialContent }) {
           },
           ai.settings,
         );
-        return isResearchView
+        return isResearchView &&
+          researchWorkspace(previous).conversationId === research.conversationId
           ? changeResearch(recorded, { conversationId: selected.id })
           : recorded;
       });
+      if (!retryMessageId)
+        setChatDrafts((previous) => {
+          if (previous[chatDraftKey]?.trim() !== text.trim()) return previous;
+          const next = { ...previous };
+          delete next[chatDraftKey];
+          return next;
+        });
       const sentIds = new Set(draftReferences.map((item) => item.id));
       if (!retryMessageId && sentIds.size)
         updateReferences(referenceDraftKey, (previous) =>
@@ -1218,7 +1244,8 @@ function Workspace({ content }: { content: OfficialContent }) {
         (item) => item.id === messageId,
       )!;
       const targetBinding = activeSessionBinding(conversation);
-      if (attempt.status === "running")
+      if (attempt.status === "running") {
+        dispatched = true;
         void ai
           .start({
             id: turnId,
@@ -1275,11 +1302,14 @@ function Workspace({ content }: { content: OfficialContent }) {
                 ),
               })),
           })
-          .catch((error) => reportFailure("读取 AI 回复", error));
+          .catch((error) => reportFailure("读取 AI 回复", error))
+          .finally(() => launchingTurns.current.delete(turnId));
+      }
     } catch (error) {
       if (isConversationLimitError(error)) setConversationLimitOpen(true);
       throw error;
     } finally {
+      if (!dispatched) launchingTurns.current.delete(turnId);
       submitting.current = false;
     }
   }
@@ -1727,12 +1757,7 @@ function Workspace({ content }: { content: OfficialContent }) {
                   onReturn={(conversation) =>
                     openConversation(conversation, true)
                   }
-                  onNew={() =>
-                    void newConversation().catch((error) => {
-                      if (!isConversationLimitError(error))
-                        reportFailure("新建对话", error);
-                    })
-                  }
+                  onNew={() => void requestNewConversation("list")}
                   onUpdate={manageConversation}
                   onDelete={removeConversation}
                 />
@@ -1870,6 +1895,8 @@ function Workspace({ content }: { content: OfficialContent }) {
                   robots={data.robots}
                   robotId={currentRobot?.id ?? null}
                   conversation={currentConversation}
+                  tabs={conversationTabs}
+                  onSelectTab={selectConversationTab}
                   focusMessage={messageFocus}
                   conversations={data.conversations}
                   onUpdate={manageConversation}
@@ -1881,6 +1908,7 @@ function Workspace({ content }: { content: OfficialContent }) {
                   contextLabel={contextLabel}
                   pageSelection={contextPageSelection}
                   onRobotChange={changeRobot}
+                  onNew={() => requestNewConversation("chat")}
                   onSend={saveQuestion}
                   onRetryMessage={retryQuestion}
                   onOpenReference={openReference}

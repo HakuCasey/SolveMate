@@ -9,7 +9,7 @@ import {
   type TurnInput,
 } from "./local-api";
 import { decodeAiTurn } from "./metadata";
-import { latestAiSettings, mergeAiTurn } from "./state";
+import { latestAiSettings, mergeAiTurn, shouldApplyTurn } from "./state";
 import { useRefreshResource } from "../refresh/useDataRefresh";
 
 type Update = (change: (data: AppData) => AppData) => void;
@@ -92,12 +92,7 @@ export function useAiService(update: Update) {
       }
       setTurns((previous) => {
         const existing = previous[turn.id];
-        if (
-          existing &&
-          (existing.revision >= turn.revision ||
-            (existing.status !== "running" && turn.status === "running"))
-        )
-          return previous;
+        if (!shouldApplyTurn(existing, turn)) return previous;
         return { ...previous, [turn.id]: turn };
       });
     },

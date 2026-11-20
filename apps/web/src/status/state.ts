@@ -1,4 +1,5 @@
 import type { AiTurn, Conversation } from "@solvemate/contracts";
+import { liveTurnFor } from "../ai/state";
 import type { UpdateState } from "../pwa/update-controller";
 
 /** 常驻文字说明当前状态；操作按钮单独命名，不能用操作名代替就绪状态。 */
@@ -59,15 +60,13 @@ export function conversationTasks(
         (a, b) => b.startedAt - a.startedAt,
       )[0];
       if (!latest) return [];
-      const received = turns[latest.id];
-      const turn =
-        received && received.revision >= latest.revision ? received : latest;
+      const received = liveTurnFor(latest, turns[latest.id]);
+      const turn = received ?? latest;
       if (turn.status === "running")
         return [
           {
             id: turn.id,
             conversation,
-            startedAt: turn.startedAt,
             label:
               turn === received && received.permissions.length
                 ? "等待确认"
@@ -86,7 +85,6 @@ export function conversationTasks(
           {
             id: turn.id,
             conversation,
-            startedAt: turn.startedAt,
             label: "回复失败",
             error: turn.error || "本次回复未能完成，请进入对话查看。",
             attention: true,

@@ -1,6 +1,6 @@
 import { PopoverPanel } from "../components/PopoverPanel";
 import { Children, type ReactNode } from "react";
-import { CloudDownload, MessagesSquare } from "lucide-react";
+import { CloudDownload, LoaderCircle, MessagesSquare } from "lucide-react";
 import { Popover } from "radix-ui";
 import styles from "./StatusBar.module.css";
 
@@ -18,7 +18,6 @@ export function StatusPopover({
   status = value,
   tone = "neutral",
   busy = false,
-  busyElapsed,
   open,
   onOpenChange,
   action,
@@ -29,7 +28,6 @@ export function StatusPopover({
   status?: string;
   tone?: StatusTone;
   busy?: boolean;
-  busyElapsed?: string;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   action?: ReactNode;
@@ -44,11 +42,8 @@ export function StatusPopover({
         aria-label={`${category}：${value}`}
         title={`${category}：${value}`}
       >
-        {busy && busyElapsed !== undefined ? (
-          <div className={styles.spinner} aria-hidden="true">
-            <div className={styles.spinnerRing} />
-            <div className={styles.spinnerTime}>{busyElapsed}</div>
-          </div>
+        {busy && category === "对话状态" ? (
+          <LoaderCircle className={styles.spinner} aria-hidden="true" />
         ) : (
           <CategoryIcon
             aria-hidden="true"

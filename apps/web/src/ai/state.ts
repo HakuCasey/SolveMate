@@ -29,6 +29,43 @@ export function latestAiSettings(
   return incoming;
 }
 
+type TurnState = Pick<
+  SessionTurn,
+  "revision" | "status" | "submissionStatus" | "snapshot"
+>;
+
+/** 保存和实时显示按相同规则接受快照。服务受理可以纠正客户端先前的查无记录或提交结果未知。 */
+export function shouldApplyTurn(
+  saved: TurnState | undefined,
+  received: AiTurn,
+) {
+  if (!saved) return true;
+  if (received.revision < saved.revision) return false;
+  if (
+    received.submissionStatus === "accepted" &&
+    ((saved.status === "interrupted" &&
+      saved.submissionStatus === "rejected" &&
+      !saved.snapshot) ||
+      (saved.status === "running" && saved.submissionStatus === "uncertain"))
+  )
+    return true;
+  if (saved.status !== "running" && received.status === "running") return false;
+  return !saved.snapshot || received.revision > saved.revision;
+}
+
+export function liveTurnFor(
+  saved: SessionTurn | undefined,
+  received: AiTurn | undefined,
+) {
+  if (!saved || !received) return undefined;
+  // 同一快照的工具和权限信息只在实时记录里。
+  const same =
+    saved.revision === received.revision &&
+    saved.status === received.status &&
+    saved.submissionStatus === received.submissionStatus;
+  return same || shouldApplyTurn(saved, received) ? received : undefined;
+}
+
 /** 本机结果只更新执行和已确认绑定，不改写当前模型选择或复活已删除对话。 */
 export function mergeAiTurn(data: AppData, turn: AiTurn): AppData {
   const conversations = data.conversations.map((conversation) => {
@@ -54,11 +91,7 @@ export function mergeAiTurn(data: AppData, turn: AiTurn): AppData {
         revision: 1,
       });
     const previous = conversation.turns.find((item) => item.id === turn.id);
-    if (
-      previous &&
-      ((previous.snapshot && previous.revision >= turn.revision) ||
-        (previous.status !== "running" && turn.status === "running"))
-    )
+    if (!shouldApplyTurn(previous, turn))
       return bound === conversation
         ? conversation
         : { ...bound, revision: conversation.revision + 1 };
@@ -109,7 +142,7 @@ export function mergeAiTurn(data: AppData, turn: AiTurn): AppData {
         : {}),
       connectionId: turn.connectionId,
       status: turn.status,
-      startedAt: turn.startedAt,
+      startedAt: previous?.startedAt ?? turn.startedAt,
       ...(turn.completedAt !== undefined
         ? { completedAt: turn.completedAt }
         : {}),

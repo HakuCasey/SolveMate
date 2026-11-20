@@ -86,7 +86,7 @@
 - D4 指定页码提问正常提交并收到回复（`e2e/reading-context.spec.ts`）
 - D5 关联当前页提问正常提交并收到回复（`e2e/current-page.spec.ts`）
 - D9 空输入按 ↑ 回填上一次发送内容（`e2e/conversation.spec.ts`）
-- D3 会话归档与移回进行中（`e2e/conversation-manage.spec.ts`）
+- D3 点击当前对话页签，归档后从同一入口移回进行中（`e2e/conversation-manage.spec.ts`）
 - D2 切换机器人触发确认并新建对话（`e2e/robot-switch.spec.ts`）
 - E 笔记页渲染、F 机器人页展示预置机器人、G1 显示设置（夜间模式）和聊天栏对话字号（`e2e/notes-robots-settings.spec.ts`）
 - H 社区内容展示内置资料、I 教研室展示资料与教研工具（`e2e/research-community.spec.ts`）
@@ -95,7 +95,7 @@
 ### 未覆盖与环境限制
 
 - C2 文字选段提问：依赖 PDF.js 文本层的精确鼠标拖选坐标，Playwright 模拟不可靠，未纳入自动化（逻辑由 `useReadingSelection` 单测覆盖）。
-- D6-D8 服务切换/失败重试/会话恢复：需特定失败场景或多服务配置，未纳入。
+- D6–D8 的服务切换、恢复和编号冲突由本机服务测试在独立数据库与模拟 Harness 中验证（`apps/local/tests/test_session_context.py`、`test_session_recovery.py`）。其中同一资料双页签用例核对两个原生会话编号、停止其中一轮后的另一轮结果，以及服务重启后的追问去向。真实 Harness 的跨服务切换仍需单独验收。
 - K 应用更新/离线重开：Playwright `serviceWorkers: "block"` 屏蔽 Service Worker，无法真实测离线；状态栏「更新失败」即此环境产物。
 
 ### 已修复问题（根因）

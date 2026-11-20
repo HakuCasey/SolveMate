@@ -267,10 +267,6 @@ class ConnectionManager:
         self.loaded.pop(ident, None)
         self.runtime_info.pop(ident, None)
 
-    def process_for(self, ident):
-        existing = self.runtimes.get(ident)
-        return existing[1] if existing else None
-
     async def close(self):
         for ident in list(self.probe_tasks):
             await self.stop_probe(ident)

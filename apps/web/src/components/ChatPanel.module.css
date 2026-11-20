@@ -324,6 +324,48 @@
   opacity: 0.55;
   cursor: default;
 }
+.conversationTab {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex: none;
+  min-width: 0;
+  padding: 2px 10px;
+  border-bottom: 1px solid var(--sm-line);
+}
+.tabList {
+  display: flex;
+  gap: 3px;
+  min-width: 0;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+}
+.emptyTab {
+  padding: 5px 7px;
+  font-size: 11px;
+  color: var(--sm-soft);
+}
+.newChat {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 28px;
+  border-radius: 6px;
+  color: var(--sm-soft);
+}
+.newChat svg {
+  width: 15px;
+  height: 15px;
+}
+.newChat:hover:enabled {
+  background: var(--sm-ground);
+  color: var(--sm-ink);
+}
+.newChat:disabled {
+  opacity: 0.45;
+}
 .manage {
   display: inline-flex;
   align-items: center;
@@ -331,13 +373,28 @@
   gap: 5px;
   min-height: 28px;
   padding: 4px 7px;
-  flex-shrink: 0;
+  flex: none;
+  max-width: 16ch;
+  background: transparent;
   border: 1px solid transparent;
   border-radius: 7px;
   color: var(--sm-soft);
   font-size: 11px;
   white-space: nowrap;
   cursor: pointer;
+}
+.manage[aria-selected="true"] {
+  color: var(--sm-accent);
+  background: var(--sm-active);
+}
+.tabTitle {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.manage .elapsed {
+  flex: none;
+  font-variant-numeric: tabular-nums;
 }
 .manage:hover:not(:disabled) {
   border-color: var(--sm-line);
@@ -349,6 +406,7 @@
   cursor: default;
 }
 .manage svg {
+  flex: none;
   width: 16px;
   height: 16px;
 }
@@ -494,7 +552,7 @@
   .heading {
     gap: 4px;
   }
-  .manage span {
+  .connectionGroup .connection span {
     display: none;
   }
 }

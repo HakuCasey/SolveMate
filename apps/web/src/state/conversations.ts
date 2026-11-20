@@ -7,12 +7,14 @@ import type {
   Robot,
   AiSettings,
   MaterialLocation,
+  LearningLocation,
   RobotAiDefaults,
 } from "@solvemate/contracts";
 import {
   requireConversationCapacity,
   uniqueConversationTitle,
 } from "./conversation-limits";
+import { materialLocation } from "../materials/location";
 import { clientRuntime } from "../version";
 import { retainSessionBindings } from "../ai/session-bindings";
 import { initialConversationAi, resolveDefaults } from "../ai/robot-config";
@@ -51,21 +53,57 @@ export function latestConversation(conversations: Conversation[]) {
   }, undefined);
 }
 
+/** 同一资料版本的各页共用页签，题目按题号区分。标题与最近活动不影响排列。 */
+export function conversationsForSource(
+  conversations: Conversation[],
+  source: LearningLocation | null,
+  research = false,
+) {
+  const location = (value: LearningLocation) =>
+    "materialId" in value
+      ? value
+      : isSupportedReadingLocation(value)
+        ? materialLocation(value)
+        : null;
+  const target = source && location(source);
+  return conversations
+    .filter((item) => {
+      if (item.status !== "active" || !!item.research !== research)
+        return false;
+      const origin = item.material ?? item.selection;
+      if (!source || !origin) return !source && !origin;
+      const candidate = location(origin);
+      return (
+        !!target &&
+        candidate?.materialId === target.materialId &&
+        candidate.contentVersion === target.contentVersion &&
+        candidate.questionId === target.questionId
+      );
+    })
+    .sort(
+      (a, b) =>
+        (a.createdAt ?? 0) - (b.createdAt ?? 0) || a.id.localeCompare(b.id),
+    );
+}
+
+export function preferredConversation(
+  matching: Conversation[],
+  preferredId: string | null,
+) {
+  return (
+    matching.find((item) => item.id === preferredId) ??
+    latestConversation(matching)
+  );
+}
+
 export function conversationForReading(
   conversations: Conversation[],
   selection: ReadingSelection,
   preferredId: string | null = null,
 ) {
-  const matching = conversations.filter(
-    (item) =>
-      item.status === "active" &&
-      !item.research &&
-      sameContent(item.selection, selection),
-  );
-  // 用户从条目返回某个旧会话时保留该选择；科目入口则取最近一条。
-  return (
-    matching.find((item) => item.id === preferredId) ??
-    latestConversation(matching)
+  return preferredConversation(
+    conversationsForSource(conversations, selection),
+    preferredId,
   );
 }
 
@@ -299,16 +337,8 @@ export function conversationForMaterial(
   location: MaterialLocation,
   preferredId: string | null = null,
 ) {
-  const matching = conversations.filter(
-    (item) =>
-      item.status === "active" &&
-      !item.research &&
-      item.material?.materialId === location.materialId &&
-      item.material.contentVersion === location.contentVersion &&
-      item.material.questionId === location.questionId,
-  );
-  return (
-    matching.find((item) => item.id === preferredId) ??
-    latestConversation(matching)
+  return preferredConversation(
+    conversationsForSource(conversations, location),
+    preferredId,
   );
 }

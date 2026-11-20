@@ -147,6 +147,20 @@ describe("AI conversation results", () => {
     expect(mergeAiTurn(data, turn).conversations[0]?.messages).toEqual([]);
   });
 
+  it("accepts the real request after a different window looked it up before submission", () => {
+    const { data, turn } = setup();
+    const saved = mergeAiTurn(data, turn);
+    Object.assign(saved.conversations[0].turns[0], {
+      snapshot: null,
+      status: "interrupted",
+      submissionStatus: "rejected",
+    });
+    expect(mergeAiTurn(saved, turn).conversations[0].turns[0]).toMatchObject({
+      status: "running",
+      submissionStatus: "accepted",
+      id: turn.id,
+    });
+  });
   it("keeps execution order when an older result arrives after a newer turn", () => {
     const { data, turn } = setup();
     const first = { ...turn, status: "completed" as const, completedAt: 200 };

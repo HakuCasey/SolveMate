@@ -5,11 +5,52 @@ import { aiTurn } from "../ai/fixtures.test-support";
 import { mergeAiTurn } from "../ai/state";
 import {
   conversationForReading,
+  conversationsForSource,
   latestConversation,
   createConversation,
 } from "./conversations";
 
 describe("reading conversation recovery", () => {
+  it("keeps tabs in creation order across PDF pages and separates versions, documents and archived conversations", () => {
+    const data = createStudyFixture();
+    const material = {
+      materialId: "book",
+      contentVersion: "v1",
+      pageNumber: 2,
+    };
+    const first = {
+      ...createConversation(
+        data,
+        null,
+        data.defaultRobotId,
+        null,
+        "new",
+        null,
+        material,
+      ),
+      id: "first",
+      createdAt: 1,
+      lastActivityAt: 9,
+    };
+    const second = {
+      ...first,
+      id: "second",
+      createdAt: 2,
+      lastActivityAt: 3,
+      material: { ...material, pageNumber: 8 },
+    };
+    const others = [
+      { ...first, id: "old", material: { ...material, contentVersion: "v0" } },
+      { ...first, id: "other", material: { ...material, materialId: "other" } },
+      { ...first, id: "archived", status: "archived" as const },
+    ];
+    expect(
+      conversationsForSource([second, ...others, first], material).map(
+        (item) => item.id,
+      ),
+    ).toEqual(["first", "second"]);
+  });
+
   it("uses learning activity rather than array order or management changes", () => {
     const data = createStudyFixture();
     const old = {

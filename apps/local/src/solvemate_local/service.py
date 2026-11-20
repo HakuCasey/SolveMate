@@ -65,6 +65,9 @@ class AiService:
                 "网页与本机的会话绑定不一致，未修改第三方会话名称。",
                 "binding_mismatch",
             )
+        self.store.require_session_owner(
+            ident, request.connectionId, request.externalSessionId
+        )
         adapter = self.registry.connection(binding["connection_id"])
         if not adapter.supports_rename:
             return {"status": "unsupported"}
@@ -707,6 +710,10 @@ class AiService:
             process = await self.connections.runtime(adapter, executable)
             loaded = self.connections.loaded[adapter.id]
             binding = self.store.binding(request.conversationId, adapter.id)
+            if binding:
+                self.store.require_session_owner(
+                    request.conversationId, adapter.id, binding["external_id"]
+                )
             if request.restartSession:
                 self.store.restart_binding(
                     request.conversationId, adapter.id, request.externalSessionId
@@ -736,14 +743,17 @@ class AiService:
                 binding = self.store.binding(request.conversationId, adapter.id)
             fresh = not binding
             if binding and binding["external_id"]:
-                sid = binding["external_id"]
-                turn["externalSessionId"] = sid
+                original_id = binding["external_id"]
+                turn["externalSessionId"] = original_id
                 self.persist(turn)
-                if sid not in loaded:
+                if original_id not in loaded:
                     # 程序和配置目录可能搬迁；是否能继续由原生会话恢复结果决定。
-                    session = await adapter.resume(process, sid, binding["workspace"])
+                    session = await adapter.resume(
+                        process, original_id, binding["workspace"]
+                    )
                 else:
                     session = None
+                sid = original_id
             else:
                 # 先登记待确认的绑定，创建超时或进程中断后不能盲目另建原生会话。
                 if not binding:
@@ -761,6 +771,11 @@ class AiService:
                     process, str(self.workspace), turn["model"]
                 )
                 sid = session.id
+                if request.restartSession and sid == request.externalSessionId:
+                    raise ConnectionError(
+                        "服务返回了原会话编号，未能建立新会话。请检查服务后新建对话。",
+                        "binding_mismatch",
+                    )
                 self.store.complete_binding(request.conversationId, sid, adapter.id)
                 turn["externalSessionId"] = sid
                 self.persist(turn)
@@ -927,8 +942,9 @@ class AiService:
                     [turn["assistantMessageId"]],
                 )
             self.persist(turn)
-            if sid:
-                self.session_turns.pop((turn["connectionId"], sid), None)
+            route = (turn["connectionId"], sid)
+            if sid and self.session_turns.get(route) in {None, turn["id"]}:
+                self.session_turns.pop(route, None)
                 if process:
                     try:
                         released = await adapter.finish_turn(process, sid)
@@ -1072,10 +1088,10 @@ class AiService:
         turn["stopRequested"] = True
         self.progress(turn, "stopping")
         self.resolve_permissions(ident)
-        sid = turn.get("externalSessionId")
-        process = self.connections.process_for(turn["connectionId"])
-        if sid and process:
-            await self.registry.connection(turn["connectionId"]).cancel(process, sid)
+        # 恢复或选模型期间只撤回本轮提问；尚未提交时无需向原生会话发送停止。
+        generation = self.generations.get(ident)
+        if generation:
+            await generation.adapter.cancel(generation.process, generation.session_id)
         self.persist(turn)
         return self.public_turn(turn)
 

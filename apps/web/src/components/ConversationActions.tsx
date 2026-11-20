@@ -132,6 +132,10 @@ export function ConversationActions({
           <Menu.Portal>
             <Menu.Content
               className={styles.menu}
+              {...(kind === "dropdown"
+                ? { align: "start" as const, sideOffset: 4 }
+                : {})}
+              collisionPadding={8}
               onCloseAutoFocus={(event) => {
                 if (panel || deleteOpen) event.preventDefault();
               }}

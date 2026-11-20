@@ -142,6 +142,11 @@ class DshProcess:
                 raise ConnectionError(
                     "DSH 未返回有效的会话编号，未继续发送问题。", "session_invalid"
                 )
+            if sid in self.sessions:
+                raise ConnectionError(
+                    "DSH 返回了正在使用的会话编号。请稍后新建对话再试。",
+                    "binding_mismatch",
+                )
             self.sessions[sid] = NativeSession(host)
             # 公共服务先保存编号，再读取可能失败的模型目录。
             return HarnessSession(sid, {})
@@ -153,6 +158,11 @@ class DshProcess:
         if sid in self.sessions:
             raise ConnectionError("此 DSH 会话正在处理中，请等待完成。", "session_busy")
         host = await self.host(workspace)
+        # 启动 Host 期间另一个请求可能已经取得这个编号。
+        if sid in self.sessions:
+            await host.close()
+            raise ConnectionError("此 DSH 会话正在处理中，请等待完成。", "session_busy")
+        self.sessions[sid] = NativeSession(host)
         try:
             # 查询旧编号，绝不把 session/create 当作恢复。
             page = await host.snapshot(sid)
@@ -161,7 +171,6 @@ class DshProcess:
                 raise ConnectionError(
                     "DSH 返回的会话编号与原绑定不同。", "binding_mismatch"
                 )
-            self.sessions[sid] = NativeSession(host)
             return await self.inspect(sid)
         except BaseException:
             self.sessions.pop(sid, None)

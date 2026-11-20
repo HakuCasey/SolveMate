@@ -1,8 +1,10 @@
 import json
 import sqlite3
+from contextlib import contextmanager
 from pathlib import Path
 from time import time
 
+from .errors import ConnectionError
 from .metadata import (
     LEGACY_CONNECTIONS,
     normalized_detection,
@@ -319,6 +321,40 @@ class Store:
         # 旧调用仅可读取唯一关联，不能按行顺序猜测当前服务。
         return dict(rows[0]) if len(rows) == 1 else None
 
+    def require_session_owner(self, conversation_id, connection_id, external_id):
+        if (
+            external_id
+            and self.db.execute(
+                "SELECT 1 FROM bindings WHERE connection_id=? AND external_id=? AND conversation_id<>? LIMIT 1",
+                (connection_id, external_id, conversation_id),
+            ).fetchone()
+        ):
+            raise ConnectionError(
+                "此服务的会话编号已关联其他对话。请新建对话后提问。",
+                "binding_mismatch",
+            )
+
+    @contextmanager
+    def _claim_session(self, conversation_id, connection_id, external_id):
+        # 两个窗口或进程同时恢复时，检查归属和写入绑定必须在同一个写事务中。
+        with self.db:
+            self.db.execute("BEGIN IMMEDIATE")
+            self.require_session_owner(conversation_id, connection_id, external_id)
+            if (
+                external_id
+                and self.db.execute(
+                    "SELECT 1 FROM turns WHERE conversation_id<>? "
+                    "AND json_extract(value,'$.connectionId')=? "
+                    "AND json_extract(value,'$.externalSessionId')=? LIMIT 1",
+                    (conversation_id, connection_id, external_id),
+                ).fetchone()
+            ):
+                raise ConnectionError(
+                    "此服务的会话编号曾用于另一条对话。请新建对话后提问。",
+                    "binding_mismatch",
+                )
+            yield
+
     def receipts(self, connection_id, external_id):
         result = {"content": set(), "message": set()}
         for row in self.db.execute(
@@ -400,7 +436,7 @@ class Store:
         protocol="acp",
         revision=1,
     ):
-        with self.db:
+        with self._claim_session(conversation_id, connection_id, external_id):
             self.db.execute(
                 "INSERT INTO bindings (conversation_id, external_id, executable, workspace, harness_home, connection_id,protocol,state,revision) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
@@ -428,11 +464,18 @@ class Store:
         binding = self.binding(conversation_id, connection_id)
         if not binding:
             raise ValueError("Session binding was not found.")
-        with self.db:
-            self.db.execute(
+        with self._claim_session(
+            conversation_id, binding["connection_id"], external_id
+        ):
+            cursor = self.db.execute(
                 "UPDATE bindings SET external_id=?,state='bound',revision=revision+1 WHERE conversation_id=? AND connection_id=? AND external_id=''",
                 (external_id, conversation_id, binding["connection_id"]),
             )
+
+            if cursor.rowcount != 1:
+                raise ConnectionError(
+                    "会话关联已变化，请重新打开对话。", "binding_mismatch"
+                )
 
     def turn(self, ident):
         row = self.db.execute("SELECT value FROM turns WHERE id=?", (ident,)).fetchone()

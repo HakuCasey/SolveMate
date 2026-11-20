@@ -858,3 +858,21 @@ def test_native_rename_adapter_reuses_process_and_cleans_up_start_failure():
         assert calls == ["start", "close"]
 
     asyncio.run(scenario())
+
+
+def test_duplicate_create_id_closes_only_the_new_host(tmp_path):
+    async def exercise():
+        p = process(tmp_path, lambda _: None)
+        try:
+            original = await p.create(str(tmp_path))
+            host = p.sessions[original.id].host
+            with pytest.raises(ConnectionError) as failed:
+                await p.create(str(tmp_path))
+            assert failed.value.code == "binding_mismatch"
+            assert FakeHost.instances[-1].closed
+            assert p.sessions[original.id].host is host and not host.closed
+            assert await p.prompt(original.id, "continue original") == "completed"
+        finally:
+            await p.close()
+
+    asyncio.run(exercise())

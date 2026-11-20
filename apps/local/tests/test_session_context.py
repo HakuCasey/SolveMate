@@ -412,3 +412,235 @@ def test_tool_instructions_follow_each_native_session_and_survive_restart(tmp_pa
             store.close()
 
     asyncio.run(exercise())
+
+
+@pytest.mark.parametrize("connection", ["deepseek-local", "hermes-local"])
+def test_tabs_on_same_page_keep_their_sessions_across_stop_and_reopen(
+    tmp_path, connection
+):
+    def ask(tab, text):
+        return question(text, connection, conversationId=tab, readingContext=page())
+
+    async def exercise():
+        store = Store(tmp_path)
+        service = AiService(store, registry=fake_registry(FakeHermes))
+        try:
+            await configure(service, hermes=connection == "hermes-local")
+            a = ask("tab-a", "wait-test A")
+            service.create_turn(a)
+            async with asyncio.timeout(3):
+                while not (store.turn(a.id).get("dispatch") or {}).get("receivedAt"):
+                    await asyncio.sleep(0.01)
+            a_sid = store.turn(a.id)["externalSessionId"]
+            b = await run(service, ask("tab-b", "question B"))
+            b_sid = b["externalSessionId"]
+            assert a_sid != b_sid
+            assert store.turn(a.id)["status"] == "running"
+            assert store.receipts(connection, a_sid)["message"] == {a.userMessageId}
+            assert a.userMessageId not in store.receipts(connection, b_sid)["message"]
+            assert b["dispatch"]["contentKeys"] == [content_key(a.readingContext)]
+            await service.cancel(a.id)
+            assert (await completed(service, a.id))["status"] == "cancelled"
+            assert store.turn(b["id"]) == b
+
+            await service.close()
+            store.close()
+            store = Store(tmp_path)
+            service = AiService(store, registry=fake_registry(FakeHermes))
+            factory = FakeHermes if connection == "hermes-local" else FakeAcp
+            before = len(factory.calls)
+            for tab, sid in [("tab-b", b_sid), ("tab-a", a_sid)]:
+                result = await run(service, ask(tab, tab + " follow-up"))
+                assert result["dispatch"]["externalSessionId"] == sid
+                assert result["dispatch"]["contentKeys"] == []
+            calls = factory.calls[before:]
+            assert [
+                p["sessionId"]
+                for m, p in calls
+                if m in {"session/load", "session/resume"}
+            ] == [b_sid, a_sid]
+            assert [p["sessionId"] for m, p in calls if m == "session/prompt"] == [
+                b_sid,
+                a_sid,
+            ]
+            assert not any(
+                m in {"session/new", "gateway/session.create"} for m, p in calls
+            )
+        finally:
+            await service.close()
+            store.close()
+
+    asyncio.run(exercise())
+
+
+def test_foreign_session_id_in_restore_or_create_cannot_take_over_running_turn(
+    tmp_path, monkeypatch
+):
+    from solvemate_local.adapters.types import HarnessSession
+
+    async def exercise():
+        store = Store(tmp_path)
+        service = AiService(store, registry=fake_registry(FakeHermes))
+        try:
+            await configure(service, hermes=True)
+            req = question("wait-test owner", "hermes-local")
+            service.create_turn(req)
+            async with asyncio.timeout(3):
+                while not (store.turn(req.id).get("dispatch") or {}).get("receivedAt"):
+                    await asyncio.sleep(0.01)
+            sid = store.turn(req.id)["externalSessionId"]
+            before = len(FakeHermes.calls)
+            adapter = service.registry.connection("hermes-local")
+
+            async def duplicate(process, workspace, model):
+                return HarnessSession(sid, {})
+
+            monkeypatch.setattr(adapter, "new_session", duplicate)
+            for tab, extra in [
+                ("restored-tab", {"externalSessionId": sid}),
+                ("new-tab", {}),
+            ]:
+                other = question(
+                    "foreign prompt", "hermes-local", conversationId=tab, **extra
+                )
+                service.create_turn(other)
+                result = await completed(service, other.id)
+                assert result["errorCode"] == "binding_mismatch"
+                assert (
+                    not result.get("externalSessionId") and result["dispatch"] is None
+                )
+                assert not (store.binding(tab) or {}).get("external_id")
+                assert service.session_turns[("hermes-local", sid)] == req.id
+            assert FakeHermes.calls[before:] == []
+            service.update(
+                {"sessionId": sid, "kind": "text", "text": "original response"},
+                "hermes-local",
+            )
+            assert "original response" in store.turn(req.id)["content"]
+            await service.cancel(req.id)
+            assert (await completed(service, req.id))["status"] == "cancelled"
+        finally:
+            await service.close()
+            store.close()
+
+    asyncio.run(exercise())
+
+
+def test_replaced_session_still_belongs_to_its_original_dialog(tmp_path):
+    async def exercise():
+        store = Store(tmp_path)
+        service = AiService(store, registry=fake_registry())
+        try:
+            await configure(service)
+            first = await run(service, question("first"))
+            sid = first["externalSessionId"]
+            store.mark_binding(first["conversationId"], "missing", "deepseek-local")
+            await run(
+                service,
+                question("start again", externalSessionId=sid, restartSession=True),
+            )
+            req = question(
+                "wrong restored ID", conversationId="another", externalSessionId=sid
+            )
+            before = len(FakeAcp.calls)
+            service.create_turn(req)
+            result = await completed(service, req.id)
+            assert result["errorCode"] == "binding_mismatch"
+            assert not result.get("externalSessionId") and result["dispatch"] is None
+            assert FakeAcp.calls[before:] == []
+            # 不同服务的编号命名空间彼此独立。
+            store.bind(
+                "another", sid, "harness", str(tmp_path), connection_id="hermes-local"
+            )
+            assert store.binding("another", "hermes-local")["external_id"] == sid
+        finally:
+            await service.close()
+            store.close()
+
+    asyncio.run(exercise())
+
+
+def test_stop_during_session_restore_does_not_send_native_cancel_or_prompt(
+    tmp_path, monkeypatch
+):
+    async def exercise():
+        store = Store(tmp_path)
+        service = AiService(store, registry=fake_registry())
+        try:
+            await configure(service)
+            first = await run(service, question("original"))
+            await service.close()
+            service = AiService(store, registry=fake_registry())
+            adapter = service.registry.connection("deepseek-local")
+            started, release = asyncio.Event(), asyncio.Event()
+            resume = adapter.resume
+
+            async def delay(process, sid, workspace):
+                started.set()
+                await release.wait()
+                return await resume(process, sid, workspace)
+
+            monkeypatch.setattr(adapter, "resume", delay)
+            req = question("withdraw", externalSessionId=first["externalSessionId"])
+            before = len(FakeAcp.calls)
+            service.create_turn(req)
+            await asyncio.wait_for(started.wait(), 3)
+            await service.cancel(req.id)
+            release.set()
+            result = await completed(service, req.id)
+            assert result["status"] == "cancelled" and result["dispatch"] is None
+            assert not any(
+                m in {"session/cancel", "session/prompt"}
+                for m, _ in FakeAcp.calls[before:]
+            )
+            assert (
+                store.binding(req.conversationId)["external_id"]
+                == first["externalSessionId"]
+            )
+        finally:
+            await service.close()
+            store.close()
+
+    asyncio.run(exercise())
+
+
+def test_old_duplicate_bindings_cannot_resume_or_rename_either_dialog(tmp_path):
+    from solvemate_local.models import SessionRename
+
+    async def exercise():
+        store = Store(tmp_path)
+        service = AiService(store, registry=fake_registry(FakeHermes))
+        try:
+            await configure(service, hermes=True)
+            for tab in ("old-a", "old-b"):
+                store.bind(
+                    tab, tab, "harness", str(tmp_path), connection_id="hermes-local"
+                )
+            # 模拟旧备份中已经存在的重复关联，不能猜测其中哪一条才是原对话。
+            with store.db:
+                store.db.execute("UPDATE bindings SET external_id='shared'")
+            before = len(FakeHermes.calls)
+            for tab in ("old-a", "old-b"):
+                req = question("follow-up", "hermes-local", conversationId=tab)
+                service.create_turn(req)
+                result = await completed(service, req.id)
+                assert (
+                    result["errorCode"] == "binding_mismatch"
+                    and result["dispatch"] is None
+                )
+                with pytest.raises(ConnectionError) as failed:
+                    await service.rename_session(
+                        tab,
+                        SessionRename(
+                            connectionId="hermes-local",
+                            externalSessionId="shared",
+                            title="rename",
+                        ),
+                    )
+                assert failed.value.code == "binding_mismatch"
+            assert FakeHermes.calls[before:] == []
+        finally:
+            await service.close()
+            store.close()
+
+    asyncio.run(exercise())

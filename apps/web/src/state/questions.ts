@@ -24,6 +24,7 @@ export interface QuestionInput {
   text: string;
   references: ReadingReference[];
   createdAt: number;
+  draftKey?: string;
   retry?: boolean;
   create?: boolean;
   readingContext?: ReadingReference;
@@ -203,8 +204,19 @@ export function recordQuestion(
     updatedAt: input.createdAt,
     lastActivityAt: input.createdAt,
   };
+  // 草稿和提问一起落盘；其他窗口新写的内容仍属于草稿。
+  let drafts = data.drafts;
+  if (
+    !input.retry &&
+    input.draftKey &&
+    drafts?.[input.draftKey]?.trim() === text.trim()
+  ) {
+    drafts = { ...drafts };
+    delete drafts[input.draftKey];
+  }
   return {
     ...data,
+    drafts,
     conversations: [
       changed,
       ...data.conversations.filter((item) => item.id !== changed.id),

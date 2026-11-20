@@ -5,6 +5,7 @@ import {
   type CSSProperties,
   Fragment,
   useEffect,
+  useLayoutEffect,
   useId,
   useRef,
   useState,
@@ -14,6 +15,8 @@ import {
   Bot,
   ChevronDown,
   MessagesSquare,
+  Plus,
+  LoaderCircle,
   GraduationCap,
   Link,
   Sparkles,
@@ -28,6 +31,7 @@ import type {
   RobotAiDefaults,
 } from "@solvemate/contracts";
 import { AiSelectionPopover } from "./AiSelectionPopover";
+import { liveTurnFor } from "../ai/state";
 import { resolveConversationAi } from "../ai/robot-config";
 import type { AiService } from "../ai/useAiService";
 import {
@@ -41,7 +45,7 @@ import {
   type ConversationActionsProps,
 } from "./ConversationActions";
 import { useReadingSelection } from "../reading/useReadingSelection";
-import { ReplyActivity } from "./ReplyActivity";
+import { ReplyActivity, ReplyTimer } from "./ReplyActivity";
 import { Markdown } from "./Markdown";
 import {
   ReadingContextControl,
@@ -71,6 +75,9 @@ interface ChatPanelProps extends ConversationActionsProps {
   recommendationsExpanded: boolean;
   onToggleRecommendations: () => void;
   onRobotChange: (id: string) => void;
+  tabs: Conversation[];
+  onSelectTab: (conversation: Conversation) => void;
+  onNew: () => Promise<void>;
   onSend: (text: string) => Promise<void>;
   onRetryMessage: (id: string) => Promise<void>;
   references: DraftReference[];
@@ -100,6 +107,9 @@ export function ChatPanel({
   recommendationsExpanded,
   onToggleRecommendations,
   onRobotChange,
+  tabs,
+  onSelectTab,
+  onNew,
   onSend,
   onRetryMessage,
   references,
@@ -109,10 +119,11 @@ export function ChatPanel({
   aiSelection,
   onAiSelectionSave,
 }: ChatPanelProps) {
+  const [creating, setCreating] = useState(false);
   const [notice, setNotice] = useState("");
   const [previewSize, setPreviewSize] = useState<number | null>(null);
   const displayedSize = previewSize ?? fontSize;
-  const [sending, setSending] = useState(false);
+  const [submission, setSubmission] = useState<"send" | "retry" | null>(null);
   const recommendationsId = useId();
   const history = useRef<HTMLDivElement>(null);
   const followReply = useRef(true);
@@ -141,10 +152,13 @@ export function ChatPanel({
     },
   );
   const archived = conversation?.status === "archived";
-  const lastTurn = conversation?.turns?.at(-1);
+  const savedTurn = conversation?.turns?.at(-1);
+  const turn = liveTurnFor(savedTurn, savedTurn && ai.turns[savedTurn.id]);
+  const lastTurn = turn ?? savedTurn;
   const lastObservedTurn = useRef(lastTurn);
-  const turn = lastTurn ? ai.turns[lastTurn.id] : undefined;
-  const busy = lastTurn?.status === "running" || sending;
+  const running = lastTurn?.status === "running";
+  const busy = running || submission !== null;
+  const canStop = running && lastTurn.submissionStatus === "accepted";
   const connectionError = lastTurn ? ai.connectionErrors[lastTurn.id] : "";
   const currentReply = messages.find(
     (message) =>
@@ -165,18 +179,27 @@ export function ChatPanel({
     "可以把这里的推导过程详细讲一下吗？",
     "如何理解这段话，能举一个例子吗？",
   ];
-  const managementButton = (
-    <button
-      className={styles.manage}
-      type="button"
-      aria-label="对话管理"
-      title={conversation ? "对话管理" : "提问后可管理对话"}
-      disabled={!conversation}
-    >
-      <MessagesSquare aria-hidden="true" />
-      <span>对话管理</span>
-    </button>
-  );
+  const tabList = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const strip = tabList.current;
+    const selected = strip?.querySelector<HTMLElement>(
+      '[aria-selected="true"]',
+    );
+    if (!strip || !selected) return;
+    const bounds = strip.getBoundingClientRect();
+    const tab = selected.getBoundingClientRect();
+    if (tab.right > bounds.right) strip.scrollLeft += tab.right - bounds.right;
+    else if (tab.left < bounds.left) strip.scrollLeft += tab.left - bounds.left;
+  }, [conversation?.id, tabs.length]);
+
+  function selectTab(item: Conversation) {
+    onSelectTab(item);
+    requestAnimationFrame(() =>
+      document
+        .getElementById(`chat-tab-${item.id}`)
+        ?.focus({ preventScroll: true }),
+    );
+  }
 
   const latestContent = messages.at(-1)?.content;
   useEffect(() => {
@@ -226,26 +249,24 @@ export function ChatPanel({
   async function submit(text: string) {
     const value = text.trim();
     if (!value || !robot || busy || archived) return;
-    setSending(true);
-    setDraft("");
+    setSubmission("send");
     followReply.current = true;
     try {
       await onSend(value);
       setNotice("");
     } catch (error) {
-      setDraft(text);
       if (isConversationLimitError(error)) return;
       setNotice(
         error instanceof Error ? error.message : "问题未能保存，请重试。",
       );
     } finally {
-      setSending(false);
+      setSubmission(null);
     }
   }
 
   async function retryMessage(id: string) {
     if (busy || archived) return;
-    setSending(true);
+    setSubmission("retry");
     followReply.current = true;
     setNotice("");
     try {
@@ -256,13 +277,13 @@ export function ChatPanel({
           error instanceof Error ? error.message : "重试未能保存，请重试。",
         );
     } finally {
-      setSending(false);
+      setSubmission(null);
     }
   }
 
   const feedback = (
     <>
-      {busy && lastTurn && (
+      {running && lastTurn && (
         <ReplyActivity
           key={lastTurn.id}
           phase={
@@ -274,14 +295,15 @@ export function ChatPanel({
                 : "waiting"
               : "queued")
           }
-          startedAt={lastTurn.startedAt}
+          startedAt={savedTurn!.startedAt}
           received={!!currentReply?.content}
           disconnected={!!connectionError}
         />
       )}
-      {busy && archived && lastTurn && (
+      {running && archived && lastTurn && (
         <button
           className={styles.stopButton}
+          disabled={!canStop}
           onClick={() => void ai.cancel(lastTurn.id)}
         >
           <Square aria-hidden="true" />
@@ -409,19 +431,6 @@ export function ChatPanel({
             </option>
           ))}
         </select>
-        {conversation ? (
-          <ConversationActions
-            key={conversation.id}
-            conversation={conversation}
-            conversations={conversations}
-            onUpdate={onUpdate}
-            onDelete={onDelete}
-          >
-            {managementButton}
-          </ConversationActions>
-        ) : (
-          managementButton
-        )}
         <div className={styles.chatSettings}>
           <Popover.Root
             onOpenChange={(open) => {
@@ -497,9 +506,114 @@ export function ChatPanel({
           </div>
         </div>
       </header>
+      <div className={styles.conversationTab}>
+        <div
+          className={styles.tabList}
+          role="tablist"
+          aria-label="对话页签"
+          ref={tabList}
+          onKeyDown={(event) => {
+            const index = tabs.findIndex(
+              (item) => item.id === conversation?.id,
+            );
+            if (index < 0) return;
+            let next;
+            switch (event.key) {
+              case "ArrowRight":
+                next = (index + 1) % tabs.length;
+                break;
+              case "ArrowLeft":
+                next = (index + tabs.length - 1) % tabs.length;
+                break;
+              case "Home":
+                next = 0;
+                break;
+              case "End":
+                next = tabs.length - 1;
+                break;
+              default:
+                return;
+            }
+            event.preventDefault();
+            selectTab(tabs[next]);
+          }}
+        >
+          {tabs.map((item) => {
+            const active = item.id === conversation?.id;
+            const saved = item.turns.at(-1);
+            const turn =
+              liveTurnFor(saved, saved && ai.turns[saved.id]) ?? saved;
+            const generating = turn?.status === "running";
+            const button = (
+              <button
+                key={item.id}
+                id={`chat-tab-${item.id}`}
+                role="tab"
+                aria-label={item.title}
+                aria-selected={active}
+                aria-controls={active ? "chat-history-panel" : undefined}
+                tabIndex={active || !conversation ? 0 : -1}
+                className={styles.manage}
+                type="button"
+                title={item.title}
+                onClick={active ? undefined : () => selectTab(item)}
+              >
+                {generating ? (
+                  <LoaderCircle
+                    className={styles.activitySpinner}
+                    aria-hidden="true"
+                  />
+                ) : (
+                  <MessagesSquare aria-hidden="true" />
+                )}
+                <span className={styles.tabTitle}>{item.title}</span>
+                {generating && saved && (
+                  <ReplyTimer key={saved.id} startedAt={saved.startedAt} />
+                )}
+              </button>
+            );
+            return active ? (
+              <ConversationActions
+                key={item.id}
+                conversation={item}
+                conversations={conversations}
+                onUpdate={onUpdate}
+                onDelete={onDelete}
+              >
+                {button}
+              </ConversationActions>
+            ) : (
+              button
+            );
+          })}
+          {!conversation && <span className={styles.emptyTab}>新对话</span>}
+        </div>
+        <button
+          className={styles.newChat}
+          type="button"
+          aria-label="在聊天栏新建对话"
+          title="新建对话"
+          disabled={creating || submission !== null || !robots.length}
+          onClick={async () => {
+            setCreating(true);
+            try {
+              await onNew();
+            } finally {
+              setCreating(false);
+            }
+          }}
+        >
+          <Plus aria-hidden="true" />
+        </button>
+      </div>
       <div className={styles.main}>
         <div
           className={styles.history}
+          role="tabpanel"
+          id="chat-history-panel"
+          aria-labelledby={
+            conversation ? `chat-tab-${conversation.id}` : undefined
+          }
           ref={history}
           onMouseUp={selectedText.onMouseUp}
           onTouchEnd={selectedText.onTouchEnd}
@@ -658,7 +772,7 @@ export function ChatPanel({
           })}
           {!currentReply &&
             lastTurn &&
-            (busy ||
+            (running ||
               failure ||
               lastTurn.status === "cancelled" ||
               lastTurn.status === "interrupted") && (
@@ -676,7 +790,7 @@ export function ChatPanel({
         </div>
         {archived ? (
           <p className={styles.archivedNotice}>
-            对话已归档。在上方“对话管理”中移回进行中后，可继续提问。
+            对话已归档。点击上方对话标题，移回进行中后，可继续提问。
           </p>
         ) : (
           <>
@@ -765,7 +879,7 @@ export function ChatPanel({
                 rows={2}
                 maxLength={10000}
                 disabled={!robot || busy}
-                value={draft}
+                value={submission === "send" ? "" : draft}
                 onChange={(event) => setDraft(event.target.value)}
                 onKeyDown={(event) => {
                   if (
@@ -810,11 +924,12 @@ export function ChatPanel({
                     长按空格键可语音输入… <span>尚未开放</span>
                   </span>
                 </div>
-                {busy ? (
+                {running ? (
                   <button
                     className={styles.send}
                     type="button"
                     aria-label="停止生成"
+                    disabled={!canStop}
                     onClick={() => {
                       if (lastTurn) void ai.cancel(lastTurn.id);
                     }}
@@ -826,7 +941,7 @@ export function ChatPanel({
                     className={styles.send}
                     type="submit"
                     aria-label="提问"
-                    disabled={!robot || !draft.trim()}
+                    disabled={busy || !robot || !draft.trim()}
                   >
                     <ArrowUp aria-hidden="true" />
                   </button>

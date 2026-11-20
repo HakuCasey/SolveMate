@@ -29,6 +29,43 @@ function fixture() {
 }
 
 describe("save questions before requesting AI", () => {
+  it("consumes only the submitted draft together with the recorded question", () => {
+    const { data, input } = fixture();
+    const draftKey = "ordinary-chat";
+    data.drafts = { [draftKey]: " " + input.text, other: "另一份草稿" };
+    const result = recordQuestion(data, { ...input, draftKey }, null);
+    expect(result.drafts).toEqual({ other: "另一份草稿" });
+    expect(result.conversations[0].messages[0].content).toBe(input.text);
+    expect(data.drafts[draftKey]).toBe(" " + input.text);
+    data.drafts[draftKey] = "另一窗口的新输入";
+    expect(recordQuestion(data, { ...input, draftKey }, null).drafts).toEqual(
+      data.drafts,
+    );
+  });
+  it("keeps the question start time through server acceptance, streaming and recovery", () => {
+    const { data, input } = fixture();
+    let saved = recordQuestion(data, input, aiSettings());
+    const accepted = aiTurn({
+      id: input.turnId,
+      conversationId: input.conversation.id,
+      userMessageId: input.messageId,
+      startedAt: 4000,
+    });
+    for (const snapshot of [
+      accepted,
+      {
+        ...accepted,
+        revision: 2,
+        status: "completed" as const,
+        completedAt: 5000,
+      },
+      accepted,
+    ]) {
+      saved = mergeAiTurn(saved, snapshot);
+      expect(saved.conversations[0].turns[0].startedAt).toBe(input.createdAt);
+    }
+    expect(saved.conversations[0].turns[0].status).toBe("completed");
+  });
   it("saves a new question and its references even with no AI connection, without inventing a connection", () => {
     const { data, input } = fixture();
     data.conversations = [];
