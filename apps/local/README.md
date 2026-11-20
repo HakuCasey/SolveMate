@@ -18,7 +18,7 @@ Windows PowerShell 使用：
 apps\server\.venv\Scripts\python.exe -m uvicorn solvemate_local.main:create_app --factory --app-dir apps/local/src --host 127.0.0.1 --port 8765
 ```
 
-网页开发服务与构建预览均将 `/local-api/` 转发到本机端口 8765。健康检查位于 `http://127.0.0.1:8765/healthz`。
+网页开发服务与构建预览默认将 `/local-api/` 转发到本机端口 8765，使用 `npm start -- --local-port <端口>` 时代理会跟随指定端口。默认健康检查位于 `http://127.0.0.1:8765/healthz`。
 
 ## 配置 Harness
 

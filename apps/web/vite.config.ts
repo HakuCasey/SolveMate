@@ -49,14 +49,8 @@ function pdfAssets(): Plugin {
 export default defineConfig({
   server: {
     proxy: {
-      "/api/v1": "http://127.0.0.1:8000",
-      "/local-api": "http://127.0.0.1:8765",
-    },
-  },
-  preview: {
-    proxy: {
-      "/api/v1": "http://127.0.0.1:8000",
-      "/local-api": "http://127.0.0.1:8765",
+      "/api/v1": `http://127.0.0.1:${process.env.SOLVEMATE_CONTENT_PORT ?? 8000}`,
+      "/local-api": `http://127.0.0.1:${process.env.SOLVEMATE_LOCAL_PORT ?? 8765}`,
     },
   },
   plugins: [
@@ -115,6 +109,7 @@ export default defineConfig({
     }),
   ],
   build: {
+    outDir: process.env.SOLVEMATE_WEB_OUT_DIR ?? "dist",
     rolldownOptions: {
       output: {
         codeSplitting: {

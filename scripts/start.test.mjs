@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { test } from "node:test";
-import { ensurePortAvailable, ProcessManager } from "./start.mjs";
+import { requestedPorts, reservePorts, ProcessManager } from "./start.mjs";
 
 async function waitUntil(check) {
   const deadline = Date.now() + 6000;
@@ -32,10 +32,57 @@ test("rejects an occupied port without stopping its existing listener", async (t
   const server = createServer();
   await new Promise((accept) => server.listen(0, "127.0.0.1", accept));
   t.after(() => new Promise((accept) => server.close(accept)));
-  await assert.rejects(ensurePortAvailable(server.address().port), {
-    code: "EADDRINUSE",
-  });
+  await assert.rejects(
+    reservePorts({ local: server.address().port }),
+    /EADDRINUSE.*--local-port/,
+  );
   assert.equal(server.listening, true);
+});
+
+test("selects default, isolated and explicitly assigned ports", () => {
+  assert.deepEqual(requestedPorts({}), {
+    web: 4173,
+    content: 8000,
+    local: 8765,
+  });
+  assert.deepEqual(
+    requestedPorts({ isolated: true, port: "4174", "local-port": "8000" }),
+    { web: 4174, content: 0, local: 8000 },
+  );
+  assert.deepEqual(
+    requestedPorts({
+      port: "8765",
+      "content-port": "8001",
+      "local-port": "8766",
+    }),
+    { web: 8765, content: 8001, local: 8766 },
+  );
+  for (const value of ["", "-1", "0", "65536", "9.5", "abc"])
+    assert.throws(
+      () => requestedPorts({ "content-port": value }),
+      /--content-port/,
+    );
+});
+
+test("parallel instances reserve distinct ports and release only their own", async (t) => {
+  const automatic = { web: 0, content: 0, local: 0 };
+  const first = await reservePorts(automatic);
+  t.after(first.release);
+  const second = await reservePorts(automatic);
+  t.after(second.release);
+  assert.equal(
+    new Set([...Object.values(first.ports), ...Object.values(second.ports)])
+      .size,
+    6,
+  );
+  await first.release();
+  // 第二个端口已占用时，也要释放本次已保留的第一个端口。
+  await assert.rejects(
+    reservePorts({ web: first.ports.web, local: second.ports.local }),
+    /--local-port/,
+  );
+  const retry = await reservePorts(first.ports);
+  await retry.release();
 });
 
 test("reports a process that cannot be started and can still clean up", async () => {
@@ -130,7 +177,7 @@ test("invalid CLI options fail before starting services", async () => {
   });
   const code = await new Promise((accept) => child.once("exit", accept));
   assert.equal(code, 1);
-  assert.match(stderr, /must differ from content port 8000/);
+  assert.match(stderr, /Port 8000 is assigned to two services/);
 });
 
 test("direct startup without npm explains the required command before preparation", () => {

@@ -34,3 +34,6 @@ apps/desktop/*.spec
 # Playwright 测试输出
 test-results/
 playwright-report/
+
+# 并行调试实例的用户数据和社区内容
+/.debug-instances/

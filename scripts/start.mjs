@@ -8,15 +8,65 @@ import { parseArgs } from "node:util";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
-export async function ensurePortAvailable(port) {
-  const server = createServer();
-  await new Promise((accept, reject) => {
-    server.once("error", reject);
-    server.listen({ host: "127.0.0.1", port, exclusive: true }, accept);
-  });
-  await new Promise((accept, reject) => {
-    server.close((error) => (error ? reject(error) : accept()));
-  });
+const portFlags = { web: "port", content: "content-port", local: "local-port" };
+
+export function requestedPorts(values) {
+  const defaults = { web: 4173, content: 8000, local: 8765 };
+  const ports = {};
+  for (const [service, flag] of Object.entries(portFlags)) {
+    const raw = values[flag];
+    if (raw === undefined && values.isolated && service !== "web") {
+      ports[service] = 0;
+      continue;
+    }
+    const value = raw ?? String(defaults[service]);
+    const port = Number(value);
+    if (!/^\d+$/.test(value) || port < 1 || port > 65535)
+      throw new Error(`--${flag} must be an integer from 1 to 65535.`);
+    if (Object.values(ports).includes(port))
+      throw new Error(
+        `Port ${port} is assigned to two services. Choose different ports.`,
+      );
+    ports[service] = port;
+  }
+  return ports;
+}
+
+// 在构建期间保留监听端口，防止同时启动的实例选中同一个端口。
+export async function reservePorts(requested) {
+  const listeners = [];
+  const ports = {};
+  const release = () =>
+    Promise.all(
+      listeners
+        .splice(0)
+        .map((server) => new Promise((resolve) => server.close(resolve))),
+    );
+  try {
+    // 先占用指定端口，再交给系统分配其余端口。
+    for (const [service, port] of Object.entries(requested).sort(
+      (a, b) => Number(!a[1]) - Number(!b[1]),
+    )) {
+      const server = createServer((socket) => socket.destroy());
+      try {
+        await new Promise((accept, reject) => {
+          server.once("error", reject);
+          server.listen({ host: "127.0.0.1", port, exclusive: true }, accept);
+        });
+      } catch (error) {
+        throw new Error(
+          `Cannot use ${service} port ${port}: ${error.message}. Choose another port with --${portFlags[service]}.`,
+          { cause: error },
+        );
+      }
+      listeners.push(server);
+      ports[service] = server.address().port;
+    }
+    return { ports, release };
+  } catch (error) {
+    await release();
+    throw error;
+  }
 }
 
 export class ProcessManager {
@@ -146,29 +196,20 @@ async function requireFile(file, message) {
 async function main() {
   const { values } = parseArgs({
     options: {
-      port: { type: "string", default: "4173" },
+      port: { type: "string" },
+      "content-port": { type: "string" },
+      "local-port": { type: "string" },
+      isolated: { type: "boolean" },
       help: { type: "boolean" },
     },
   });
   if (values.help) {
     console.log(
-      "Usage: npm start [-- --port <web-port>]\nDefault ports: web 4173, content service 8000, local AI service 8765.",
+      "Usage: npm start -- [--port N] [--content-port N] [--local-port N] [--isolated]\nDefault ports: web 4173, content 8000, local 8765.\nParallel debugging: npm start -- --isolated --port 4174 (separate data and build, automatic backend ports).",
     );
     return;
   }
-  const port = Number(values.port);
-  if (
-    !/^\d+$/.test(values.port) ||
-    !Number.isInteger(port) ||
-    port < 1 ||
-    port > 65535 ||
-    port === 8000 ||
-    port === 8765
-  ) {
-    throw new Error(
-      "Web port must be an integer from 1 to 65535 and must differ from content port 8000 and local AI port 8765.",
-    );
-  }
+  const requested = requestedPorts(values);
   const npmCli = process.env.npm_execpath;
   if (!npmCli) throw new Error("Run the startup script with npm start.");
   const serverDirectory = join(root, "apps/server");
@@ -186,16 +227,23 @@ async function main() {
     python,
     "Python environment is missing. Follow apps/server/README.md to install the backend dependencies.",
   );
-  for (const candidate of [port, 8000, 8765]) {
-    try {
-      await ensurePortAvailable(candidate);
-    } catch (error) {
-      throw new Error(
-        `Cannot use port ${candidate}: ${error.message}. Stop the existing service before retrying; use --port to change the web port.`,
-      );
-    }
+  const { ports, release } = await reservePorts(requested);
+  const port = ports.web;
+  const env = {
+    ...process.env,
+    SOLVEMATE_CONTENT_PORT: String(ports.content),
+    SOLVEMATE_LOCAL_PORT: String(ports.local),
+    SOLVEMATE_LOCAL_ORIGINS: `http://127.0.0.1:${port},http://localhost:${port}`,
+  };
+  if (values.isolated) {
+    const directory = join(root, ".debug-instances", String(port));
+    env.SOLVEMATE_USER_DIR = join(directory, "user");
+    env.SOLVEMATE_CONTENT_DIR = join(directory, "content");
+    env.SOLVEMATE_WEB_OUT_DIR = join(".debug-builds", String(port), "dist");
+    env.VITE_CONTENT_API_URL = "/api/v1";
+    delete env.SOLVEMATE_LOCAL_DATA;
+    delete env.SOLVEMATE_MATERIALS_DIR;
   }
-
   const manager = new ProcessManager();
   let interrupted = false;
   const interrupt = () => {
@@ -211,17 +259,19 @@ async function main() {
       "-c",
       "import fastapi, uvicorn, solvemate_server, yaml, jsonschema, pypdf, websockets",
     ]);
-    await manager.run("Building web application", process.execPath, [
-      npmCli,
-      "run",
-      "build",
-    ]);
+    await manager.run(
+      "Building web application",
+      process.execPath,
+      [npmCli, "run", "build"],
+      { env },
+    );
     await manager.run(
       "Publishing community content",
       python,
       ["-m", "solvemate_server.publish"],
-      { cwd: serverDirectory },
+      { cwd: serverDirectory, env },
     );
+    await release();
     const api = manager.start(
       "Official content service",
       python,
@@ -233,9 +283,9 @@ async function main() {
         "--host",
         "127.0.0.1",
         "--port",
-        "8000",
+        String(ports.content),
       ],
-      { cwd: serverDirectory },
+      { cwd: serverDirectory, env },
     );
     const local = manager.start(
       "Local AI service",
@@ -250,14 +300,9 @@ async function main() {
         "--host",
         "127.0.0.1",
         "--port",
-        "8765",
+        String(ports.local),
       ],
-      {
-        env: {
-          ...process.env,
-          SOLVEMATE_LOCAL_ORIGINS: `http://127.0.0.1:${port},http://localhost:${port}`,
-        },
-      },
+      { env },
     );
     const web = manager.start(
       "Web service",
@@ -271,7 +316,7 @@ async function main() {
         String(port),
         "--strictPort",
       ],
-      { cwd: join(root, "apps/web") },
+      { cwd: join(root, "apps/web"), env },
     );
     const serviceExit = Promise.race([api.done, local.done, web.done]).then(
       (result) => {
@@ -281,21 +326,26 @@ async function main() {
     await Promise.race([
       Promise.all([
         waitForHttp(`http://127.0.0.1:${port}/`, manager),
-        waitForHttp("http://127.0.0.1:8000/healthz", manager),
-        waitForHttp("http://127.0.0.1:8765/healthz", manager),
+        waitForHttp(`http://127.0.0.1:${ports.content}/healthz`, manager),
+        waitForHttp(`http://127.0.0.1:${ports.local}/healthz`, manager),
       ]),
       serviceExit,
     ]);
     if (!manager.stopping) {
       console.log(`\n[start] SolveMate is ready: http://127.0.0.1:${port}/`);
-      console.log("[start] Official content API: http://127.0.0.1:8000/docs");
-      console.log("[start] Local AI service: http://127.0.0.1:8765/healthz");
+      console.log(
+        `[start] Community content API: http://127.0.0.1:${ports.content}/docs`,
+      );
+      console.log(
+        `[start] Local AI service: http://127.0.0.1:${ports.local}/healthz`,
+      );
       console.log("[start] Press Ctrl+C to stop all services.\n");
     }
     await serviceExit;
   } catch (error) {
     if (!interrupted) throw error;
   } finally {
+    await release();
     await manager.stop();
     process.off("SIGINT", interrupt);
     process.off("SIGTERM", interrupt);
