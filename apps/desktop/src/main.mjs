@@ -184,7 +184,15 @@ async function createMainWindow() {
   const window = new BrowserWindow({
     ...bounds,
     title: "SolveMate",
-    icon: join(resourcesDirectory(), "icon.png"),
+    icon:
+      process.platform === "win32"
+        ? join(
+            app.isPackaged
+              ? process.resourcesPath
+              : join(desktopDirectory, "assets"),
+            "icon.ico",
+          )
+        : join(resourcesDirectory(), "icon.png"),
     backgroundColor: "#f7f7fb",
     show: false,
     webPreferences: {

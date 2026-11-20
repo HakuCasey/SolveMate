@@ -32,6 +32,9 @@ mac:
     - dmg
 win:
   icon: assets/icon.ico
+  extraResources:
+    - from: assets/icon.ico
+      to: icon.ico
   target:
     - nsis
 nsis:

@@ -32,6 +32,8 @@ npm run desktop:make
 
 macOS 和 Windows 必须分别在对应系统上构建。macOS 生成 DMG，Windows 生成 Setup.exe；输出位于 `apps/desktop/out/`。
 
+Windows 的应用程序和窗口共用 `apps/desktop/assets/icon.ico`。替换图标时，应保留各尺寸图像的透明圆角。
+
 构建时会重新生成桌面网页和 Python 本机服务。桌面网页不注册 PWA Service Worker。本机服务包含 Python 运行环境和运行依赖，安装后的用户无需安装 Node.js 或 Python。
 
 ## 当前限制
