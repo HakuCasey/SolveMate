@@ -1,21 +1,33 @@
 import { test, expect } from "@playwright/test";
 
-test("会话归档与移回进行中", async ({ page }) => {
-  test.setTimeout(120_000);
+test("左键选择页签，右键管理指定对话，归档后可直接恢复", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "对话", exact: true }).click();
-  await page.waitForTimeout(3000);
-  await page.getByRole("button", { name: "新建对话", exact: true }).click();
-  await page.waitForTimeout(800);
-
-  const activeTab = page.getByRole("tab", { selected: true });
-  await activeTab.click();
+  const add = page.getByRole("button", { name: "在聊天栏新建对话" });
+  const selected = page.getByRole("tab", { selected: true });
+  await add.click();
+  await expect(selected).toBeVisible();
+  const firstId = await selected.getAttribute("id");
+  const first = page.locator(`[id="${firstId}"]`);
+  await add.click();
+  await expect(first).toHaveAttribute("aria-selected", "false");
+  await selected.click();
+  await expect(page.getByRole("menu")).toHaveCount(0);
+  await first.click({ button: "right" });
+  await page.getByRole("menuitem", { name: "重命名" }).click();
+  const name = page.getByLabel("对话名称", { exact: true });
+  const title = `后台页签 ${Date.now()}`;
+  await name.fill(title);
+  await page.getByRole("button", { name: "保存", exact: true }).click();
+  await expect(first).toHaveAccessibleName(title);
+  await expect(first).toHaveAttribute("aria-selected", "false");
+  await first.click();
+  await expect(first).toHaveAttribute("aria-selected", "true");
+  await first.click({ button: "right" });
   await page.getByRole("menuitem", { name: "归档" }).click();
-  const archivedNotice = page.getByText(/对话已归档。点击上方对话标题/);
-  await expect(archivedNotice).toBeVisible();
-
-  // 移回进行中
-  await activeTab.click();
-  await page.getByRole("menuitem", { name: "移回进行中" }).click();
-  await expect(archivedNotice).toBeHidden();
+  const restore = page.getByRole("button", { name: "移回进行中" });
+  await expect(restore).toBeVisible();
+  await restore.click();
+  await expect(restore).toHaveCount(0);
+  await expect(first).toHaveAttribute("aria-selected", "true");
 });

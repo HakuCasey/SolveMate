@@ -1,14 +1,13 @@
 import { SidebarToggle } from "../components/SidebarLayout";
 import { useState, type ReactNode } from "react";
 import { Dialog } from "radix-ui";
-import { BookOpen, ChevronDown, Trash2, Wrench, X } from "lucide-react";
+import { BookOpen, ChevronDown, Wrench, X } from "lucide-react";
 import type {
   LearningLocation,
   QuestionResearchWorkspace,
   TeachingTool,
 } from "@solvemate/contracts";
 import type { SubjectDirectory } from "../state/subjects";
-import { RenameDialog } from "../components/RenameDialog";
 import { toolTitle } from "./state";
 import type { TeachingWorkspace } from "./state";
 import { ToolChoiceDialog } from "./ToolChoiceDialog";
@@ -46,8 +45,6 @@ export function QuestionResearchPanel({
   const [choice, setChoice] = useState<{ original?: TeachingTool } | null>(
     null,
   );
-  const [renaming, setRenaming] = useState<TeachingTool | null>(null);
-  const [deleting, setDeleting] = useState<TeachingTool | null>(null);
   const current = tools.items.find((t) => t.id === workspace.selectedToolId);
   function openSources() {
     setScope(subjectId ?? directory.active[0]?.id ?? null);
@@ -111,16 +108,6 @@ export function QuestionResearchPanel({
           </div>
         </section>
       )}
-      {renaming && (
-        <RenameDialog
-          name={toolTitle(renaming)}
-          maxLength={80}
-          onSave={(title) =>
-            tools.rename(renaming.id, title, toolTitle(renaming))
-          }
-          onClose={() => setRenaming(null)}
-        />
-      )}
       {choice && (
         <ToolChoiceDialog
           original={choice.original}
@@ -130,55 +117,8 @@ export function QuestionResearchPanel({
             setChoice(null);
             onOfficial();
           }}
-          onRename={(tool) => {
-            setChoice(null);
-            setRenaming(structuredClone(tool));
-          }}
-          onDelete={(tool) => {
-            setChoice(null);
-            setDeleting(tool);
-          }}
         />
       )}
-      <Dialog.Root
-        open={!!deleting}
-        onOpenChange={(open) => {
-          if (!open && !tools.busy) setDeleting(null);
-        }}
-      >
-        <Dialog.Portal>
-          <Dialog.Overlay className={styles.overlay} />
-          <Dialog.Content className={styles.confirm}>
-            <Dialog.Title>
-              <Trash2 />
-              删除工具
-            </Dialog.Title>
-            <Dialog.Description>
-              该工具将从列表中删除，已有对话保留。
-            </Dialog.Description>
-            {tools.error && <p role="alert">{tools.error}</p>}
-            <div className={styles.formActions}>
-              <button disabled={!!tools.busy} onClick={() => setDeleting(null)}>
-                取消
-              </button>
-              <button
-                disabled={!!tools.busy}
-                onClick={() => {
-                  if (deleting)
-                    void tools
-                      .remove(deleting.id)
-                      .then(() => {
-                        setDeleting(null);
-                      })
-                      .catch(() => {});
-                }}
-              >
-                删除
-              </button>
-            </div>
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog.Root>
       <Dialog.Root open={sourceOpen} onOpenChange={setSourceOpen}>
         <Dialog.Portal>
           <Dialog.Overlay className={styles.overlay} />

@@ -1,3 +1,4 @@
+import { ConfirmDeleteDialog } from "./ConfirmDeleteDialog";
 import { SidebarToggle } from "./SidebarLayout";
 import { useEditRevision } from "../refresh/useEditRevision";
 import {
@@ -101,6 +102,7 @@ export function RobotsPage({
   const [saving, setSaving] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState("");
+  const [deletingRobot, setDeletingRobot] = useState<Robot | null>(null);
   const [exportedRobot, setExportedRobot] = useState<Robot | null>(null);
   const importInput = useRef<HTMLInputElement>(null),
     importPending = useRef(false);
@@ -320,12 +322,7 @@ export function RobotsPage({
     const remaining = robots.filter((item) => item.id !== robot.id);
     const nextDefault =
       defaultRobotId === robot.id ? (remaining[0]?.id ?? null) : defaultRobotId;
-    try {
-      await onChange(remaining, nextDefault);
-    } catch (error) {
-      setStatus(String(error));
-      return;
-    }
+    await onChange(remaining, nextDefault);
     if (selected?.id === robot.id) {
       const index = robots.findIndex((item) => item.id === robot.id);
       setSelectedId((remaining[index] ?? remaining[index - 1])?.id ?? null);
@@ -345,6 +342,14 @@ export function RobotsPage({
       aria-label="机器人配置"
       ref={setPortalContainer}
     >
+      {deletingRobot && (
+        <ConfirmDeleteDialog
+          title="删除机器人"
+          description={`删除“${deletingRobot.name}”？已有对话保留。`}
+          onConfirm={() => deleteRobot(deletingRobot)}
+          onClose={() => setDeletingRobot(null)}
+        />
+      )}
       {exportedRobot && (
         <ExportDialog
           title="机器人导出"
@@ -493,7 +498,7 @@ export function RobotsPage({
                   <ContextMenu.Item
                     className={`${styles.menuItem} ${styles.deleteItem}`}
                     disabled={disabled}
-                    onSelect={() => deleteRobot(robot)}
+                    onSelect={() => setDeletingRobot(robot)}
                   >
                     <Trash2 aria-hidden="true" />
                     删除

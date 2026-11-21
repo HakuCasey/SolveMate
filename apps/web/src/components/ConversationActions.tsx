@@ -1,7 +1,7 @@
 import { isConversationLimitError } from "../state/conversation-limits";
 import { PopoverPanel } from "./PopoverPanel";
 import { useState, type ReactElement } from "react";
-import { AlertDialog, ContextMenu, DropdownMenu, Popover } from "radix-ui";
+import { ContextMenu as Menu, Popover } from "radix-ui";
 import {
   CircleAlert,
   Archive,
@@ -15,6 +15,7 @@ import type { Conversation } from "@solvemate/contracts";
 import type { ConversationChange } from "../state/conversations";
 import { useEditValue } from "../refresh/useEditRevision";
 import { useUnsavedForm } from "../refresh/drafts";
+import { ConfirmDeleteDialog } from "./ConfirmDeleteDialog";
 import styles from "./ConversationActions.module.css";
 
 export interface ConversationActionsProps {
@@ -35,13 +36,10 @@ export function ConversationActions({
   onUpdate,
   onDelete,
   children,
-  kind = "dropdown",
 }: ConversationActionsProps & {
   conversation: Conversation;
   children: ReactElement;
-  kind?: "context" | "dropdown";
 }) {
-  const Menu = kind === "context" ? ContextMenu : DropdownMenu;
   const [panel, setPanel] = useState<"rename" | "label" | "error" | null>(null);
   const [customLabel, setCustomLabel] = useState("");
   const [customOpen, setCustomOpen] = useState(false);
@@ -132,9 +130,6 @@ export function ConversationActions({
           <Menu.Portal>
             <Menu.Content
               className={styles.menu}
-              {...(kind === "dropdown"
-                ? { align: "start" as const, sideOffset: 4 }
-                : {})}
               collisionPadding={8}
               onCloseAutoFocus={(event) => {
                 if (panel || deleteOpen) event.preventDefault();
@@ -215,9 +210,7 @@ export function ConversationActions({
                   : undefined
             }
             maxWidth={280}
-            side={
-              kind === "dropdown" || panel === "rename" ? "bottom" : "right"
-            }
+            side={panel === "rename" ? "bottom" : "right"}
             align="start"
             sideOffset={10}
             collisionPadding={12}
@@ -363,73 +356,13 @@ export function ConversationActions({
         </Popover.Portal>
       </Popover.Root>
       {deleteOpen && (
-        <DeleteConversationDialog
-          conversationId={conversation.id}
-          onDelete={onDelete}
+        <ConfirmDeleteDialog
+          title="删除对话"
+          description="当前操作仅删除本对话记录，原会话仍可在第三方 AI Harness 软件中查看。"
+          onConfirm={() => onDelete(conversation.id)}
           onClose={() => setDeleteOpen(false)}
         />
       )}
     </>
-  );
-}
-function DeleteConversationDialog({
-  conversationId,
-  onDelete,
-  onClose,
-}: {
-  conversationId: string;
-  onDelete: (id: string) => Promise<void>;
-  onClose: () => void;
-}) {
-  const [deleting, setDeleting] = useState(false);
-  const [error, setError] = useState("");
-  return (
-    <AlertDialog.Root
-      open
-      onOpenChange={(open) => {
-        if (!open && !deleting) onClose();
-      }}
-    >
-      <AlertDialog.Portal>
-        <AlertDialog.Overlay className={styles.dialogOverlay} />
-        <AlertDialog.Content className={styles.deleteDialog}>
-          <AlertDialog.Title>删除对话</AlertDialog.Title>
-          <AlertDialog.Description>
-            当前操作仅删除本对话记录，原会话仍可在第三方 AI Harness 软件中查看。
-          </AlertDialog.Description>
-          {error && (
-            <p className={styles.delete} role="alert">
-              {error}
-            </p>
-          )}
-          <div className={styles.dialogActions}>
-            <AlertDialog.Cancel disabled={deleting}>取消</AlertDialog.Cancel>
-            <AlertDialog.Action
-              className={styles.confirmDelete}
-              disabled={deleting}
-              onClick={async (event) => {
-                event.preventDefault();
-                if (deleting) return;
-                setDeleting(true);
-                setError("");
-                try {
-                  await onDelete(conversationId);
-                  onClose();
-                } catch (failure) {
-                  setError(
-                    failure instanceof Error
-                      ? failure.message
-                      : "删除失败，请重试。",
-                  );
-                  setDeleting(false);
-                }
-              }}
-            >
-              {deleting ? "正在删除…" : "删除对话"}
-            </AlertDialog.Action>
-          </div>
-        </AlertDialog.Content>
-      </AlertDialog.Portal>
-    </AlertDialog.Root>
   );
 }

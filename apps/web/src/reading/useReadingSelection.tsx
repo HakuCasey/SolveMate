@@ -1,4 +1,10 @@
-import { useEffect, useState, type RefObject } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type RefObject,
+} from "react";
 import { createPortal } from "react-dom";
 import { MessageSquarePlus, NotebookPen } from "lucide-react";
 import { captureSelectedText, type SelectedText } from "./text-selection";
@@ -16,10 +22,32 @@ export function useReadingSelection(
   const actions = useSelectionActions();
   const [pending, setPending] = useState<{
     selection: SelectedText;
-    left: number;
-    top: number;
+    rect: DOMRect;
   } | null>(null);
   const [error, setError] = useState("");
+  const menuRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const menu = menuRef.current;
+    if (!pending || !menu) return;
+    const { rect } = pending;
+    const { width, height } = menu.getBoundingClientRect();
+    const viewport = menu.ownerDocument.documentElement;
+    const gap = 8;
+    const maxLeft = viewport.clientWidth - width - gap;
+    const maxTop = viewport.clientHeight - height - gap;
+    let left = rect.left;
+    let top = rect.top - height - gap;
+    if (top < gap) {
+      top = rect.bottom + gap;
+      // 选区较长、上下均放不下时，优先移到文字旁边。
+      if (top > maxTop) {
+        if (rect.right + gap <= maxLeft) left = rect.right + gap;
+        else if (rect.left >= width + 2 * gap) left = rect.left - width - gap;
+      }
+    }
+    menu.style.left = Math.max(gap, Math.min(left, maxLeft)) + "px";
+    menu.style.top = Math.max(gap, Math.min(top, maxTop)) + "px";
+  }, [pending, error]);
   useEffect(() => {
     setPending(null);
     setError("");
@@ -57,11 +85,7 @@ export function useReadingSelection(
     const range = node.ownerDocument.getSelection()!.getRangeAt(0);
     const rect = range.getBoundingClientRect();
     setError("");
-    setPending({
-      selection,
-      left: Math.max(8, Math.min(rect.left, window.innerWidth - 304)),
-      top: Math.max(8, rect.top - 44),
-    });
+    setPending({ selection, rect });
   }
   function add(action: SelectionAction) {
     if (!pending) return;
@@ -88,10 +112,7 @@ export function useReadingSelection(
     overlay:
       pending && ready
         ? createPortal(
-            <div
-              className={styles.action}
-              style={{ left: pending.left, top: pending.top }}
-            >
+            <div ref={menuRef} className={styles.action}>
               <button
                 type="button"
                 onPointerDown={(event) => event.preventDefault()}

@@ -1,18 +1,10 @@
 import { useRef, useState } from "react";
-import { AlertDialog, ContextMenu, Dialog } from "radix-ui";
-import {
-  Download,
-  FileUp,
-  Pencil,
-  Plus,
-  Trash2,
-  Wrench,
-  X,
-} from "lucide-react";
+import { AlertDialog, Dialog } from "radix-ui";
+import { Download, FileUp, Plus, Wrench, X } from "lucide-react";
 import type { TeachingTool } from "@solvemate/contracts";
 import { useUnsavedForm } from "../refresh/drafts";
 import { useSaveFeedback } from "../components/SaveFeedback";
-import menu from "../materials/MaterialActions.module.css";
+import { TeachingToolActions } from "./TeachingToolActions";
 import { customTool, readToolText, toolTitle } from "./state";
 import type { TeachingTools } from "./useTeachingTools";
 import styles from "./QuestionResearchPanel.module.css";
@@ -25,16 +17,12 @@ export function ToolChoiceDialog({
   tools,
   onClose,
   onOfficial,
-  onRename,
-  onDelete,
   onUsed,
 }: {
   original?: TeachingTool;
   tools: TeachingTools;
   onClose: () => void;
   onOfficial?: () => void;
-  onRename?: (tool: TeachingTool) => void;
-  onDelete?: (tool: TeachingTool) => void;
   onUsed?: () => void;
 }) {
   const [original, setOriginal] = useState<TeachingTool | undefined>(
@@ -136,49 +124,31 @@ export function ToolChoiceDialog({
               <aside className={styles.toolRail} aria-label="工具列表">
                 <div className={styles.toolList}>
                   {tools.items.map((tool) => (
-                    <ContextMenu.Root key={tool.id}>
-                      <ContextMenu.Trigger asChild>
-                        <button
-                          aria-current={
-                            original?.id === tool.id ? "true" : undefined
-                          }
-                          disabled={busy}
-                          onClick={() => requestLoad(tool)}
-                          title={toolTitle(tool)}
-                        >
-                          {toolTitle(tool)}
-                        </button>
-                      </ContextMenu.Trigger>
-                      {(onRename || onDelete) && (
-                        <ContextMenu.Portal>
-                          <ContextMenu.Content
-                            className={menu.menu}
-                            collisionPadding={12}
-                          >
-                            {onRename && (
-                              <ContextMenu.Item
-                                className={menu.menuItem}
-                                disabled={busy}
-                                onSelect={() => onRename(tool)}
-                              >
-                                <Pencil />
-                                重命名
-                              </ContextMenu.Item>
-                            )}
-                            {onDelete && (
-                              <ContextMenu.Item
-                                className={`${menu.menuItem} ${menu.dangerText}`}
-                                disabled={busy}
-                                onSelect={() => onDelete(tool)}
-                              >
-                                <Trash2 />
-                                删除
-                              </ContextMenu.Item>
-                            )}
-                          </ContextMenu.Content>
-                        </ContextMenu.Portal>
-                      )}
-                    </ContextMenu.Root>
+                    <TeachingToolActions
+                      key={tool.id}
+                      tool={tool}
+                      tools={tools}
+                      onRenamed={(name) => {
+                        if (original?.id === tool.id)
+                          setOriginal({ ...original, customTitle: name });
+                      }}
+                      onDeleted={() => {
+                        if (original?.id !== tool.id) return;
+                        if (dirty) setOriginal(undefined);
+                        else load();
+                      }}
+                    >
+                      <button
+                        aria-current={
+                          original?.id === tool.id ? "true" : undefined
+                        }
+                        disabled={busy}
+                        onClick={() => requestLoad(tool)}
+                        title={toolTitle(tool)}
+                      >
+                        {toolTitle(tool)}
+                      </button>
+                    </TeachingToolActions>
                   ))}
                   {!tools.items.length && (
                     <p className={styles.toolEmpty}>还没有工具</p>

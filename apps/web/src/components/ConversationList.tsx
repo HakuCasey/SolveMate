@@ -42,6 +42,11 @@ export function ConversationList({
   const [archivedOpen, setArchivedOpen] = useState(false);
   function renderItem(conversation: Conversation) {
     const source = conversation.material ?? conversation.selection;
+    const destination = conversation.research
+      ? "返回教研室"
+      : source
+        ? "返回阅读"
+        : null;
     const context = source ? relations.material(source).context : "普通对话";
     // 直接显示最近一次提问的原文，省略只由样式处理，不生成或保存摘要。
     const lastQuestion =
@@ -51,7 +56,6 @@ export function ConversationList({
     return (
       <ConversationActions
         key={conversation.id}
-        kind="context"
         conversation={conversation}
         conversations={conversations}
         onUpdate={onUpdate}
@@ -87,14 +91,14 @@ export function ConversationList({
               </small>
             </span>
           </button>
-          {conversation.status === "active" && (
+          {conversation.status === "active" && destination && (
             <button
               className={styles.returnButton}
-              aria-label={`返回对话：${conversation.title}`}
+              aria-label={`${destination}：${conversation.title}`}
               onClick={() => onReturn(conversation)}
             >
               <CornerUpLeft aria-hidden="true" />
-              返回对话
+              {destination}
             </button>
           )}
         </div>

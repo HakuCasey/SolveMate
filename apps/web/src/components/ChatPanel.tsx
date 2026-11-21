@@ -1,5 +1,6 @@
 import { isConversationLimitError } from "../state/conversation-limits";
 import { Popover, Slider } from "radix-ui";
+import { SettingsSelect } from "./SettingsSelect";
 import { PopoverPanel } from "./PopoverPanel";
 import {
   type CSSProperties,
@@ -411,26 +412,118 @@ export function ChatPanel({
     >
       <header className={styles.heading}>
         <Icon className={paneHeader.titleIcon} aria-hidden="true" />
-        <select
-          aria-label="选择机器人"
-          value={robot?.id ?? ""}
+        <SettingsSelect
+          className={styles.robotPicker}
+          label="选择机器人"
           title={robot?.name ?? conversation?.robotIdentity?.name ?? undefined}
+          value={robot?.id ?? ""}
+          placeholder={
+            conversation?.robotIdentity?.name
+              ? `${conversation.robotIdentity.name}（已不可用）`
+              : "未选择机器人"
+          }
+          options={robots.map((item) => ({ value: item.id, name: item.name }))}
           disabled={!robots.length || busy || archived}
-          onChange={(event) => onRobotChange(event.target.value)}
-        >
-          {!robot && (
-            <option value="">
-              {conversation?.robotIdentity?.name
-                ? `${conversation.robotIdentity.name}（已不可用）`
-                : "未选择机器人"}
-            </option>
-          )}
-          {robots.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.name}
-            </option>
-          ))}
-        </select>
+          onValueChange={onRobotChange}
+        />
+        <div className={styles.conversationTab}>
+          <div
+            className={styles.tabList}
+            role="tablist"
+            aria-label="对话页签"
+            ref={tabList}
+            onKeyDown={(event) => {
+              if (!event.currentTarget.contains(event.target as Node)) return;
+              const index = tabs.findIndex(
+                (item) => item.id === conversation?.id,
+              );
+              if (index < 0) return;
+              let next;
+              switch (event.key) {
+                case "ArrowRight":
+                  next = (index + 1) % tabs.length;
+                  break;
+                case "ArrowLeft":
+                  next = (index + tabs.length - 1) % tabs.length;
+                  break;
+                case "Home":
+                  next = 0;
+                  break;
+                case "End":
+                  next = tabs.length - 1;
+                  break;
+                default:
+                  return;
+              }
+              event.preventDefault();
+              selectTab(tabs[next]);
+            }}
+          >
+            {tabs.map((item) => {
+              const active = item.id === conversation?.id;
+              const saved = item.turns.at(-1);
+              const turn =
+                liveTurnFor(saved, saved && ai.turns[saved.id]) ?? saved;
+              const generating = turn?.status === "running";
+              const button = (
+                <button
+                  id={`chat-tab-${item.id}`}
+                  role="tab"
+                  aria-label={item.title}
+                  aria-selected={active}
+                  aria-controls={active ? "chat-history-panel" : undefined}
+                  tabIndex={active || !conversation ? 0 : -1}
+                  className={styles.manage}
+                  type="button"
+                  title={item.title}
+                  onClick={active ? undefined : () => selectTab(item)}
+                >
+                  {generating ? (
+                    <LoaderCircle
+                      className={styles.activitySpinner}
+                      aria-hidden="true"
+                    />
+                  ) : (
+                    <MessagesSquare aria-hidden="true" />
+                  )}
+                  <span className={styles.tabTitle}>{item.title}</span>
+                  {generating && saved && (
+                    <ReplyTimer key={saved.id} startedAt={saved.startedAt} />
+                  )}
+                </button>
+              );
+              return (
+                <ConversationActions
+                  key={item.id}
+                  conversation={item}
+                  conversations={conversations}
+                  onUpdate={onUpdate}
+                  onDelete={onDelete}
+                >
+                  {button}
+                </ConversationActions>
+              );
+            })}
+            {!conversation && <span className={styles.emptyTab}>新对话</span>}
+          </div>
+          <button
+            className={styles.newChat}
+            type="button"
+            aria-label="在聊天栏新建对话"
+            title="新建对话"
+            disabled={creating || submission !== null || !robots.length}
+            onClick={async () => {
+              setCreating(true);
+              try {
+                await onNew();
+              } finally {
+                setCreating(false);
+              }
+            }}
+          >
+            <Plus aria-hidden="true" />
+          </button>
+        </div>
         <div className={styles.chatSettings}>
           <Popover.Root
             onOpenChange={(open) => {
@@ -506,106 +599,6 @@ export function ChatPanel({
           </div>
         </div>
       </header>
-      <div className={styles.conversationTab}>
-        <div
-          className={styles.tabList}
-          role="tablist"
-          aria-label="对话页签"
-          ref={tabList}
-          onKeyDown={(event) => {
-            const index = tabs.findIndex(
-              (item) => item.id === conversation?.id,
-            );
-            if (index < 0) return;
-            let next;
-            switch (event.key) {
-              case "ArrowRight":
-                next = (index + 1) % tabs.length;
-                break;
-              case "ArrowLeft":
-                next = (index + tabs.length - 1) % tabs.length;
-                break;
-              case "Home":
-                next = 0;
-                break;
-              case "End":
-                next = tabs.length - 1;
-                break;
-              default:
-                return;
-            }
-            event.preventDefault();
-            selectTab(tabs[next]);
-          }}
-        >
-          {tabs.map((item) => {
-            const active = item.id === conversation?.id;
-            const saved = item.turns.at(-1);
-            const turn =
-              liveTurnFor(saved, saved && ai.turns[saved.id]) ?? saved;
-            const generating = turn?.status === "running";
-            const button = (
-              <button
-                key={item.id}
-                id={`chat-tab-${item.id}`}
-                role="tab"
-                aria-label={item.title}
-                aria-selected={active}
-                aria-controls={active ? "chat-history-panel" : undefined}
-                tabIndex={active || !conversation ? 0 : -1}
-                className={styles.manage}
-                type="button"
-                title={item.title}
-                onClick={active ? undefined : () => selectTab(item)}
-              >
-                {generating ? (
-                  <LoaderCircle
-                    className={styles.activitySpinner}
-                    aria-hidden="true"
-                  />
-                ) : (
-                  <MessagesSquare aria-hidden="true" />
-                )}
-                <span className={styles.tabTitle}>{item.title}</span>
-                {generating && saved && (
-                  <ReplyTimer key={saved.id} startedAt={saved.startedAt} />
-                )}
-              </button>
-            );
-            return active ? (
-              <ConversationActions
-                key={item.id}
-                conversation={item}
-                conversations={conversations}
-                onUpdate={onUpdate}
-                onDelete={onDelete}
-              >
-                {button}
-              </ConversationActions>
-            ) : (
-              button
-            );
-          })}
-          {!conversation && <span className={styles.emptyTab}>新对话</span>}
-        </div>
-        <button
-          className={styles.newChat}
-          type="button"
-          aria-label="在聊天栏新建对话"
-          title="新建对话"
-          disabled={creating || submission !== null || !robots.length}
-          onClick={async () => {
-            setCreating(true);
-            try {
-              await onNew();
-            } finally {
-              setCreating(false);
-            }
-          }}
-        >
-          <Plus aria-hidden="true" />
-        </button>
-      </div>
       <div className={styles.main}>
         <div
           className={styles.history}
@@ -789,9 +782,11 @@ export function ChatPanel({
             )}
         </div>
         {archived ? (
-          <p className={styles.archivedNotice}>
-            对话已归档。点击上方对话标题，移回进行中后，可继续提问。
-          </p>
+          <ArchivedNotice
+            key={conversation.id}
+            conversation={conversation}
+            onUpdate={onUpdate}
+          />
         ) : (
           <>
             {showRecommendedQuestions && !!robot && (
@@ -958,5 +953,43 @@ export function ChatPanel({
       </div>
       {selectedText.overlay}
     </section>
+  );
+}
+
+function ArchivedNotice({
+  conversation,
+  onUpdate,
+}: {
+  conversation: Conversation;
+  onUpdate: ConversationActionsProps["onUpdate"];
+}) {
+  const [restoring, setRestoring] = useState(false);
+  const [error, setError] = useState("");
+  async function restore() {
+    setRestoring(true);
+    setError("");
+    try {
+      await onUpdate(
+        conversation.id,
+        { status: "active" },
+        conversation.revision,
+      );
+    } catch (failure) {
+      if (!isConversationLimitError(failure))
+        setError(
+          failure instanceof Error ? failure.message : "恢复对话失败，请重试。",
+        );
+    } finally {
+      setRestoring(false);
+    }
+  }
+  return (
+    <p className={styles.archivedNotice}>
+      对话已归档
+      <button type="button" disabled={restoring} onClick={() => void restore()}>
+        移回进行中
+      </button>
+      {error && <span role="alert">{error}</span>}
+    </p>
   );
 }

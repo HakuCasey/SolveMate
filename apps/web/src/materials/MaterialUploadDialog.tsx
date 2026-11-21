@@ -182,209 +182,225 @@ export function MaterialUploadDialog({
               <span>3</span>上传与处理
             </li>
           </ol>
-          {step === 1 ? (
-            <div className={styles.fileStep}>
-              <button
-                className={styles.picker}
-                onClick={() => input.current?.click()}
-              >
-                <Upload aria-hidden="true" />
-                <span>选择文件或拖入这里</span>
-                <small>PDF / PPTX · 单个文件最大 100 MiB</small>
-              </button>
-              <input
-                ref={input}
-                hidden
-                type="file"
-                multiple
-                accept=".pdf,.pptx"
-                onChange={(event) => {
-                  addFiles(Array.from(event.target.files ?? []));
-                  event.target.value = "";
-                }}
-              />
-              <ul className={styles.files} aria-label="待上传文件">
-                {files.map((file, index) => (
-                  <li key={`${file.name}-${index}`}>
-                    <FileText aria-hidden="true" />
-                    <div>
-                      <strong>
-                        <FileLabel value={file.name} />
-                      </strong>
-                      <small>{(file.size / 1024 / 1024).toFixed(1)} MiB</small>
-                      {uploadFileError(file) && (
-                        <span className={styles.error}>
-                          {uploadFileError(file)}
-                        </span>
-                      )}
-                    </div>
-                    <button
-                      aria-label={`移除文件：${file.name}`}
-                      onClick={() =>
-                        setFiles((previous) =>
-                          previous.filter((_, i) => i !== index),
-                        )
-                      }
-                    >
-                      <X aria-hidden="true" />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : step === 2 ? (
-            <div className={styles.options}>
-              <p className={styles.summary}>已选择 {files.length} 个文件</p>
-              <SettingsSelect
-                label="所属学科"
-                value={subjectId}
-                disabled={saving}
-                onValueChange={(value) => {
-                  setSubjectId(value);
-                  setError("");
-                }}
-                options={[
-                  { value: unclassified, name: "未分类" },
-                  ...directory.active.map((item) => ({
-                    value: item.id,
-                    name: item.title,
-                  })),
-                  { value: newSubject, name: "＋ 新建学科", emphasized: true },
-                ]}
-              />
-              {subjectId === newSubject && (
-                <label className={styles.newSubject}>
-                  <span>
-                    <Plus aria-hidden="true" />
-                    新学科名称
-                  </span>
-                  <input
-                    value={name}
-                    onChange={(event) => setName(event.target.value)}
-                    disabled={saving}
-                    placeholder="例如：大学物理"
-                    maxLength={80}
-                  />
-                </label>
-              )}
-              <fieldset className={styles.types} disabled={saving}>
-                <legend>内容类型</legend>
-                <label className={styles.type} data-selected>
-                  <input
-                    type="radio"
-                    name="material-type"
-                    value="materials"
-                    checked
-                    readOnly
-                  />
-                  <span>学习资料</span>
-                </label>
-                <label className={styles.type} data-disabled>
-                  <input
-                    type="radio"
-                    name="material-type"
-                    value="questions"
-                    disabled
-                    aria-describedby="question-upload-reason"
-                  />
-                  <span>
-                    题目
-                    <small id="question-upload-reason">
-                      不符合题目格式要求
-                    </small>
-                  </span>
-                </label>
-              </fieldset>
-            </div>
-          ) : (
-            <section
-              className={styles.progressSection}
-              aria-label="上传与处理进度"
-            >
-              <div className={styles.progressHeading} role="status">
-                <span>
-                  已处理 {finished} / {entries.length} 份
-                </span>
-                {failures.length > 0 && (
-                  <span className={styles.error}>{failures.length} 份失败</span>
-                )}
-              </div>
-              <progress
-                max={Math.max(entries.length, 1)}
-                value={finished}
-                aria-label="资料处理总进度"
-              />
-              <ul className={styles.files}>
-                {results.map(
-                  ({ entry, phase, label, error: failure, record }, index) => (
-                    <li key={index}>
+          <div className={styles.body} key={step}>
+            {step === 1 ? (
+              <div className={styles.fileStep}>
+                <button
+                  className={styles.picker}
+                  onClick={() => input.current?.click()}
+                >
+                  <Upload aria-hidden="true" />
+                  <span>选择文件或拖入这里</span>
+                  <small>PDF / PPTX · 单个文件最大 100 MiB</small>
+                </button>
+                <input
+                  ref={input}
+                  hidden
+                  type="file"
+                  multiple
+                  accept=".pdf,.pptx"
+                  onChange={(event) => {
+                    addFiles(Array.from(event.target.files ?? []));
+                    event.target.value = "";
+                  }}
+                />
+                <ul className={styles.files} aria-label="待上传文件">
+                  {files.map((file, index) => (
+                    <li key={`${file.name}-${index}`}>
                       <FileText aria-hidden="true" />
                       <div>
                         <strong>
-                          <FileLabel value={entry.file.name} />
+                          <FileLabel value={file.name} />
                         </strong>
-                        <span role="status">{label}</span>
-                        {entry.phase === "uploading" && (
-                          <>
-                            <progress
-                              max={entry.total || 1}
-                              value={entry.loaded}
-                              aria-label={`${entry.file.name} 上传进度`}
-                            />
-                            <small>
-                              {Math.round(
-                                (entry.loaded / Math.max(entry.total, 1)) * 100,
-                              )}
-                              % · {(entry.loaded / 1024 / 1024).toFixed(1)} /{" "}
-                              {(entry.total / 1024 / 1024).toFixed(1)} MiB
-                            </small>
-                          </>
-                        )}
-                        {phase === "processing" && (
-                          <progress
-                            aria-label={`${entry.file.name} 处理进度`}
-                          />
-                        )}
-                        {failure && (
-                          <span role="alert" className={styles.error}>
-                            {failure}
+                        <small>
+                          {(file.size / 1024 / 1024).toFixed(1)} MiB
+                        </small>
+                        {uploadFileError(file) && (
+                          <span className={styles.error}>
+                            {uploadFileError(file)}
                           </span>
                         )}
-                        {record?.version.status === "failed" && (
-                          <button onClick={() => void library.retry(record.id)}>
-                            重试处理
-                          </button>
-                        )}
                       </div>
+                      <button
+                        aria-label={`移除文件：${file.name}`}
+                        onClick={() =>
+                          setFiles((previous) =>
+                            previous.filter((_, i) => i !== index),
+                          )
+                        }
+                      >
+                        <X aria-hidden="true" />
+                      </button>
                     </li>
-                  ),
+                  ))}
+                </ul>
+              </div>
+            ) : step === 2 ? (
+              <div className={styles.options}>
+                <p className={styles.summary}>已选择 {files.length} 个文件</p>
+                <SettingsSelect
+                  label="所属学科"
+                  value={subjectId}
+                  disabled={saving}
+                  onValueChange={(value) => {
+                    setSubjectId(value);
+                    setError("");
+                  }}
+                  options={[
+                    { value: unclassified, name: "未分类" },
+                    ...directory.active.map((item) => ({
+                      value: item.id,
+                      name: item.title,
+                    })),
+                    {
+                      value: newSubject,
+                      name: "＋ 新建学科",
+                      emphasized: true,
+                    },
+                  ]}
+                />
+                {subjectId === newSubject && (
+                  <label className={styles.newSubject}>
+                    <span>
+                      <Plus aria-hidden="true" />
+                      新学科名称
+                    </span>
+                    <input
+                      value={name}
+                      onChange={(event) => setName(event.target.value)}
+                      disabled={saving}
+                      placeholder="例如：大学物理"
+                      maxLength={80}
+                    />
+                  </label>
                 )}
-              </ul>
-              {library.error && (
-                <p className={styles.error} role="alert">
-                  {library.error}
-                  <button onClick={() => void library.refresh()}>
-                    刷新处理进度
-                  </button>
-                </p>
-              )}
-              {processing && !saving && (
-                <small>
-                  可关闭窗口，资料会继续处理；进度也会显示在资料列表中。
-                </small>
-              )}
-            </section>
-          )}
-          {saving && step !== 3 && (
-            <p className={styles.notice} role="status">
-              正在保存学科…
-            </p>
-          )}
-          {error && (
-            <p className={styles.error} role="alert">
-              {error}
-            </p>
-          )}
+                <fieldset className={styles.types} disabled={saving}>
+                  <legend>内容类型</legend>
+                  <label className={styles.type} data-selected>
+                    <input
+                      type="radio"
+                      name="material-type"
+                      value="materials"
+                      checked
+                      readOnly
+                    />
+                    <span>学习资料</span>
+                  </label>
+                  <label className={styles.type} data-disabled>
+                    <input
+                      type="radio"
+                      name="material-type"
+                      value="questions"
+                      disabled
+                      aria-describedby="question-upload-reason"
+                    />
+                    <span>
+                      题目
+                      <small id="question-upload-reason">
+                        不符合题目格式要求
+                      </small>
+                    </span>
+                  </label>
+                </fieldset>
+              </div>
+            ) : (
+              <section
+                className={styles.progressSection}
+                aria-label="上传与处理进度"
+              >
+                <div className={styles.progressHeading} role="status">
+                  <span>
+                    已处理 {finished} / {entries.length} 份
+                  </span>
+                  {failures.length > 0 && (
+                    <span className={styles.error}>
+                      {failures.length} 份失败
+                    </span>
+                  )}
+                </div>
+                <progress
+                  max={Math.max(entries.length, 1)}
+                  value={finished}
+                  aria-label="资料处理总进度"
+                />
+                <ul className={styles.files}>
+                  {results.map(
+                    (
+                      { entry, phase, label, error: failure, record },
+                      index,
+                    ) => (
+                      <li key={index}>
+                        <FileText aria-hidden="true" />
+                        <div>
+                          <strong>
+                            <FileLabel value={entry.file.name} />
+                          </strong>
+                          <span role="status">{label}</span>
+                          {entry.phase === "uploading" && (
+                            <>
+                              <progress
+                                max={entry.total || 1}
+                                value={entry.loaded}
+                                aria-label={`${entry.file.name} 上传进度`}
+                              />
+                              <small>
+                                {Math.round(
+                                  (entry.loaded / Math.max(entry.total, 1)) *
+                                    100,
+                                )}
+                                % · {(entry.loaded / 1024 / 1024).toFixed(1)} /{" "}
+                                {(entry.total / 1024 / 1024).toFixed(1)} MiB
+                              </small>
+                            </>
+                          )}
+                          {phase === "processing" && (
+                            <progress
+                              aria-label={`${entry.file.name} 处理进度`}
+                            />
+                          )}
+                          {failure && (
+                            <span role="alert" className={styles.error}>
+                              {failure}
+                            </span>
+                          )}
+                          {record?.version.status === "failed" && (
+                            <button
+                              onClick={() => void library.retry(record.id)}
+                            >
+                              重试处理
+                            </button>
+                          )}
+                        </div>
+                      </li>
+                    ),
+                  )}
+                </ul>
+                {library.error && (
+                  <p className={styles.error} role="alert">
+                    {library.error}
+                    <button onClick={() => void library.refresh()}>
+                      刷新处理进度
+                    </button>
+                  </p>
+                )}
+                {processing && !saving && (
+                  <small>
+                    可关闭窗口，资料会继续处理；进度也会显示在资料列表中。
+                  </small>
+                )}
+              </section>
+            )}
+            {saving && step !== 3 && (
+              <p className={styles.notice} role="status">
+                正在保存学科…
+              </p>
+            )}
+            {error && (
+              <p className={styles.error} role="alert">
+                {error}
+              </p>
+            )}
+          </div>
           <div className={styles.actions}>
             {step === 3 ? (
               <button disabled={saving} onClick={onClose}>

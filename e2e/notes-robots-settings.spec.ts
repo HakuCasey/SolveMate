@@ -44,10 +44,13 @@ test("聊天栏即时预览并保存对话字号，题目字号保持原值", as
     .locator('[aria-label="资料类型"]')
     .getByRole("button", { name: "题目", exact: true })
     .click();
-  await page
-    .locator('[aria-label="题目列表"] button[class*="courseItem"]')
-    .first()
-    .click();
+  const set = page
+    .locator("details")
+    .filter({ has: page.locator("summary", { hasText: "高等数学题目" }) });
+  await expect(set).toBeVisible();
+  await expect(set).toHaveJSProperty("open", false);
+  await set.locator("summary").click();
+  await set.getByRole("button", { name: /平方根函数的极限/ }).click();
   const question = page.locator(
     '[aria-label="题目阅读栏"] [class*="question"]',
   );

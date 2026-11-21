@@ -3,6 +3,7 @@
   flex-wrap: wrap;
   align-items: center;
   position: fixed;
+  width: max-content;
   z-index: 90;
   max-width: min(320px, calc(100vw - 16px));
   border: 1px solid var(--sm-line);

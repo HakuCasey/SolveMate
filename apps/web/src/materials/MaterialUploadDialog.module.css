@@ -11,7 +11,8 @@
   transform: translate(-50%, -50%);
   width: min(520px, calc(100vw - 32px));
   max-height: calc(100dvh - 32px);
-  overflow: auto;
+  display: flex;
+  flex-direction: column;
   padding: 24px;
   border: 1px solid var(--sm-line);
   border-radius: 16px;
@@ -77,6 +78,20 @@
 .steps .stepDivider svg {
   width: 12px;
 }
+.heading,
+.steps,
+.actions {
+  flex-shrink: 0;
+}
+.body {
+  min-width: 0;
+  min-height: 0;
+  max-height: 400px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 5px;
+  margin: -5px;
+}
 .fileStep {
   min-width: 0;
 }
@@ -107,8 +122,6 @@
   list-style: none;
   padding: 0;
   margin: 16px 0 0;
-  max-height: 240px;
-  overflow: auto;
 }
 .files li {
   display: flex;
@@ -285,9 +298,6 @@
   font-size: 11px;
   color: var(--sm-soft);
   line-height: 1.7;
-}
-.progressSection .files {
-  max-height: 280px;
 }
 .progressSection .files span {
   font-size: 12px;

@@ -5,6 +5,7 @@ import styles from "./SettingsSelect.module.css";
 
 interface SettingsSelectProps {
   label: string;
+  title?: string;
   className?: string;
   value: string;
   options: {
@@ -22,6 +23,7 @@ interface SettingsSelectProps {
 /** 使用页面主题绘制选项列表，避免系统原生菜单与应用外观不一致。 */
 export function SettingsSelect({
   label,
+  title,
   className = "",
   value,
   options,
@@ -69,6 +71,7 @@ export function SettingsSelect({
         <Select.Trigger
           id={id}
           aria-label={label}
+          title={title}
           className={styles.trigger}
           data-emphasized={
             options.find((option) => option.value === value)?.emphasized ||

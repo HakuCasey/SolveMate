@@ -396,3 +396,33 @@
     display: none;
   }
 }
+
+.questionSet + .questionSet {
+  margin-top: 8px;
+}
+.setHeading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--sm-line);
+  border-radius: 9px;
+  background: var(--sm-ground);
+  font: var(--sm-ui-title-font);
+  cursor: pointer;
+}
+.setHeading::-webkit-details-marker {
+  display: none;
+}
+.setHeading:hover,
+.setHeading:focus-visible {
+  border-color: var(--sm-accent);
+}
+.setHeading svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+.questionSet[open] > .setHeading svg {
+  transform: rotate(90deg);
+}

@@ -86,7 +86,7 @@
 - D4 指定页码提问正常提交并收到回复（`e2e/reading-context.spec.ts`）
 - D5 关联当前页提问正常提交并收到回复（`e2e/current-page.spec.ts`）
 - D9 空输入按 ↑ 回填上一次发送内容（`e2e/conversation.spec.ts`）
-- D3 点击当前对话页签，归档后从同一入口移回进行中（`e2e/conversation-manage.spec.ts`）
+- D3 左键切换对话，右键管理指定页签；在归档提示处移回进行中（`e2e/conversation-manage.spec.ts`）
 - D2 切换机器人触发确认并新建对话（`e2e/robot-switch.spec.ts`）
 - E 笔记页渲染、F 机器人页展示预置机器人、G1 显示设置（夜间模式）和聊天栏对话字号（`e2e/notes-robots-settings.spec.ts`）
 - H 社区内容展示内置资料、I 教研室展示资料与教研工具（`e2e/research-community.spec.ts`）

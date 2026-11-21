@@ -76,20 +76,25 @@ export function SubjectContentList({
   );
   const [questionSets, setQuestionSets] = useState<{
     key: string;
-    items: { materialId: string; question: Question }[];
-  }>({ key: "", items: [] });
+    byMaterial: Record<string, Question[]>;
+  }>({ key: "", byMaterial: {} });
   useEffect(() => {
     let alive = true;
     void Promise.all(
       (JSON.parse(groupKey) as [string, string][]).map(
         async ([materialId, contentVersion]) =>
-          (await materialApi.questions({ materialId, contentVersion })).map(
-            (question) => ({ materialId, question }),
-          ),
+          [
+            materialId,
+            await materialApi.questions({ materialId, contentVersion }),
+          ] as const,
       ),
     )
       .then((values) => {
-        if (alive) setQuestionSets({ key: groupKey, items: values.flat() });
+        if (alive)
+          setQuestionSets({
+            key: groupKey,
+            byMaterial: Object.fromEntries(values),
+          });
       })
       .catch((error: unknown) => {
         if (alive)
@@ -103,16 +108,14 @@ export function SubjectContentList({
       alive = false;
     };
   }, [groupKey]);
-  const items =
-    questionSets.key === groupKey
-      ? questionSets.items.flatMap((item) => {
-          const material = groups.find(
-            (material) => material.id === item.materialId,
-          );
-          return material ? [{ material, question: item.question }] : [];
-        })
-      : [];
-  const count = files.length + items.length;
+  const questionsByMaterial =
+    questionSets.key === groupKey ? questionSets.byMaterial : {};
+  const count =
+    files.length +
+    Object.values(questionsByMaterial).reduce(
+      (total, set) => total + set.length,
+      0,
+    );
   function chooseFiles(values: File[]) {
     if (!values.length) return;
     setNotice("");
@@ -180,7 +183,10 @@ export function SubjectContentList({
           <div className={styles.subjectRailItems}>
             {activeSubjects.map((item) => (
               <ContextMenu.Root key={item.id}>
-                <ContextMenu.Trigger asChild>
+                <ContextMenu.Trigger
+                  asChild
+                  disabled={!subjectPicker.onSubjectAction}
+                >
                   <button
                     aria-current={
                       item.id === scope.courseId ? "true" : undefined
@@ -346,7 +352,7 @@ export function SubjectContentList({
           </p>
         )}
         <div className={styles.items}>
-          {!count && (
+          {!files.length && !groups.length && (
             <div className={styles.empty}>
               {questions ? (
                 <ListChecks aria-hidden="true" />
@@ -403,36 +409,43 @@ export function SubjectContentList({
               </div>
             </MaterialActions>
           ))}
-          {items.map(({ material, question: item }) => (
-            <MaterialActions
-              key={`${material.id}:${item.id}`}
-              item={material}
-              library={library}
-              directory={directory}
-            >
-              <button
-                key={`${material.id}:${item.id}`}
-                className={styles.courseItem}
-                onClick={() =>
-                  onOpenMaterial({
-                    materialId: material.id,
-                    contentVersion: material.currentVersion,
-                    questionId: item.id,
-                  })
-                }
+          {groups.map((material) => (
+            <details key={material.id} className={styles.questionSet}>
+              <MaterialActions
+                item={material}
+                library={library}
+                directory={directory}
               >
-                <span className={styles.icon}>
-                  <ListChecks aria-hidden="true" />
-                </span>
-                <span className={styles.copy}>
-                  <strong>{item.title}</strong>
-                  <small>
-                    {item.id} · {item.topic} · {item.difficulty}
-                  </small>
-                </span>
-                <ChevronRight aria-hidden="true" />
-              </button>
-            </MaterialActions>
+                <summary className={styles.setHeading} title="右键管理题目集">
+                  <ChevronRight aria-hidden="true" />
+                  <span>{material.title}</span>
+                </summary>
+              </MaterialActions>
+              {questionsByMaterial[material.id]?.map((item) => (
+                <button
+                  key={item.id}
+                  className={styles.courseItem}
+                  onClick={() =>
+                    onOpenMaterial({
+                      materialId: material.id,
+                      contentVersion: material.currentVersion,
+                      questionId: item.id,
+                    })
+                  }
+                >
+                  <span className={styles.icon}>
+                    <ListChecks aria-hidden="true" />
+                  </span>
+                  <span className={styles.copy}>
+                    <strong>{item.title}</strong>
+                    <small>
+                      {item.id} · {item.topic} · {item.difficulty}
+                    </small>
+                  </span>
+                  <ChevronRight aria-hidden="true" />
+                </button>
+              ))}
+            </details>
           ))}
         </div>
       </div>

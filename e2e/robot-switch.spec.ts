@@ -9,7 +9,16 @@ test("切换机器人触发确认并新建对话", async ({ page }) => {
   await page.waitForTimeout(800);
 
   // 切换机器人
-  await page.getByLabel("选择机器人").selectOption({ label: "高数教师" });
+  const picker = page.getByRole("combobox", { name: "选择机器人" });
+  const triggerBounds = await picker.boundingBox();
+  await picker.click();
+  const menu = page.getByRole("listbox");
+  await expect(menu).toBeVisible();
+  const menuBounds = await menu.boundingBox();
+  expect(menuBounds!.y).toBeGreaterThanOrEqual(
+    triggerBounds!.y + triggerBounds!.height,
+  );
+  await menu.getByRole("option", { name: "高数教师", exact: true }).click();
   await expect(page.getByText("确认切换")).toBeVisible();
   await expect(
     page.getByText("切换机器人后对话重新开始", { exact: false }),
