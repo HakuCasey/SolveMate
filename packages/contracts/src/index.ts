@@ -203,7 +203,7 @@ export interface Settings {
   themeId?: string;
   globalModel: string;
   readingPaneRatio?: number;
-  /** 社区内容服务地址；留空时使用内置默认值 /api/v1。 */
+  /** 社区内容服务地址；留空时使用当前构建的默认地址。 */
   contentServiceUrl?: string;
 }
 

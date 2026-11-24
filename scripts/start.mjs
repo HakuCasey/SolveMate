@@ -5,10 +5,23 @@ import { dirname, join, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
+import {
+  applicationDataDirectory,
+  systemApplicationDirectory,
+} from "../apps/desktop/src/runtime.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 const portFlags = { web: "port", content: "content-port", local: "local-port" };
+
+export function sourceUserDirectory(environment = process.env) {
+  if (environment.SOLVEMATE_USER_DIR || environment.SOLVEMATE_LOCAL_DATA)
+    return null;
+  return applicationDataDirectory(
+    environment.SOLVEMATE_DESKTOP_USER_DIR ||
+      systemApplicationDirectory({ environment }),
+  );
+}
 
 export function requestedPorts(values) {
   const defaults = { web: 4173, content: 8000, local: 8765 };
@@ -235,6 +248,8 @@ async function main() {
     SOLVEMATE_LOCAL_PORT: String(ports.local),
     SOLVEMATE_LOCAL_ORIGINS: `http://127.0.0.1:${port},http://localhost:${port}`,
   };
+  const sharedUserDirectory = sourceUserDirectory(env);
+  if (sharedUserDirectory) env.SOLVEMATE_USER_DIR = sharedUserDirectory;
   if (values.isolated) {
     const directory = join(root, ".debug-instances", String(port));
     env.SOLVEMATE_USER_DIR = join(directory, "user");

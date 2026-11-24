@@ -37,10 +37,8 @@ function message(error: unknown, fallback: string): string {
 
 export function useOfficialContent() {
   const configuredServiceUrl = useContentServiceUrl();
-  const api = useMemo(
-    () => new ContentApi(contentApiBase(configuredServiceUrl)),
-    [configuredServiceUrl],
-  );
+  const apiBase = contentApiBase(configuredServiceUrl);
+  const api = useMemo(() => new ContentApi(apiBase), [apiBase]);
   const [snapshot, setSnapshot] = useState<ContentSnapshot>(() =>
     makeSnapshot(),
   );
@@ -55,6 +53,7 @@ export function useOfficialContent() {
   const [transfer, setTransfer] = useState<Transfer | null>(null);
   const downloading = useRef<AbortController | null>(null);
   const refreshing = useRef<Promise<void> | null>(null);
+  const catalogServiceUrl = useRef(apiBase);
 
   const applySnapshot = useCallback((next: ContentSnapshot) => {
     snapshotRef.current = next;
@@ -105,8 +104,15 @@ export function useOfficialContent() {
   });
 
   const refresh = useCallback((): Promise<void> => {
-    if (refreshing.current) return refreshing.current;
+    const serviceChanged = catalogServiceUrl.current !== apiBase;
+    if (refreshing.current && !serviceChanged) return refreshing.current;
     if (downloading.current) return Promise.resolve();
+    if (serviceChanged) {
+      catalogServiceUrl.current = apiBase;
+      setRemote([]);
+      setUpdates({});
+      setCheckedAt(null);
+    }
     const request = ++contentGeneration.current;
     setChecking(true);
     setConnectionError("");
@@ -145,13 +151,15 @@ export function useOfficialContent() {
           message(error, "无法连接社区内容服务，已下载的内容仍可使用。"),
         );
       } finally {
-        setChecking(false);
-        refreshing.current = null;
+        if (request === contentGeneration.current) {
+          setChecking(false);
+          refreshing.current = null;
+        }
       }
     })();
     refreshing.current = task;
     return task;
-  }, [api, applySnapshot]);
+  }, [api, apiBase, applySnapshot]);
 
   const install = useCallback(
     async (
@@ -294,15 +302,16 @@ export function useOfficialContent() {
     [api, applySnapshot],
   );
 
+  const catalogMatchesCurrentService = catalogServiceUrl.current === apiBase;
   return {
-    checkedAt,
+    checkedAt: catalogMatchesCurrentService ? checkedAt : null,
     snapshot,
     readSnapshot,
     reloadLocal,
     ready,
     loadError,
-    remote,
-    updates,
+    remote: catalogMatchesCurrentService ? remote : [],
+    updates: catalogMatchesCurrentService ? updates : {},
     checking,
     connectionError,
     transfer,

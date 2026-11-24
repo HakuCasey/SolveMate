@@ -26,6 +26,15 @@ describe("content service address", () => {
   it("rejects addresses without a supported scheme", () => {
     expect(contentServiceUrlError("content.example.com")).not.toBeNull();
     expect(contentServiceUrlError("ftp://content.example.com")).not.toBeNull();
+    expect(
+      contentServiceUrlError("//content.example.com/api/v1"),
+    ).not.toBeNull();
+    expect(
+      contentServiceUrlError("https://name:secret@content.example.com/api/v1"),
+    ).not.toBeNull();
+    expect(
+      contentServiceUrlError("https://content.example.com/api/v1?token=secret"),
+    ).not.toBeNull();
     expect(contentServiceUrlError("不是地址")).not.toBeNull();
   });
 
@@ -36,7 +45,7 @@ describe("content service address", () => {
     expect(
       normalizeContentServiceUrl("https://content.example.com/api/v1/"),
     ).toBe("https://content.example.com/api/v1");
-    expect(normalizeContentServiceUrl("/")).toBe(DEFAULT_CONTENT_SERVICE_URL);
+    expect(normalizeContentServiceUrl("/")).toBeUndefined();
     expect(normalizeContentServiceUrl("坏地址")).toBeUndefined();
   });
 

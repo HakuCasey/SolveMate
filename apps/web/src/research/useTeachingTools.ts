@@ -20,30 +20,34 @@ export function useTeachingTools(
   commit: (change: (data: AppData) => AppData) => Promise<AppData>,
 ) {
   const configuredServiceUrl = useContentServiceUrl();
-  const api = useMemo(
-    () => new ContentApi(contentApiBase(configuredServiceUrl)),
-    [configuredServiceUrl],
-  );
-  const [remote, setRemote] = useState<RemoteTool[]>([]),
+  const apiBase = contentApiBase(configuredServiceUrl);
+  const api = useMemo(() => new ContentApi(apiBase), [apiBase]);
+  const [remoteCatalog, setRemoteCatalog] = useState<{
+      serviceUrl: string;
+      items: RemoteTool[];
+    }>({ serviceUrl: "", items: [] }),
     [checking, setChecking] = useState(false),
     [error, setError] = useState(""),
     [busy, setBusy] = useState<string | null>(null);
+  const remote =
+    remoteCatalog.serviceUrl === apiBase ? remoteCatalog.items : [];
+  const catalogCacheKey = `official-tools-catalog:${apiBase}`;
   const generation = useRef(0);
   const lock = useRef(false);
   useEffect(() => {
     let alive = true;
     const initial = generation.current;
     void userCache
-      .get("official-tools-catalog")
+      .get(catalogCacheKey)
       .then((value) => {
         if (alive && value && initial === generation.current)
-          setRemote(parseTools(value));
+          setRemoteCatalog({ serviceUrl: apiBase, items: parseTools(value) });
       })
       .catch((e) => logError("Failed to read cached tool catalog.", e));
     return () => {
       alive = false;
     };
-  }, []);
+  }, [apiBase, catalogCacheKey]);
   const refresh = useCallback(async () => {
     const request = ++generation.current;
     setChecking(true);
@@ -51,9 +55,9 @@ export function useTeachingTools(
     try {
       const tools = await api.tools();
       if (request !== generation.current) return;
-      setRemote(tools);
+      setRemoteCatalog({ serviceUrl: apiBase, items: tools });
       void userCache
-        .put("official-tools-catalog", { tools })
+        .put(catalogCacheKey, { tools })
         .catch((e) => logError("Failed to cache tool catalog.", e));
     } catch (e) {
       if (request === generation.current)
@@ -61,7 +65,7 @@ export function useTeachingTools(
     } finally {
       if (request === generation.current) setChecking(false);
     }
-  }, [api]);
+  }, [api, apiBase, catalogCacheKey]);
   const run = async <T>(
     id: string,
     label: string,

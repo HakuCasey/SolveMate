@@ -128,6 +128,21 @@ def test_rename_pet_on_existing_records(tmp_path):
         assert client.get(endpoint).json()["value"] == original
 
 
+def test_content_service_url_survives_reopening(tmp_path):
+    endpoint = "/local-api/v1/user/state"
+    value = data()
+    value["settings"]["contentServiceUrl"] = "https://content.example.com/api/v1"
+    with TestClient(create_app(tmp_path / "ai"), headers=HEADERS) as client:
+        saved = client.put(endpoint, json={"value": value, "expectedRevision": 0})
+        assert saved.status_code == 200, saved.text
+
+    with TestClient(create_app(tmp_path / "ai"), headers=HEADERS) as reopened:
+        assert (
+            reopened.get(endpoint).json()["value"]["settings"]["contentServiceUrl"]
+            == "https://content.example.com/api/v1"
+        )
+
+
 def test_two_clients_share_state_and_reject_stale_writes(tmp_path):
     app = create_app(tmp_path / "ai")
     with (

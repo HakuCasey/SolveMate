@@ -2,10 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { join } from "node:path";
 import {
+  applicationDataDirectory,
   DESKTOP_PORT,
   belongsToService,
   desktopEnvironment,
   localExecutable,
+  systemApplicationDirectory,
   waitForService,
 } from "../src/runtime.mjs";
 
@@ -46,6 +48,35 @@ test("keeps all desktop data beneath the operating system user directory", () =>
   );
   assert.equal(environment.SOLVEMATE_WEB_DIR, join("/app/resources", "web"));
   assert.equal(environment.SOLVEMATE_LOCAL_ORIGINS, "http://127.0.0.1:43127");
+});
+
+test("uses the same system application directory on desktop and source web", () => {
+  assert.equal(
+    systemApplicationDirectory({ platform: "darwin", home: "/Users/test" }),
+    "/Users/test/Library/Application Support/SolveMate",
+  );
+  assert.equal(
+    applicationDataDirectory(
+      systemApplicationDirectory({
+        platform: "win32",
+        home: "C:\\Users\\test",
+        environment: { APPDATA: "C:\\Users\\test\\AppData\\Roaming" },
+      }),
+      "win32",
+    ),
+    "C:\\Users\\test\\AppData\\Roaming\\SolveMate\\data",
+  );
+  assert.equal(
+    applicationDataDirectory(
+      systemApplicationDirectory({
+        platform: "linux",
+        home: "/home/test",
+        environment: { XDG_CONFIG_HOME: "/data/config" },
+      }),
+      "linux",
+    ),
+    "/data/config/SolveMate/data",
+  );
 });
 
 test("accepts only the expected local service health response", async () => {

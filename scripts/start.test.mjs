@@ -7,7 +7,12 @@ import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { test } from "node:test";
-import { requestedPorts, reservePorts, ProcessManager } from "./start.mjs";
+import {
+  requestedPorts,
+  reservePorts,
+  ProcessManager,
+  sourceUserDirectory,
+} from "./start.mjs";
 
 async function waitUntil(check) {
   const deadline = Date.now() + 6000;
@@ -62,6 +67,21 @@ test("selects default, isolated and explicitly assigned ports", () => {
       () => requestedPorts({ "content-port": value }),
       /--content-port/,
     );
+});
+
+test("source web shares the desktop user directory unless explicitly overridden", () => {
+  assert.equal(
+    sourceUserDirectory({ SOLVEMATE_DESKTOP_USER_DIR: "/shared/SolveMate" }),
+    join("/shared/SolveMate", "data"),
+  );
+  assert.equal(
+    sourceUserDirectory({ SOLVEMATE_USER_DIR: "/custom/data" }),
+    null,
+  );
+  assert.equal(
+    sourceUserDirectory({ SOLVEMATE_LOCAL_DATA: "/legacy/ai" }),
+    null,
+  );
 });
 
 test("parallel instances reserve distinct ports and release only their own", async (t) => {

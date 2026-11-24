@@ -89,6 +89,12 @@
         "globalModel": {
           "type": "string"
         },
+        "contentServiceUrl": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048,
+          "pattern": "^(?:https?://|/(?!/))[^\\s?#@]+$"
+        },
         "readingPaneRatio": {
           "type": "number",
           "exclusiveMinimum": 0,

@@ -1,6 +1,38 @@
+import { homedir } from "node:os";
 import { join, posix, win32 } from "node:path";
 
 export const DESKTOP_PORT = 43127;
+
+function pathsFor(platform) {
+  return platform === "win32" ? win32 : posix;
+}
+
+/** 返回操作系统为 SolveMate 分配的应用数据目录，源码版与桌面版共用。 */
+export function systemApplicationDirectory({
+  platform = process.platform,
+  environment = process.env,
+  home = environment.HOME || environment.USERPROFILE || homedir(),
+} = {}) {
+  const paths = pathsFor(platform);
+  if (platform === "darwin")
+    return paths.join(home, "Library", "Application Support", "SolveMate");
+  if (platform === "win32")
+    return paths.join(
+      environment.APPDATA || paths.join(home, "AppData", "Roaming"),
+      "SolveMate",
+    );
+  return paths.join(
+    environment.XDG_CONFIG_HOME || paths.join(home, ".config"),
+    "SolveMate",
+  );
+}
+
+export function applicationDataDirectory(
+  applicationDirectory,
+  platform = process.platform,
+) {
+  return pathsFor(platform).join(applicationDirectory, "data");
+}
 
 export function belongsToService(target, baseUrl) {
   try {
@@ -28,7 +60,7 @@ export function desktopEnvironment({
   return {
     ...process.env,
     PYTHONUTF8: "1",
-    SOLVEMATE_USER_DIR: join(userDirectory, "data"),
+    SOLVEMATE_USER_DIR: applicationDataDirectory(userDirectory),
     SOLVEMATE_BUNDLED_DATA: join(resourcesDirectory, "data"),
     SOLVEMATE_WEB_DIR: join(resourcesDirectory, "web"),
     SOLVEMATE_LOCAL_ORIGINS: `http://127.0.0.1:${port}`,

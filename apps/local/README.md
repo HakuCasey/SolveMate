@@ -75,7 +75,7 @@ DSH 与 Hermes 的检测只读取协议与模型目录，不创建或恢复检�
 
 ## 数据与配置
 
-默认使用仓库根目录的 `user/ai/state.sqlite3` 保存连接配置、会话绑定与每轮执行结果，`user/ai/workspace/` 作为 Harness 的学习工作目录。网页消息、机器人等个人记录保存在 `user/app.sqlite3`，浏览器只保留缓存。
+通过 `npm start` 启动时，源码版与桌面版共用系统应用数据目录。该目录下的 `ai/state.sqlite3` 保存连接配置、会话绑定与每轮执行结果，`ai/workspace/` 作为 Harness 的学习工作目录；网页消息、机器人等个人记录保存在 `app.sqlite3`，浏览器只保留缓存。
 
 模型密钥和账号凭据仍由 Harness 自身管理，不复制进本服务的数据库、网页或日志。Harness 的外部会话由它自己的持久化机制管理；SolveMate 保存外部编号，以便恢复同一会话。
 
@@ -145,7 +145,7 @@ PDF 无需安装办公软件。PPTX 需安装 [LibreOffice](https://www.libreoff
 
 转换使用独立配置目录，最多同时处理两份资料，超过两分钟会停止本次转换；缺少转换器或文件损坏时保留原件，可在网页点击“重试处理”。重启服务会将中断任务标为失败，等待用户重试。在同一学科重复导入同一文件复用原资料；不同学科分别保留资料记录。调整所属学科只改变归属，不改变文件编号和历史引用。原件或阅读文件丢失时可重新导入原文件恢复。
 
-`SOLVEMATE_USER_DIR` 可指定本机数据根目录；默认使用项目的 `user/`。`SOLVEMATE_MATERIALS_DIR` 可单独指定上传资料目录，默认是数据根目录下的 `uploads/`；已有 `SOLVEMATE_LOCAL_DATA` 仍指定 AI 数据目录。测试应显式指定独立目录，不使用正式资料。
+`SOLVEMATE_USER_DIR` 可指定本机数据根目录。`npm start` 未指定时使用与桌面版相同的系统目录：macOS 为 `~/Library/Application Support/SolveMate/data`，Windows 为 `%APPDATA%\SolveMate\data`。`SOLVEMATE_MATERIALS_DIR` 可单独指定上传资料目录，默认是数据根目录下的 `uploads/`；已有 `SOLVEMATE_LOCAL_DATA` 仍指定 AI 数据目录。测试应显式指定独立目录，不使用正式资料。
 
 | 接口                                                      | 用途                                                             |
 | --------------------------------------------------------- | ---------------------------------------------------------------- |
