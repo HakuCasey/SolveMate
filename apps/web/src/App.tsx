@@ -1463,6 +1463,7 @@ function Workspace({ content }: { content: OfficialContent }) {
         />
         {backupOpen && (
           <BackupDialog
+            needsAttention={needsAttention}
             onClose={() => setBackupOpen(false)}
             onRefresh={() => dataRefresh.refresh(undefined, false, true)}
           >

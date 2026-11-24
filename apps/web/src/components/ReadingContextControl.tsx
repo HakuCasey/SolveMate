@@ -85,8 +85,9 @@ export function ReadingContextControl({
           aria-label="参考页码"
           side="top"
           align="start"
+          width={260}
           padding={10}
-          maxWidth={380}
+          maxWidth={260}
         >
           <label className={styles.optionRow}>
             <input

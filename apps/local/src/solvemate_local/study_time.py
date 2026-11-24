@@ -37,16 +37,26 @@ def merge_intervals(intervals):
 
 
 def validate_daily_duration(day, milliseconds):
-    if not 0 <= milliseconds <= 86400000:
+    if not isinstance(milliseconds, int) or not 0 <= milliseconds <= 86400000:
         logger.error(
             "Study duration exceeds the daily limit: day=%s milliseconds=%s",
             day,
             milliseconds,
         )
-        raise UserDataError(
+        error = UserDataError(
             "单日学习时长异常，本次统计未保存，原有记录已保留。",
             "study_duration_exceeded",
         )
+        error.diagnostic_fields = (
+            {"milliseconds": milliseconds} if isinstance(milliseconds, int) else {}
+        )
+        try:
+            error.diagnostic_fields["day"] = (
+                datetime.fromisoformat(day).date().isoformat()
+            )
+        except (TypeError, ValueError):
+            pass
+        raise error
 
 
 class StudyTime:

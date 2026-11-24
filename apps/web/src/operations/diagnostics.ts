@@ -1,14 +1,58 @@
 import { operations, isUsefulOperation, type OperationResult } from "./store";
 
-/** 导出仅包含定位所需的操作编号、时间、阶段和错误代码，不包含用户正文或配置。 */
-export function exportOperationDiagnostics() {
+export interface LocalDiagnostics {
+  learningDatabase: string;
+  aiDatabase: string;
+  logsAvailable: boolean;
+  errors: unknown[];
+}
+
+export async function checkLocalDiagnostics(): Promise<LocalDiagnostics> {
+  const { localRequest } = await import("../storage/local-client");
+  const response = await localRequest("/diagnostics", {
+    signal: AbortSignal.timeout(15000),
+  });
+  const report = await response.json();
+  if (
+    !report ||
+    typeof report.learningDatabase !== "string" ||
+    typeof report.aiDatabase !== "string" ||
+    typeof report.logsAvailable !== "boolean" ||
+    !Array.isArray(report.errors)
+  )
+    throw new Error("无法读取诊断结果，请确认本机服务已更新。");
+  return report;
+}
+
+export function diagnosticSummary(report: LocalDiagnostics) {
+  const problems: string[] = [];
+  if (report.learningDatabase === "study_duration_exceeded")
+    problems.push("单日学习时长超过上限，请核对学习记录或从备份恢复");
+  else if (report.learningDatabase !== "ok")
+    problems.push("学习记录库读取或校验失败，请检查用户数据路径，或从备份恢复");
+  if (report.aiDatabase !== "ok")
+    problems.push("AI 会话库读取或校验失败，请检查用户数据路径，或从备份恢复");
+  if (!report.logsAvailable)
+    problems.push("近期诊断日志不完整，请检查用户数据目录权限和剩余空间");
+  return problems.length
+    ? problems.join("。") + "。"
+    : "学习记录库和 AI 会话库检查通过。";
+}
+
+/** 本机服务不可用时仍可导出浏览器保留的失败记录。 */
+export function exportOperationDiagnostics(
+  local: LocalDiagnostics | { unavailable: true },
+) {
   const url = URL.createObjectURL(
     new Blob(
       [
         JSON.stringify(
           {
             exportedAt: new Date().toISOString(),
-            operations: operations.diagnosticData(),
+            local,
+            operations: operations
+              .diagnosticData()
+              .map((row) => ({ ...row, targetName: undefined })),
           },
           null,
           2,

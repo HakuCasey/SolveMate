@@ -54,8 +54,8 @@
 ### G. 设置
 - G1 字号、白天/夜间、四种主题色调
 - G2 AI 配置：连接检测、模型选择
-- G3 备份导出 ZIP、恢复
-- G4 用户数据路径查看/更改
+- G3 在“备份文件”中导出 ZIP、恢复
+- G4 在“用户数据”中查看或更改路径，在“操作记录”中检查并导出诊断日志
 
 ### H. 社区内容
 - H1 检查更新、下载/更新资料与工具
@@ -90,13 +90,13 @@
 - D2 切换机器人触发确认并新建对话（`e2e/robot-switch.spec.ts`）
 - E 笔记页渲染、F 机器人页展示预置机器人、G1 显示设置（夜间模式）和聊天栏对话字号（`e2e/notes-robots-settings.spec.ts`）
 - H 社区内容展示内置资料、I 教研室展示资料与教研工具（`e2e/research-community.spec.ts`）
-- G3/G4 备份与恢复对话框、导出窗口、数据路径（`e2e/backup.spec.ts`）
+- G3/G4 备份与恢复双栏分类、导出窗口、数据路径和操作记录入口（`e2e/backup.spec.ts`）
 
 ### 未覆盖与环境限制
 
 - C2 文字选段提问：依赖 PDF.js 文本层的精确鼠标拖选坐标，Playwright 模拟不可靠，未纳入自动化（逻辑由 `useReadingSelection` 单测覆盖）。
 - D6–D8 的服务切换、恢复和编号冲突由本机服务测试在独立数据库与模拟 Harness 中验证（`apps/local/tests/test_session_context.py`、`test_session_recovery.py`）。其中同一资料双页签用例核对两个原生会话编号、停止其中一轮后的另一轮结果，以及服务重启后的追问去向。真实 Harness 的跨服务切换仍需单独验收。
-- K 应用更新/离线重开：Playwright `serviceWorkers: "block"` 屏蔽 Service Worker，无法真实测离线；状态栏「更新失败」即此环境产物。
+- K 应用更新/离线重开：Playwright `serviceWorkers: "block"` 屏蔽 Service Worker，无法真实测离线；应用更新入口显示「更新失败」即此环境产物。
 
 ### 已修复问题（根因）
 

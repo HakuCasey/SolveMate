@@ -99,4 +99,4 @@ macOS 与 Windows 必须分别在对应系统上构建，不能交叉生成另�
 ## 4. 约定与已知事项
 
 - **KaTeX override 与许可证检查**：根 `package.json` 的 `overrides` 为修复 KaTeX 安全公告把 `katex` 抬到 `^0.19.1`，超出 `rehype-katex`、`micromark-extension-math` 声明的 `^0.16.0`，`npm ls` 会将其标为 `invalid` 并非零退出。`scripts/generate-license-notices.mjs` 已改为容忍这种非零退出（只要仍能列出包路径），因此 `npm run build` 与 `npm start` 不再因此失败；上游发布声明 `^0.19` 的版本后，可移除 override 并相应简化该脚本。
-- **本机数据目录**：源码版默认使用仓库根 `user/`，桌面版使用系统应用数据目录；两者均可在「设置 → 备份与恢复」中查看或更改路径，并通过完整 ZIP 备份转移。
+- **本机数据目录**：源码版默认使用仓库根 `user/`，桌面版使用系统应用数据目录；两者均可在「系统设置 → 备份与恢复 → 用户数据」中查看或更改路径，并通过完整 ZIP 备份转移。

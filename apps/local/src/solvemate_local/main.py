@@ -21,6 +21,8 @@ from .backups import (
     router as backup_router,
 )
 from .data_location import DataLocation
+from .diagnostics import DiagnosticLog
+from .diagnostics import router as diagnostics_router
 from .file_exports import router as file_exports_router
 from .material_converter import MaterialError
 from .material_routes import router as material_router
@@ -103,20 +105,33 @@ def create_app(
 
         def open_directory(root):
             nonlocal user_root, ai_directory, uploads
+            app.state.diagnostics = DiagnosticLog(root)
             user_root = root
             ai_directory = root / "ai" if configurable else directory
             uploads = root / "uploads" if configurable else default_uploads
             app.state.backups = Backups(root, ai_directory, uploads)
             if not uploads_override:
                 migrate_uploads(root)
-            open_resources()
+            try:
+                open_resources()
+            except (ValueError, OSError, sqlite3.Error, UserDataError) as error:
+                app.state.diagnostics.record(
+                    "open_data_directory",
+                    "startup_failed",
+                    errorType=type(error).__name__,
+                )
+                raise
 
         user_root, ai_directory, uploads = location.current, directory, default_uploads
 
         def open_resources():
             # 恢复与正常启动共用资源创建，路由始终读取当前服务对象。
             app.state.user = UserData(user_root)
-            app.state.ai = AiService(Store(ai_directory), registry=registry)
+            app.state.ai = AiService(
+                Store(ai_directory),
+                registry=registry,
+                diagnostics=app.state.diagnostics,
+            )
             app.state.materials = Materials(
                 uploads,
                 subject_check=app.state.user.require_subject,
@@ -155,16 +170,41 @@ def create_app(
     app.include_router(material_router)
     app.include_router(user_router)
     app.include_router(study_router)
+    app.include_router(diagnostics_router)
     app.include_router(pdf_export_router)
     app.include_router(file_exports_router)
 
+    def record_failure(request, code, error):
+        route = request.scope.get("route")
+        fields = getattr(error, "diagnostic_fields", {}).copy()
+        if route is not None:
+            fields["route"] = route.path
+            fields["method"] = request.method
+        if isinstance(error, OSError) and error.errno is not None:
+            fields["errno"] = error.errno
+        if getattr(error, "sqlite_errorname", None):
+            fields["sqliteError"] = error.sqlite_errorname
+        app.state.diagnostics.record(
+            getattr(route, "name", "request"),
+            code,
+            errorType=type(error).__name__,
+            **fields,
+        )
+
     @app.exception_handler(UserDataError)
     async def user_error(request, error):
+        if (
+            error.status >= 500
+            or error.code == "study_duration_exceeded"
+            or (request.method == "GET" and error.code == "invalid_user_data")
+        ):
+            record_failure(request, error.code, error)
         return JSONResponse(
             {"detail": str(error), "code": error.code}, status_code=error.status
         )
 
     async def storage_failure(request, error):
+        record_failure(request, "local_storage_failed", error)
         logging.getLogger(__name__).error(
             "Local storage operation failed: %s", type(error).__name__
         )
@@ -181,6 +221,8 @@ def create_app(
 
     @app.exception_handler(MaterialError)
     async def material_error(request, error):
+        if error.status >= 500:
+            record_failure(request, error.code, error)
         return JSONResponse(
             {"detail": str(error), "code": error.code}, status_code=error.status
         )
@@ -249,10 +291,16 @@ def create_app(
                 {"detail": "请求缺少客户端标识。", "code": "client_required"},
                 status_code=403,
             )
-        return await call_next(request)
+        try:
+            return await call_next(request)
+        except Exception as error:
+            record_failure(request, "unexpected_error", error)
+            raise
 
     @app.exception_handler(ConnectionError)
     async def connection_error(request, error):
+        if request.scope["route"].name == "detect":
+            record_failure(request, error.code, error)
         status = (
             409
             if error.code

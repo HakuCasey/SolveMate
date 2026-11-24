@@ -59,7 +59,8 @@ export function NoteSources({
         <PopoverPanel
           title="笔记来源"
           icon={Link2}
-          maxWidth={340}
+          width={320}
+          maxWidth={320}
           closeLabel="关闭笔记来源"
           align="start"
           sideOffset={8}

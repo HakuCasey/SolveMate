@@ -19,6 +19,7 @@ export function PetPanel({
       icon={PawPrint}
       side="right"
       align="start"
+      width={220}
       padding={12}
       closeLabel="关闭宠物状态"
       className={styles.popover}

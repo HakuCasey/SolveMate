@@ -43,7 +43,8 @@ export function PdfControls({
           <PopoverPanel
             title="阅读设置"
             icon={Eye}
-            maxWidth={240}
+            width={200}
+            maxWidth={200}
             side="top"
             align="start"
           >

@@ -1,10 +1,13 @@
 import { UserStorageRecovery } from "../storage/UserStorageGate";
-import { useSyncExternalStore } from "react";
+import { useState, useSyncExternalStore } from "react";
 import type { AppData } from "@solvemate/contracts";
 import type { DataConflict } from "./merge";
-import { ListChecks } from "lucide-react";
 import { operations } from "../operations/store";
-import { exportOperationDiagnostics } from "../operations/diagnostics";
+import {
+  checkLocalDiagnostics,
+  diagnosticSummary,
+  exportOperationDiagnostics,
+} from "../operations/diagnostics";
 import styles from "./RefreshControls.module.css";
 
 const labels: Record<string, string> = {
@@ -99,81 +102,107 @@ export function RefreshControls({
     operations.snapshot,
     operations.snapshot,
   );
+  const [checking, setChecking] = useState(false);
+  const [diagnosis, setDiagnosis] = useState("");
+  async function diagnose(download: boolean) {
+    setChecking(true);
+    setDiagnosis("");
+    let report;
+    try {
+      report = await checkLocalDiagnostics();
+      setDiagnosis(diagnosticSummary(report));
+    } catch {
+      setDiagnosis(
+        download
+          ? "未取得本机诊断结果，导出内容仅包含浏览器操作记录。"
+          : "未取得本机诊断结果，请确认本机服务已启动并更新后重试。",
+      );
+    }
+    try {
+      if (download) exportOperationDiagnostics(report ?? { unavailable: true });
+    } catch {
+      setDiagnosis("诊断文件导出失败，请重试。");
+    } finally {
+      setChecking(false);
+    }
+  }
   return (
-    <details className={styles.records} open={needsAttention}>
-      <summary>
-        <ListChecks aria-hidden="true" />
-        操作记录
-      </summary>
-      <div>
-        {readError && <p>读取社区内容失败：{readError}</p>}
-        {loadFailure instanceof Error &&
-          !snapshot.failures.some((item) => item.key === "records:load") && (
-            <p>读取学习记录失败：{loadFailure.message}</p>
-          )}
-        <UserStorageRecovery failure={loadFailure} onReload={onRetryRead} />
-        {conflicts.map((item, index) => (
-          <section key={JSON.stringify(item.path)}>
-            <h3>{titleOf(item.path, data)}</h3>
-            <label>
-              本页修改
-              {conflictValue(item.path, item.local)}
-            </label>
-            <label>
-              最新记录
-              {conflictValue(item.path, item.remote)}
-            </label>
-            <div className={styles.actions}>
-              {!item.deleted && (
-                <button onClick={() => onResolve(index, "local")}>
-                  保留本页修改
-                </button>
-              )}
-              <button onClick={() => onResolve(index, "remote")}>
-                {item.deleted ? "确认条目已删除" : "使用最新内容"}
-              </button>
-            </div>
-          </section>
-        ))}
-        {snapshot.failures.map((item) => (
-          <section key={item.id}>
-            <header>
-              <strong>
-                {item.label}失败
-                {item.targetName ? ` · ${item.targetName}` : ""}
-              </strong>
-              <time>
-                {new Date(item.finishedAt ?? item.startedAt).toLocaleString()}
-              </time>
-            </header>
-            {item.failures?.length ? (
-              <ul>
-                {item.failures.map((failure) => (
-                  <li key={failure.label}>
-                    <span>{failure.label}</span>
-                    {failure.message ? `：${failure.message}` : ""}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p>{item.error}</p>
-            )}
-            {item.guidance && <p>{item.guidance}</p>}
-            {item.key.startsWith("records:") && !conflict && !loadFailure && (
-              <button onClick={() => onRetry(item.key)}>重试</button>
-            )}
-            {item.key === "refresh:data" && (
-              <button disabled={refreshing} onClick={() => void onRefresh()}>
-                重试刷新
-              </button>
-            )}
-          </section>
-        ))}
-        {!needsAttention && <p>当前没有未解决的失败操作。</p>}
-        {snapshot.diagnostics.length > 0 && (
-          <button onClick={exportOperationDiagnostics}>导出诊断日志</button>
+    <div className={styles.records}>
+      {readError && <p>读取社区内容失败：{readError}</p>}
+      {loadFailure instanceof Error &&
+        !snapshot.failures.some((item) => item.key === "records:load") && (
+          <p>读取学习记录失败：{loadFailure.message}</p>
         )}
+      <UserStorageRecovery failure={loadFailure} onReload={onRetryRead} />
+      {conflicts.map((item, index) => (
+        <section key={JSON.stringify(item.path)}>
+          <h3>{titleOf(item.path, data)}</h3>
+          <label>
+            本页修改
+            {conflictValue(item.path, item.local)}
+          </label>
+          <label>
+            最新记录
+            {conflictValue(item.path, item.remote)}
+          </label>
+          <div className={styles.actions}>
+            {!item.deleted && (
+              <button onClick={() => onResolve(index, "local")}>
+                保留本页修改
+              </button>
+            )}
+            <button onClick={() => onResolve(index, "remote")}>
+              {item.deleted ? "确认条目已删除" : "使用最新内容"}
+            </button>
+          </div>
+        </section>
+      ))}
+      {snapshot.failures.map((item) => (
+        <section key={item.id}>
+          <header>
+            <strong>
+              {item.label}失败
+              {item.targetName ? ` · ${item.targetName}` : ""}
+            </strong>
+            <time>
+              {new Date(item.finishedAt ?? item.startedAt).toLocaleString()}
+            </time>
+          </header>
+          {item.failures?.length ? (
+            <ul>
+              {item.failures.map((failure) => (
+                <li key={failure.label}>
+                  <span>{failure.label}</span>
+                  {failure.message ? `：${failure.message}` : ""}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p>{item.error}</p>
+          )}
+          {item.guidance && <p>{item.guidance}</p>}
+          {item.key.startsWith("records:") && !conflict && !loadFailure && (
+            <button onClick={() => onRetry(item.key)}>重试</button>
+          )}
+          {item.key === "refresh:data" && (
+            <button disabled={refreshing} onClick={() => void onRefresh()}>
+              重试刷新
+            </button>
+          )}
+        </section>
+      ))}
+      {!needsAttention && <p>当前没有未解决的失败操作。</p>}
+      <div className={styles.actions}>
+        <button disabled={checking} onClick={() => void diagnose(false)}>
+          检查本机数据
+        </button>
+        <button disabled={checking} onClick={() => void diagnose(true)}>
+          导出诊断日志
+        </button>
       </div>
-    </details>
+      {(checking || diagnosis) && (
+        <p role="status">{checking ? "正在检查…" : diagnosis}</p>
+      )}
+    </div>
   );
 }

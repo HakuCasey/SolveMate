@@ -46,7 +46,8 @@ export function RelatedLearning({
         <PopoverPanel
           title={material.title}
           icon={FileText}
-          maxWidth={360}
+          width={340}
+          maxWidth={340}
           closeLabel="关闭相关内容"
           className={styles.popover}
           align="end"

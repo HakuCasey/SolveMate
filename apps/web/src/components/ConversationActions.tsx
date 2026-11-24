@@ -202,13 +202,7 @@ export function ConversationActions({
                   ? Tag
                   : CircleAlert
             }
-            width={
-              panel === "rename"
-                ? 280
-                : customOpen && panel === "label"
-                  ? 240
-                  : undefined
-            }
+            width={panel === "rename" ? 280 : panel === "label" ? 240 : 260}
             maxWidth={280}
             side={panel === "rename" ? "bottom" : "right"}
             align="start"

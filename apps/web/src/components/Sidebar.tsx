@@ -33,7 +33,6 @@ import type { Settings } from "@solvemate/contracts";
 import type { AiService } from "../ai/useAiService";
 import { AiSettings } from "./AiSettings";
 import { StudyFootprint, StudyAchievements } from "./StudyOverview";
-import userAvatar from "../assets/user-avatar.png";
 import wordmark from "../assets/solvemate-wordmark.png";
 import { findTheme, themes } from "../theme/presets";
 import styles from "./Sidebar.module.css";
@@ -72,10 +71,12 @@ const navigationItems = [
 ] as const;
 
 const projectUrl = "https://github.com/HakuCasey/SolveMate";
+const defaultAvatar = "/logo.png";
 
 const sidebarMenuLayout = {
+  width: 200,
   maxWidth: 200,
-  padding: 10,
+  padding: 8,
   side: "right",
   sideOffset: 12,
   collisionPadding: 12,
@@ -113,7 +114,7 @@ function AccountMenu({
         >
           <img
             className={styles.avatarImage}
-            src={profile.profileAvatar ?? userAvatar}
+            src={profile.profileAvatar ?? defaultAvatar}
             alt=""
           />
         </Popover.Trigger>
@@ -159,7 +160,7 @@ function AccountMenu({
       {panel === "settings" && (
         <AccountSettingsDialog
           profile={profile}
-          defaultAvatar={userAvatar}
+          defaultAvatar={defaultAvatar}
           onSave={onSave}
           onClose={() => setPanel("closed")}
           onReturnFocus={() => avatar.current?.focus()}
@@ -373,7 +374,8 @@ export function Sidebar({
                   title="显示设置"
                   icon={SlidersHorizontal}
                   titleId="display-settings-heading"
-                  maxWidth={236}
+                  width={220}
+                  maxWidth={220}
                   side="right"
                   align="end"
                   sideOffset={12}

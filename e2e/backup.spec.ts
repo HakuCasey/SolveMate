@@ -9,7 +9,19 @@ test("备份与恢复对话框展示导出/恢复与数据路径", async ({ page
 
   await expect(page.getByText("导出备份")).toBeVisible();
   await expect(page.getByText("恢复备份")).toBeVisible();
-  await expect(page.getByText(/用户数据/).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "备份文件" })).toHaveAttribute(
+    "aria-current",
+    "true",
+  );
+  await page.getByRole("button", { name: "用户数据", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "用户数据路径" }),
+  ).toBeVisible();
+  await expect(page.getByText("导出备份", { exact: true })).toBeHidden();
+  await page.getByRole("button", { name: "操作记录", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "检查本机数据" }),
+  ).toBeVisible();
 });
 
 test("导出备份打开导出窗口", async ({ page }) => {
@@ -21,5 +33,7 @@ test("导出备份打开导出窗口", async ({ page }) => {
   await page.getByText("导出备份", { exact: true }).click();
 
   await expect(page.getByText("保存位置")).toBeVisible();
-  await expect(page.getByRole("button", { name: "确认", exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "确认", exact: true }),
+  ).toBeVisible();
 });

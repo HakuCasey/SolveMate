@@ -33,7 +33,8 @@ def now():
 
 
 class AiService:
-    def __init__(self, store: Store, registry=None):
+    def __init__(self, store: Store, registry=None, diagnostics=None):
+        self.diagnostics = diagnostics
         self.store = store
         self.registry = registry or AdapterRegistry()
         self.workspace = store.directory / "workspace"
@@ -924,6 +925,12 @@ class AiService:
                 turn.update(
                     status="interrupted",
                     error=turn.get("error") or "本机服务在生成期间停止。",
+                )
+            if self.diagnostics and turn["status"] in {"failed", "interrupted"}:
+                self.diagnostics.record(
+                    "generate_reply",
+                    turn.get("errorCode") or turn["status"],
+                    turnId=turn["id"],
                 )
             turn["phase"] = "finished"
             turn["completedAt"] = now()

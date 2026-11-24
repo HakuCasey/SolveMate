@@ -453,6 +453,10 @@ def test_missing_external_session_is_reported_without_replacing_binding(tmp_path
         assert result["status"] == "failed"
         assert result["errorCode"] == "session_missing"
         assert result["error"] == "第三方 Harness 中的会话无法匹配。"
+        errors = client.get("/local-api/v1/user/diagnostics").json()["errors"]
+        entry = next(error for error in errors if error.get("turnId") == follow["id"])
+        assert (entry["action"], entry["code"]) == ("generate_reply", "session_missing")
+        assert "follow-up" not in str(entry)
         assert not any(
             method == "session/new" for method, _ in FakeAcp.calls[new_calls:]
         )

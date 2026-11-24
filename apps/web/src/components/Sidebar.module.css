@@ -124,19 +124,19 @@
   width: 100%;
 }
 .accountDivider {
-  margin: 4px 10px;
+  margin: 5px 6px;
   border: 0;
   border-top: 1px solid var(--sm-line);
 }
 .settingsItem {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 9px;
   width: 100%;
-  min-height: 42px;
-  padding: 11px 10px;
+  min-height: 38px;
+  padding: 9px 10px;
   border: 0;
-  border-radius: 10px;
+  border-radius: 8px;
   font-size: 13px;
   color: var(--sm-ink);
   background: transparent;

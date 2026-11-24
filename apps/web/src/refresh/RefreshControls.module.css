@@ -1,39 +1,7 @@
 .records {
-  margin: 4px 0;
-  border-block-end: 1px solid var(--sm-line);
+  padding: 12px 16px;
   color: var(--sm-ink);
   font-size: 13px;
-}
-.records > summary {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 8px;
-  cursor: pointer;
-  font: var(--sm-ui-body-font);
-}
-.records > summary::-webkit-details-marker {
-  display: none;
-}
-.records > summary svg {
-  width: 18px;
-  height: 18px;
-  color: var(--sm-soft);
-}
-.records > summary::after {
-  content: "";
-  width: 7px;
-  height: 7px;
-  margin-inline: auto 5px;
-  border-block-start: 1.5px solid var(--sm-soft);
-  border-inline-end: 1.5px solid var(--sm-soft);
-  transform: rotate(45deg);
-}
-.records[open] > summary::after {
-  transform: rotate(135deg);
-}
-.records > div {
-  padding: 0 8px 12px;
   overflow-wrap: anywhere;
 }
 .records section {

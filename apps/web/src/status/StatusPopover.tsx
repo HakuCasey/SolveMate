@@ -58,6 +58,7 @@ export function StatusPopover({
         <PopoverPanel
           title={category}
           icon={CategoryIcon}
+          width={240}
           padding={12}
           closeLabel={`关闭${category}详情`}
           className={styles.popover}
