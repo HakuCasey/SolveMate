@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useState } from "react";
 import { Download, RotateCcw } from "lucide-react";
 import type { Settings } from "@solvemate/contracts";
 import {
@@ -16,13 +16,12 @@ interface Props {
 
 /**
  * 社区内容服务的运行时配置。
- * 留空表示沿用内置默认地址；保存后内容接口会按新地址重新读取目录。
+ * 输入框默认填好内置地址；保存后内容接口会按新地址重新读取目录。
  */
 export function ContentServiceSettings({ settings, onSave, onOpenContent }: Props) {
-  const saved = settings.contentServiceUrl ?? "";
+  const saved = settings.contentServiceUrl ?? DEFAULT_CONTENT_SERVICE_URL;
   const [draft, setDraft] = useState(saved);
   const [error, setError] = useState<string | null>(null);
-  const hintId = useId();
   const changed =
     normalizeContentServiceUrl(draft) !== normalizeContentServiceUrl(saved);
 
@@ -39,7 +38,7 @@ export function ContentServiceSettings({ settings, onSave, onOpenContent }: Prop
         ? { contentServiceUrl: normalized }
         : { contentServiceUrl: undefined }),
     });
-    setDraft(normalized ?? "");
+    setDraft(normalized ?? DEFAULT_CONTENT_SERVICE_URL);
     setError(null);
   }
 
@@ -64,13 +63,8 @@ export function ContentServiceSettings({ settings, onSave, onOpenContent }: Prop
           spellCheck={false}
           autoComplete="off"
           aria-invalid={error ? true : undefined}
-          aria-describedby={hintId}
         />
       </label>
-      <p className={styles.hint} id={hintId}>
-        留空使用默认地址 <code>{DEFAULT_CONTENT_SERVICE_URL}</code>。桌面版需要填写部署好的社区内容服务地址，
-        例如 <code>https://content.example.com/api/v1</code>。
-      </p>
       {error && (
         <p className={styles.error} role="alert">
           {error}
@@ -83,9 +77,9 @@ export function ContentServiceSettings({ settings, onSave, onOpenContent }: Prop
         <button
           className={styles.secondary}
           type="button"
-          disabled={!draft}
+          disabled={!changed}
           onClick={() => {
-            setDraft("");
+            setDraft(DEFAULT_CONTENT_SERVICE_URL);
             setError(null);
           }}
         >
@@ -100,3 +94,8 @@ export function ContentServiceSettings({ settings, onSave, onOpenContent }: Prop
     </form>
   );
 }
+
+
+
+
+

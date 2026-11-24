@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react";
 
-/** 内置默认地址：源码版由 vite 代理到本机内容服务，桌面版由安装包侧配置。 */
-export const DEFAULT_CONTENT_SERVICE_URL = "/api/v1";
+/** 内置默认地址：本机内容服务（`apps/server` 默认端口 8000）。 */
+export const DEFAULT_CONTENT_SERVICE_URL = "http://127.0.0.1:8000/api/v1";
 
 function trimTrailingSlashes(value: string) {
   return value.replace(/\/+$/, "");

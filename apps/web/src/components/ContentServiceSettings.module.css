@@ -30,16 +30,10 @@
   border-color: var(--sm-danger);
 }
 
-.hint {
-  margin: 0;
-  font-size: 11px;
-  line-height: 1.6;
-  color: var(--sm-soft);
-}
-
-.hint code {
-  font-size: 11px;
-  color: var(--sm-ink);
+/* 输入框撑满面板宽度，全局 outline 的左右两侧会被裁掉，焦点改为边框变色。 */
+.input:focus-visible {
+  outline: 0;
+  border-color: var(--sm-accent);
 }
 
 .error {
@@ -80,4 +74,10 @@
 .open {
   justify-self: stretch;
   background: transparent;
+}
+
+.actions button:focus-visible,
+.open:focus-visible {
+  outline: 2px solid var(--sm-accent);
+  outline-offset: 2px;
 }
