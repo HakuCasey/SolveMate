@@ -151,7 +151,8 @@ class DshStream:
                     "请求已经保存" in text
                     or "会话缓存" in text
                     or "session_projcache" in text
-                    or ".dsh" in text and "storages" in text
+                    or ".dsh" in text
+                    and "storages" in text
                     or "持久化保存" in text
                 )
                 if text and not diagnostic:

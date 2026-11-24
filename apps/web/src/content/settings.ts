@@ -17,7 +17,8 @@ export function contentServiceUrlError(value: string): string | null {
   if (trimmed.startsWith("/")) return null;
   try {
     const parsed = new URL(trimmed);
-    if (parsed.protocol === "http:" || parsed.protocol === "https:") return null;
+    if (parsed.protocol === "http:" || parsed.protocol === "https:")
+      return null;
   } catch {
     // 继续走下面的统一提示。
   }
@@ -38,7 +39,9 @@ export function normalizeContentServiceUrl(
 export function contentApiBase(configured?: string): string {
   const normalized = normalizeContentServiceUrl(configured);
   return (
-    normalized || import.meta.env.VITE_CONTENT_API_URL || DEFAULT_CONTENT_SERVICE_URL
+    normalized ||
+    import.meta.env.VITE_CONTENT_API_URL ||
+    DEFAULT_CONTENT_SERVICE_URL
   );
 }
 

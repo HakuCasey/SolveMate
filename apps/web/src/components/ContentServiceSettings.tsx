@@ -18,7 +18,11 @@ interface Props {
  * 社区内容服务的运行时配置。
  * 输入框默认填好内置地址；保存后内容接口会按新地址重新读取目录。
  */
-export function ContentServiceSettings({ settings, onSave, onOpenContent }: Props) {
+export function ContentServiceSettings({
+  settings,
+  onSave,
+  onOpenContent,
+}: Props) {
   const saved = settings.contentServiceUrl ?? DEFAULT_CONTENT_SERVICE_URL;
   const [draft, setDraft] = useState(saved);
   const [error, setError] = useState<string | null>(null);
@@ -94,8 +98,3 @@ export function ContentServiceSettings({ settings, onSave, onOpenContent }: Prop
     </form>
   );
 }
-
-
-
-
-
