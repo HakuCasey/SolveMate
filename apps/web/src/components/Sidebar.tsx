@@ -32,6 +32,7 @@ import {
 import type { Settings } from "@solvemate/contracts";
 import type { AiService } from "../ai/useAiService";
 import { AiSettings } from "./AiSettings";
+import { ContentServiceSettings } from "./ContentServiceSettings";
 import { StudyFootprint, StudyAchievements } from "./StudyOverview";
 import wordmark from "../assets/solvemate-wordmark.png";
 import { findTheme, themes } from "../theme/presets";
@@ -186,7 +187,7 @@ export function Sidebar({
   const [petOpen, setPetOpen] = useState(false);
   const petName = settings.petName === undefined ? "小黑" : settings.petName;
   const [settingsMenu, setSettingsMenu] = useState<
-    "closed" | "menu" | "display" | "ai" | "help"
+    "closed" | "menu" | "display" | "ai" | "content" | "help"
   >("closed");
   const settingsOpen = settingsMenu !== "closed";
   const settingsPanel =
@@ -198,7 +199,10 @@ export function Sidebar({
   }
 
   // 菜单与子气泡共用一个状态；迟到的关闭事件不能关闭另一个气泡或重开菜单。
-  function setSettingsPanel(panel: "display" | "ai" | "help", open: boolean) {
+  function setSettingsPanel(
+    panel: "display" | "ai" | "content" | "help",
+    open: boolean,
+  ) {
     setSettingsMenu((current) => {
       if (current === "closed") return current;
       return open ? panel : current === panel ? "menu" : current;
@@ -460,13 +464,35 @@ export function Sidebar({
                   </fieldset>
                 </PopoverPanel>
               </Popover.Root>
-              <button
-                className={styles.settingsItem}
-                onClick={() => navigate("content")}
+              <Popover.Root
+                open={settingsPanel === "content"}
+                onOpenChange={(open) => setSettingsPanel("content", open)}
               >
-                <Download aria-hidden="true" />
-                <span>社区内容</span>
-              </button>
+                <Popover.Trigger className={styles.settingsItem}>
+                  <Download aria-hidden="true" />
+                  <span>社区内容</span>
+                </Popover.Trigger>
+                <PopoverPanel
+                  className={styles.popover}
+                  title="社区内容"
+                  icon={Download}
+                  titleId="content-settings-heading"
+                  width={296}
+                  maxWidth={296}
+                  side="right"
+                  align="end"
+                  sideOffset={12}
+                  collisionPadding={12}
+                  aria-labelledby="content-settings-heading"
+                  onCloseAutoFocus={(event) => event.preventDefault()}
+                >
+                  <ContentServiceSettings
+                    settings={settings}
+                    onSave={onSettingsChange}
+                    onOpenContent={() => navigate("content")}
+                  />
+                </PopoverPanel>
+              </Popover.Root>
               <button
                 className={styles.settingsItem}
                 onClick={() => {

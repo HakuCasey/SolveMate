@@ -79,6 +79,7 @@ import {
   useOfficialContent,
   type OfficialContent,
 } from "./content/useOfficialContent";
+import { setContentServiceUrl } from "./content/settings";
 import { ContentManager } from "./components/ContentManager";
 import { useLocalData } from "./storage/useLocalData";
 import {
@@ -229,6 +230,11 @@ function Workspace({ content }: { content: OfficialContent }) {
     conflicts,
     resolveConflict,
   } = useLocalData(sourceAvailableCourses);
+  // 内容服务地址是运行时设置：内容接口在数据加载前就已经创建，这里把设置同步过去。
+  const configuredContentServiceUrl = data?.settings.contentServiceUrl;
+  useEffect(() => {
+    setContentServiceUrl(configuredContentServiceUrl);
+  }, [configuredContentServiceUrl]);
   const [conversationLimitOpen, setConversationLimitOpen] = useState(false);
   const [backupOpen, setBackupOpen] = useState(false);
   const saveChanges = useCallback(

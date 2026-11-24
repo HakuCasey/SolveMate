@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ContentApi } from "./api";
+import { contentApiBase, useContentServiceUrl } from "./settings";
 import {
   ContentError,
   type RemoteCourse,
@@ -35,7 +36,11 @@ function message(error: unknown, fallback: string): string {
 }
 
 export function useOfficialContent() {
-  const api = useMemo(() => new ContentApi(), []);
+  const configuredServiceUrl = useContentServiceUrl();
+  const api = useMemo(
+    () => new ContentApi(contentApiBase(configuredServiceUrl)),
+    [configuredServiceUrl],
+  );
   const [snapshot, setSnapshot] = useState<ContentSnapshot>(() =>
     makeSnapshot(),
   );

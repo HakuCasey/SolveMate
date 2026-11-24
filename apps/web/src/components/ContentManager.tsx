@@ -6,6 +6,7 @@ import { useEffect } from "react";
 import { BookOpen, Check, ListChecks, RefreshCw, X } from "lucide-react";
 import type { OfficialContent } from "../content/useOfficialContent";
 import type { OfficialLibrary } from "../content/library";
+import { contentApiBase, useContentServiceUrl } from "../content/settings";
 import { OfficialContentActions } from "./OfficialContentActions";
 import styles from "./ContentManager.module.css";
 
@@ -30,6 +31,7 @@ export function ContentManager({
   materials,
 }: Props) {
   const { checking, connectionError, transfer, refresh, checkedAt } = content;
+  const configuredServiceUrl = useContentServiceUrl();
   const refreshTools = tools.refresh;
   const toolUpdates = tools.items.filter(
     (t) =>
@@ -83,6 +85,12 @@ export function ContentManager({
         </button>
       </header>
       <div className={styles.body}>
+        {configuredServiceUrl && (
+          <p className={styles.notice} role="status">
+            当前内容服务：<code>{contentApiBase(configuredServiceUrl)}</code>
+            （在「系统设置 → 社区内容」中修改）
+          </p>
+        )}
         {!checking &&
           !tools.checking &&
           !tools.error &&

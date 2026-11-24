@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AppData, TeachingTool } from "@solvemate/contracts";
 import { ContentApi } from "../content/api";
+import { contentApiBase, useContentServiceUrl } from "../content/settings";
 import { operations } from "../operations/store";
 import { userCache } from "../storage/local-client";
 import { logError } from "../logger";
@@ -13,12 +14,16 @@ import {
   saveTool,
   selectTool,
 } from "./state";
-const api = new ContentApi();
 /** 页面只读共享工具目录；下载完整校验后一次提交，失败不替换已有工具。 */
 export function useTeachingTools(
   data: AppData | null,
   commit: (change: (data: AppData) => AppData) => Promise<AppData>,
 ) {
+  const configuredServiceUrl = useContentServiceUrl();
+  const api = useMemo(
+    () => new ContentApi(contentApiBase(configuredServiceUrl)),
+    [configuredServiceUrl],
+  );
   const [remote, setRemote] = useState<RemoteTool[]>([]),
     [checking, setChecking] = useState(false),
     [error, setError] = useState(""),
@@ -56,7 +61,7 @@ export function useTeachingTools(
     } finally {
       if (request === generation.current) setChecking(false);
     }
-  }, []);
+  }, [api]);
   const run = async <T>(
     id: string,
     label: string,
