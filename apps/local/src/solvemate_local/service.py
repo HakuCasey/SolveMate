@@ -961,12 +961,7 @@ class AiService:
                             self.connections.loaded.get(
                                 turn["connectionId"], set()
                             ).discard(sid)
-                    except (
-                        ConnectionError,
-                        OSError,
-                        TimeoutError,
-                        asyncio.TimeoutError,
-                    ):
+                    except (ConnectionError, OSError, TimeoutError):
                         logger.warning(
                             "Failed to release Harness turn resources: connection=%s",
                             turn["connectionId"],
