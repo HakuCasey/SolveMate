@@ -21,7 +21,13 @@ import {
 app.setName("SolveMate");
 // 网页缓存和用户数据分开：缓存放本机临时目录（更新/排错可直接清），
 // 数据放漫游目录（升级、卸载默认保留）。
-app.setPath("sessionData", join(app.getPath("localAppData"), "SolveMate"));
+const cacheRoot =
+  process.platform === "win32"
+    ? process.env.LOCALAPPDATA || app.getPath("userData")
+    : process.platform === "darwin"
+      ? join(app.getPath("home"), "Library", "Caches")
+      : app.getPath("temp");
+app.setPath("sessionData", join(cacheRoot, "SolveMate"));
 console.info("Desktop main process loaded.");
 
 const hasLock = app.requestSingleInstanceLock();
