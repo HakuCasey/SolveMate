@@ -37,3 +37,6 @@ playwright-report/
 
 # 并行调试实例的用户数据和社区内容
 /.debug-instances/
+
+# 本机私有数据，不进仓库
+user/
