@@ -1,4 +1,5 @@
 import { parseTools, decodeTool, type RemoteTool } from "../research/catalog";
+import { DEFAULT_CONTENT_SERVICE_URL } from "./settings";
 import {
   ContentError,
   MAX_PACKAGE_BYTES,
@@ -9,9 +10,7 @@ import {
 
 /** 请求仅发送公开课程编号与版本，不携带浏览器凭据或学习记录。 */
 export class ContentApi {
-  constructor(
-    private base = import.meta.env.VITE_CONTENT_API_URL || "/api/v1",
-  ) {}
+  constructor(private base = DEFAULT_CONTENT_SERVICE_URL) {}
   private async bytes(
     path: string,
     limit: number,

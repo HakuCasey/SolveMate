@@ -11,6 +11,8 @@ import {
   requestedPorts,
   reservePorts,
   ProcessManager,
+  localContentServiceUrl,
+  localWebOrigins,
   sourceUserDirectory,
 } from "./start.mjs";
 
@@ -69,6 +71,10 @@ test("selects default, isolated and explicitly assigned ports", () => {
     );
 });
 
+test("uses a complete community content service address", () => {
+  assert.equal(localContentServiceUrl(8000), "http://127.0.0.1:8000/api/v1");
+});
+
 test("source web shares the desktop user directory unless explicitly overridden", () => {
   assert.equal(
     sourceUserDirectory({ SOLVEMATE_DESKTOP_USER_DIR: "/shared/SolveMate" }),
@@ -81,6 +87,10 @@ test("source web shares the desktop user directory unless explicitly overridden"
   assert.equal(
     sourceUserDirectory({ SOLVEMATE_LOCAL_DATA: "/legacy/ai" }),
     null,
+  );
+  assert.equal(
+    localWebOrigins(4173),
+    "http://127.0.0.1:4173,http://localhost:4173",
   );
 });
 

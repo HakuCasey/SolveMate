@@ -13,10 +13,9 @@ beforeEach(() => setContentServiceUrl(undefined));
 afterEach(() => setContentServiceUrl(undefined));
 
 describe("content service address", () => {
-  it("accepts empty values, site-relative paths and http(s) addresses", () => {
+  it("accepts empty values and complete http(s) addresses", () => {
     expect(contentServiceUrlError("")).toBeNull();
     expect(contentServiceUrlError("   ")).toBeNull();
-    expect(contentServiceUrlError("/api/v1")).toBeNull();
     expect(
       contentServiceUrlError("https://content.example.com/api/v1"),
     ).toBeNull();
@@ -25,6 +24,7 @@ describe("content service address", () => {
 
   it("rejects addresses without a supported scheme", () => {
     expect(contentServiceUrlError("content.example.com")).not.toBeNull();
+    expect(contentServiceUrlError("/api/v1")).not.toBeNull();
     expect(contentServiceUrlError("ftp://content.example.com")).not.toBeNull();
     expect(
       contentServiceUrlError("//content.example.com/api/v1"),
@@ -41,11 +41,10 @@ describe("content service address", () => {
   it("normalizes trailing slashes and treats empty values as unset", () => {
     expect(normalizeContentServiceUrl(undefined)).toBeUndefined();
     expect(normalizeContentServiceUrl("   ")).toBeUndefined();
-    expect(normalizeContentServiceUrl("  /api/v1/  ")).toBe("/api/v1");
+    expect(normalizeContentServiceUrl("  /api/v1/  ")).toBeUndefined();
     expect(
       normalizeContentServiceUrl("https://content.example.com/api/v1/"),
     ).toBe("https://content.example.com/api/v1");
-    expect(normalizeContentServiceUrl("/")).toBeUndefined();
     expect(normalizeContentServiceUrl("坏地址")).toBeUndefined();
   });
 

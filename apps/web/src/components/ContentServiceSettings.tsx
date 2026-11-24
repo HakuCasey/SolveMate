@@ -23,7 +23,9 @@ export function ContentServiceSettings({
   onSave,
   onOpenContent,
 }: Props) {
-  const saved = settings.contentServiceUrl ?? DEFAULT_CONTENT_SERVICE_URL;
+  const saved =
+    normalizeContentServiceUrl(settings.contentServiceUrl) ??
+    DEFAULT_CONTENT_SERVICE_URL;
   const [draft, setDraft] = useState(saved);
   const [error, setError] = useState<string | null>(null);
   const changed =

@@ -23,6 +23,14 @@ export function sourceUserDirectory(environment = process.env) {
   );
 }
 
+export function localContentServiceUrl(port) {
+  return `http://127.0.0.1:${port}/api/v1`;
+}
+
+export function localWebOrigins(port) {
+  return `http://127.0.0.1:${port},http://localhost:${port}`;
+}
+
 export function requestedPorts(values) {
   const defaults = { web: 4173, content: 8000, local: 8765 };
   const ports = {};
@@ -246,7 +254,9 @@ async function main() {
     ...process.env,
     SOLVEMATE_CONTENT_PORT: String(ports.content),
     SOLVEMATE_LOCAL_PORT: String(ports.local),
-    SOLVEMATE_LOCAL_ORIGINS: `http://127.0.0.1:${port},http://localhost:${port}`,
+    SOLVEMATE_CORS_ORIGINS: localWebOrigins(port),
+    SOLVEMATE_LOCAL_ORIGINS: localWebOrigins(port),
+    VITE_CONTENT_API_URL: localContentServiceUrl(ports.content),
   };
   const sharedUserDirectory = sourceUserDirectory(env);
   if (sharedUserDirectory) env.SOLVEMATE_USER_DIR = sharedUserDirectory;
@@ -255,7 +265,6 @@ async function main() {
     env.SOLVEMATE_USER_DIR = join(directory, "user");
     env.SOLVEMATE_CONTENT_DIR = join(directory, "content");
     env.SOLVEMATE_WEB_OUT_DIR = join(".debug-builds", String(port), "dist");
-    env.VITE_CONTENT_API_URL = "/api/v1";
     delete env.SOLVEMATE_LOCAL_DATA;
     delete env.SOLVEMATE_MATERIALS_DIR;
   }
