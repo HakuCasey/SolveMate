@@ -7,6 +7,8 @@ const desktop = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const root = resolve(desktop, "../..");
 const resources = join(desktop, "resources");
 const runtime = join(desktop, "runtime");
+// 桌面网页单独输出：桌面包禁用 PWA Service Worker，不能覆盖网页版共用的 apps/web/dist。
+const webOut = join(desktop, ".web");
 let python =
   process.env.SOLVEMATE_BUILD_PYTHON ||
   join(
@@ -44,7 +46,11 @@ await run(
   [process.env.npm_execpath, "run", "build", "--workspace", "@solvemate/web"],
   {
     cwd: root,
-    env: { ...process.env, VITE_DESKTOP: "1" },
+    env: {
+      ...process.env,
+      VITE_DESKTOP: "1",
+      SOLVEMATE_WEB_OUT_DIR: webOut,
+    },
   },
 );
 
@@ -84,7 +90,7 @@ await run(
 await rm(resources, { recursive: true, force: true });
 await mkdir(resources, { recursive: true });
 await Promise.all([
-  cp(join(root, "apps/web/dist"), join(resources, "web"), { recursive: true }),
+  cp(webOut, join(resources, "web"), { recursive: true }),
   cp(join(root, "data"), join(resources, "data"), { recursive: true }),
   cp(
     join(runtime, "solvemate-local"),
