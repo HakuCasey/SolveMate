@@ -1,6 +1,18 @@
 name: Publish website
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/website.yml
+      - docs/website/**
+      - scripts/build-website.mjs
+      - docs/product/manual/images/overview.jpg
+      - docs/product/manual/images/conversations.jpg
+      - docs/product/manual/images/notes.jpg
+      - docs/product/manual/images/teaching.jpg
+      - apps/web/src/assets/solvemate-wordmark.png
+      - apps/web/public/icon-192.png
   workflow_dispatch:
 
 concurrency:
