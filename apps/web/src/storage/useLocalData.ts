@@ -15,34 +15,41 @@ import { initializeNotes } from "../state/notes";
 import { useRefreshResource } from "../refresh/useDataRefresh";
 
 let initialLoad: Promise<AppData> | undefined;
-function loadInitialData(available: Course[]): Promise<AppData> {
+function loadInitialData(available: Course[], live: boolean): Promise<AppData> {
+  const prepare = async (saved: AppData | null) => {
+    if (saved) {
+      const upgraded = await initializeTeachingTools(
+        initializeNotes(upgradeRobotCatalog(saved)),
+      );
+      try {
+        validateContentReferences(upgraded, available);
+      } catch (error) {
+        logError(
+          "Saved reading content is unavailable; preserving its references.",
+          error,
+        );
+      }
+      if (
+        !live &&
+        upgraded !== saved &&
+        userStorageStatus.snapshot().online &&
+        !userStorageStatus.snapshot().loadFailure
+      )
+        await appStorage.save(upgraded);
+      return upgraded;
+    }
+    const initial = await initializeTeachingTools(createInitialData());
+    if (!live) await appStorage.save(initial);
+    return initial;
+  };
+  if (live)
+    return Promise.resolve(initialLoad)
+      .catch(() => undefined)
+      .then(() => appStorage.refresh())
+      .then(({ value }) => prepare(value));
   initialLoad ??= appStorage
     .load()
-    .then(async (saved) => {
-      if (saved) {
-        const upgraded = await initializeTeachingTools(
-          initializeNotes(upgradeRobotCatalog(saved)),
-        );
-        try {
-          validateContentReferences(upgraded, available);
-        } catch (error) {
-          logError(
-            "Saved reading content is unavailable; preserving its references.",
-            error,
-          );
-        }
-        if (
-          upgraded !== saved &&
-          userStorageStatus.snapshot().online &&
-          !userStorageStatus.snapshot().loadFailure
-        )
-          await appStorage.save(upgraded);
-        return upgraded;
-      }
-      const initial = await initializeTeachingTools(createInitialData());
-      await appStorage.save(initial);
-      return initial;
-    })
+    .then(prepare)
     .finally(() => {
       initialLoad = undefined;
     });
@@ -71,7 +78,7 @@ export function useLocalData(available: Course[] = courses) {
           })
         : null;
       try {
-        const saved = await loadInitialData(firstCourses);
+        const saved = await loadInitialData(firstCourses, !report);
         store.initialize(saved);
         if (operation) operations.finish(operation);
         else operations.resolve("records:load");

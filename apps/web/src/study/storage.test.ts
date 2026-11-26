@@ -6,12 +6,14 @@ import type { StudyInterval, StudySummary } from "@solvemate/contracts";
 const span = { startMs: 1_700_000_000_000, endMs: 1_700_000_060_000 };
 let failed = false,
   lostResponse = false,
+  storeId = "test-store",
   requests: StudyInterval[][] = [],
   server: StudyInterval[] = [];
 beforeEach(async () => {
   await userCache.records.clear();
   failed = false;
   lostResponse = false;
+  storeId = "test-store";
   requests = [];
   server = [];
   await userCache.put("state", { storeId: "test-store" });
@@ -20,7 +22,7 @@ beforeEach(async () => {
     if (init?.method === "POST") {
       const body = JSON.parse(String(init.body));
       requests.push(body.intervals);
-      if (body.expectedStoreId !== "test-store")
+      if (body.expectedStoreId !== storeId)
         return new Response(
           JSON.stringify({ detail: "changed", code: "store_changed" }),
           { status: 409 },
@@ -32,7 +34,7 @@ beforeEach(async () => {
       }
     }
     const summary: StudySummary = {
-      storeId: "test-store",
+      storeId,
       today: "2026-11-13",
       days: server.length
         ? [
@@ -67,7 +69,7 @@ describe("study persistence", () => {
         .startsWith("study:pending:")
         .toArray(),
     ).toHaveLength(1);
-    await store.refresh();
+    await store.retry();
     expect(store.snapshot().summary?.days[0].milliseconds).toBe(60_000);
     expect(requests).toHaveLength(2);
     expect(requests[0]).toEqual(requests[1]);
@@ -84,7 +86,7 @@ describe("study persistence", () => {
     await second.start();
     expect(second.snapshot().error).not.toBe("");
     failed = false;
-    await second.refresh();
+    await second.retry();
     expect(second.snapshot().summary?.days[0].milliseconds).toBe(60_000);
     expect(
       await userCache.records.where("key").startsWith("study:pending:").count(),
@@ -112,6 +114,33 @@ describe("study persistence", () => {
     await store.start();
     expect(requests).toHaveLength(0);
     expect(await userCache.get("study:pending:old")).toBeDefined();
+  });
+  it("reads the live summary even when a previous directory is present in the cache", async () => {
+    await userCache.put("state", { storeId: "previous-store" });
+    const store = new StudyStore();
+    await store.start();
+    expect(store.snapshot().summary?.storeId).toBe("test-store");
+
+    failed = true;
+    await store.enqueue([span]);
+    failed = false;
+    storeId = "current-store";
+    await store.refresh();
+    expect(store.snapshot()).toMatchObject({
+      summary: { storeId: "current-store" },
+      error: "",
+    });
+    expect(requests).toEqual([]);
+    expect(
+      (
+        await userCache.records
+          .where("key")
+          .startsWith("study:pending:")
+          .toArray()
+      ).map((row) => row.value),
+    ).toEqual([{ storeId: "test-store", intervals: [span] }]);
+    await store.enqueue([span]);
+    expect(requests).toEqual([[span]]);
   });
   it("does not remove another window's newer pending data", async () => {
     const key = "study:pending:other";

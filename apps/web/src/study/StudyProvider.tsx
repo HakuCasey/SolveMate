@@ -22,7 +22,7 @@ export function useStudyTime() {
     store?.snapshot ?? emptySnapshot,
     emptySnapshot,
   );
-  return { ...state, retry: store?.refresh };
+  return { ...state, retry: store?.retry };
 }
 
 export function StudyProvider({

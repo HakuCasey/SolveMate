@@ -168,7 +168,7 @@ describe("refresh conflict recovery", () => {
       preserve = vi.fn(async () => {});
     const controller = new LocalDataController({
       load: async () => base,
-      refresh: async () => remote,
+      refresh: async () => ({ value: remote }),
       save,
       preserve,
     });
@@ -296,6 +296,48 @@ describe("refresh conflict recovery", () => {
     await expect(controller.refresh()).rejects.toThrow("Offline");
     expect(controller.readData()).toBe(base);
     expect(controller.snapshot().refreshError).toBe("Offline");
+  });
+});
+
+it("displays the current records without merging edits from a previous data directory", async () => {
+  vi.spyOn(console, "error").mockImplementation(() => {});
+  const original = createStudyFixture();
+  const current = createStudyFixture();
+  current.conversations[0].title = "当前对话";
+  const save = vi
+    .fn()
+    .mockRejectedValueOnce(new LocalDataConflictError())
+    .mockResolvedValue(undefined);
+  const preserve = vi.fn(async () => {});
+  const controller = new LocalDataController({
+    load: async () => original,
+    refresh: async () => ({ value: current, previousStoreId: "old-store" }),
+    save,
+    preserve,
+  });
+  controller.initialize(original);
+  controller.update({
+    ...original,
+    settings: { ...original.settings, fontSize: 21 },
+  });
+  await vi.waitFor(() => expect(controller.snapshot().saveState).toBe("error"));
+  await controller.refresh();
+  expect(controller.readData()).toEqual(current);
+  expect(controller.snapshot().conflict).toBe(false);
+  expect(preserve).toHaveBeenCalledWith(
+    expect.objectContaining({
+      value: expect.objectContaining({
+        settings: expect.objectContaining({ fontSize: 21 }),
+      }),
+    }),
+  );
+  await controller.commit((data) => ({
+    ...data,
+    settings: { ...data.settings, fontSize: 19 },
+  }));
+  expect(save).toHaveBeenLastCalledWith({
+    ...current,
+    settings: { ...current.settings, fontSize: 19 },
   });
 });
 

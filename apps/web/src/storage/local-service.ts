@@ -4,6 +4,7 @@ import { logError } from "../logger";
 import {
   LocalDataConflictError,
   type AppStorage,
+  type RefreshedRecords,
   type UnsavedRecord,
 } from "./index";
 import {
@@ -18,7 +19,11 @@ import {
   remember,
   type StateEnvelope,
 } from "./local-client";
-import { ensureUserStorage, initialUserState } from "./migration";
+import {
+  ensureUserStorage,
+  initialUserState,
+  MigrationRequired,
+} from "./migration";
 export {
   userCache,
   UserCache,
@@ -54,38 +59,43 @@ export class LocalAppStorage implements AppStorage {
   private revision = 0;
   private storeId = "";
   private queue: Promise<unknown> = Promise.resolve();
-  constructor(private readonly pendingId: string = crypto.randomUUID()) {}
+  constructor(private pendingId: string = crypto.randomUUID()) {}
   async preserve(record: UnsavedRecord) {
-    await userCache.put(`unsaved:${record.id}`, record);
+    await userCache.put(`unsaved:${record.id}`, {
+      ...record,
+      storeId: record.storeId ?? this.storeId,
+    });
   }
   async recoveries(): Promise<UnsavedRecord[]> {
     const rows = await userCache.records
       .where("key")
       .startsWith("unsaved:")
       .toArray();
-    return rows.map((row) => row.value as UnsavedRecord);
+    return rows
+      .map((row) => row.value as UnsavedRecord)
+      .filter((record) => !record.storeId || record.storeId === this.storeId);
   }
   async forget(id: string) {
     await userCache.records.delete(`unsaved:${id}`);
   }
-  private checkStore(saved: StateEnvelope) {
-    if (this.storeId && saved.storeId !== this.storeId)
-      throw new LocalServiceError(
-        "本机数据目录已变化，当前输入仍保留，请重新打开应用后读取。",
-        "store_changed",
-        422,
-      );
-  }
-  async refresh(): Promise<AppData | null> {
-    if (userStorageStatus.snapshot().loadFailure) return this.load();
-    await this.queue.catch(() => undefined);
-    const saved = envelope(await (await localRequest("/state")).json());
-    this.checkStore(saved);
+  private async accept(saved: StateEnvelope) {
+    const previousStoreId =
+      this.storeId !== saved.storeId ? this.storeId || undefined : undefined;
+    if (previousStoreId) this.pendingId = crypto.randomUUID();
     this.revision = saved.revision;
     this.storeId = saved.storeId;
     await remember("state", saved);
-    publishStorageStatus({ loadFailure: null });
-    return saved.value;
+    return { value: saved.value, previousStoreId };
+  }
+  async refresh(): Promise<RefreshedRecords> {
+    await this.queue.catch(() => undefined);
+    const saved = envelope(await (await localRequest("/state")).json());
+    // 重读只使用当前记录。编号仅用于区分应合并哪些修改。
+    const next = await this.accept(saved);
+    const failure = userStorageStatus.snapshot().loadFailure;
+    if (!(failure instanceof MigrationRequired))
+      publishStorageStatus({ loadFailure: null });
+    return next;
   }
   async load(): Promise<AppData | null> {
     const preparationFailure = await prepareUserStorage(
@@ -95,7 +105,6 @@ export class LocalAppStorage implements AppStorage {
     let saved: StateEnvelope;
     try {
       saved = envelope(await (await localRequest("/state")).json());
-      publishStorageStatus({ loadFailure: preparationFailure });
     } catch (error) {
       if (
         !(error instanceof LocalServiceError) ||
@@ -109,14 +118,26 @@ export class LocalAppStorage implements AppStorage {
       saved = await cachedEnvelope(
         (await userCache.get<StateEnvelope>("state")) ?? initialUserState(),
       );
+      if (saved.value === null) throw error;
+      // 仅用于离线显示以及标记未确认的修改，不参与下次正式读取。
+      this.revision = saved.revision;
+      this.storeId = saved.storeId;
+      return saved.value;
     }
     // 没有有效正式记录且旧记录未处理时，不能把读取失败解释成首次使用。
     if (saved.value === null && preparationFailure) throw preparationFailure;
-    this.checkStore(saved);
-    this.revision = saved.revision;
-    this.storeId = saved.storeId;
-    await remember("state", saved);
-    return saved.value;
+    if (
+      preparationFailure &&
+      !(preparationFailure instanceof MigrationRequired)
+    )
+      logError("Failed to prepare older browser records.", preparationFailure);
+    publishStorageStatus({
+      loadFailure:
+        preparationFailure instanceof MigrationRequired
+          ? preparationFailure
+          : null,
+    });
+    return (await this.accept(saved)).value;
   }
   save(value: AppData): Promise<void> {
     assertAppData(value);

@@ -88,7 +88,7 @@ export class LocalDataController {
   };
   failLoad = (error: unknown) =>
     this.publish({ loadState: "error", loadFailure: error });
-  private async retain(value: AppData, id = this.recoveryId) {
+  private async retain(value: AppData, id = this.recoveryId, storeId?: string) {
     const base = this.base ?? this.temporaryBase;
     if (!base) return;
     const record: UnsavedRecord = {
@@ -96,6 +96,7 @@ export class LocalDataController {
       createdAt: Date.now(),
       base: structuredClone(base),
       value: structuredClone(value),
+      ...(storeId ? { storeId } : {}),
     };
     // 本窗口持续收到的回复更新同一份保留记录，不为每个文本片段增加一份备份。
     this.publish({
@@ -383,8 +384,49 @@ export class LocalDataController {
       try {
         const working = this.state.data;
         const dirty = !dataEqual(working, this.base);
-        if (dirty) await this.retain(working);
-        const latest = await (this.storage.refresh?.() ?? this.storage.load());
+        if (dirty)
+          void this.retain(working).catch((error: unknown) =>
+            logError(
+              "Failed to retain edits before reading current records.",
+              error,
+            ),
+          );
+        const { value: latest, previousStoreId } = this.storage.refresh
+          ? await this.storage.refresh()
+          : { value: await this.storage.load(), previousStoreId: undefined };
+        if (previousStoreId) {
+          // 此前排队的修改基于旧记录，只能回到原数据时使用。
+          let retained: AppData | null = working;
+          for (const change of this.deferred.splice(0))
+            retained = typeof change === "function" ? change(retained) : change;
+          if (retained && !dataEqual(working, retained))
+            void this.retain(retained, this.recoveryId, previousStoreId).catch(
+              (error: unknown) =>
+                logError(
+                  "Failed to retain edits for the previous data directory.",
+                  error,
+                ),
+            );
+          const current = latest ?? this.temporaryBase;
+          if (!current) throw new Error("本机数据尚未初始化。");
+          this.base = structuredClone(current);
+          this.recoveryId = crypto.randomUUID();
+          this.restoringRecoveryId = null;
+          this.failedCommits.clear();
+          this.publish({
+            data: current,
+            refreshError: "",
+            saveState: "saved",
+            saveError: "",
+            conflict: false,
+            conflicts: [],
+            recoveries: [],
+          });
+          for (const failure of operations.snapshot().failures)
+            if (failure.key.startsWith("records:"))
+              operations.resolve(failure.key);
+          return;
+        }
         if (!latest) throw new Error("本机记录暂不可读，当前内容仍保留。");
         const result = mergeData(this.base, working, latest);
         // 保留尚未解决的字段冲突；一次普通刷新不能把冲突解释成用户已确认。

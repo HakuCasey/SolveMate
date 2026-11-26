@@ -9,12 +9,18 @@ export interface UnsavedRecord {
   createdAt: number;
   base: AppData;
   value: AppData;
+  storeId?: string;
+}
+
+export interface RefreshedRecords {
+  value: AppData | null;
+  previousStoreId?: string;
 }
 
 export interface AppStorage {
   load(): Promise<AppData | null>;
   save(data: AppData): Promise<void>;
-  refresh?(): Promise<AppData | null>;
+  refresh?(): Promise<RefreshedRecords>;
   preserve?(record: UnsavedRecord): Promise<void>;
   recoveries?(): Promise<UnsavedRecord[]>;
   forget?(id: string): Promise<void>;

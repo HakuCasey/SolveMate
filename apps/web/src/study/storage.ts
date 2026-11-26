@@ -1,5 +1,9 @@
 import type { StudyInterval, StudySummary } from "@solvemate/contracts";
-import { localRequest, userCache } from "../storage/local-client";
+import {
+  LocalServiceError,
+  localRequest,
+  userCache,
+} from "../storage/local-client";
 import { logError } from "../logger";
 
 const prefix = "study:pending:";
@@ -62,7 +66,6 @@ export class StudyStore {
   private storeId = "";
   private pending: StudyInterval[] = [];
   private recovered = new Map<string, Pending>();
-  private lastRead = 0;
   private refreshPromise?: Promise<unknown>;
   snapshot = () => this.state;
   subscribe = (listener: () => void) => {
@@ -78,27 +81,42 @@ export class StudyStore {
   start = () => (this.initialized ??= this.initialize());
   private async initialize() {
     try {
-      this.storeId =
-        (await userCache.get<{ storeId: string }>("state"))?.storeId ?? "";
-      const cached = await userCache.get<StudySummary>("study:summary");
-      if (cached && (!this.storeId || cached.storeId === this.storeId)) {
+      await this.readCurrent();
+      await this.flushPending();
+    } catch (error) {
+      if (!this.state.summary) {
         try {
-          const summary = decode(cached);
-          this.storeId = summary.storeId;
-          this.publish({ summary });
-        } catch (error) {
-          logError("Ignored invalid cached study summary.", error);
+          const cached = await userCache.get<StudySummary>("study:summary");
+          if (cached) {
+            const summary = decode(cached);
+            await this.selectStore(summary.storeId);
+            this.publish({ summary });
+          }
+        } catch (cacheError) {
+          logError("Failed to read cached study time.", cacheError);
         }
       }
+      this.failure(error);
+    }
+  }
+  private async selectStore(storeId: string) {
+    if (this.storeId === storeId) return;
+    // 已记录的时间段留在原数据所属的缓存里。
+    if (this.storeId) {
+      this.key = prefix + crypto.randomUUID();
+      this.pending = [];
+    }
+    this.storeId = storeId;
+    this.recovered.clear();
+    try {
       const rows = await userCache.records
         .where("key")
         .startsWith(prefix)
         .toArray();
       for (const row of rows) {
         const record = row.value as Pending;
+        if (record?.storeId !== storeId) continue;
         if (
-          !record ||
-          typeof record.storeId !== "string" ||
           !Array.isArray(record.intervals) ||
           record.intervals.some(
             (span) =>
@@ -107,16 +125,16 @@ export class StudyStore {
               span.endMs <= span.startMs,
           )
         ) {
-          throw new Error(
-            "未保存的学习时间段格式不正确，缓存仍保留，请核对后重试。",
+          logError(
+            "Ignored invalid pending study intervals.",
+            new TypeError("Invalid intervals"),
           );
+          continue;
         }
-        if (this.storeId && record.storeId !== this.storeId) continue;
         this.recovered.set(row.key, record);
       }
-      await this.synchronize();
     } catch (error) {
-      this.failure(error);
+      logError("Failed to read pending study intervals.", error);
     }
   }
   private failure(error: unknown) {
@@ -134,26 +152,30 @@ export class StudyStore {
       });
     else await userCache.records.delete(this.key);
   }
-  private async synchronize() {
-    let fetched: StudySummary | undefined;
-    if (!this.storeId) {
-      const summary = decode(await (await localRequest("/study")).json());
-      fetched = summary;
-      this.storeId = summary.storeId;
-      this.publish({ summary });
-    }
-    const all = [...this.recovered.values()];
-    if (all.some((record) => record.storeId !== this.storeId))
-      throw new Error(
-        "本机数据目录已变化，未提交的计时记录仍保留在浏览器，请核对数据目录。",
+  private async acceptSummary(summary: StudySummary) {
+    await this.selectStore(summary.storeId);
+    this.publish({ summary, error: "" });
+    await userCache
+      .put("study:summary", summary)
+      .catch((error: unknown) =>
+        logError("Failed to cache the study summary.", error),
       );
+  }
+  private async readCurrent() {
+    const summary = decode(await (await localRequest("/study")).json());
+    await this.acceptSummary(summary);
+    return summary;
+  }
+  private async flushPending() {
+    if (!this.storeId) await this.readCurrent();
     const intervals = mergeStudyIntervals([
       ...this.pending,
-      ...all.flatMap((record) => record.intervals),
+      ...[...this.recovered.values()].flatMap((record) => record.intervals),
     ]);
+    if (!intervals.length) return;
+    const batch = intervals.slice(0, 128);
     let summary: StudySummary;
-    if (intervals.length) {
-      const batch = intervals.slice(0, 128);
+    try {
       summary = decode(
         await (
           await localRequest("/study", {
@@ -166,9 +188,18 @@ export class StudyStore {
           })
         ).json(),
       );
-      if (summary.storeId !== this.storeId)
-        throw new Error("本机数据目录已变化，请重新打开应用。");
-      // 成功响应后才清缓存；其他窗口已更新的缓存不能被这次旧提交删除。
+    } catch (error) {
+      if (
+        !(error instanceof LocalServiceError) ||
+        error.code !== "store_changed"
+      )
+        throw error;
+      const previous = this.storeId;
+      if ((await this.readCurrent()).storeId === previous) throw error;
+      return;
+    }
+    if (summary.storeId === this.storeId) {
+      // 只清理已确认的时间段；保留其他窗口刚更新的缓存。
       await userCache.transaction("rw", userCache.records, async () => {
         for (const [key, value] of this.recovered) {
           const current = await userCache.get<Pending>(key);
@@ -179,43 +210,37 @@ export class StudyStore {
         this.pending = intervals.slice(batch.length);
         await this.cachePending();
       });
-    } else
-      summary = fetched ?? decode(await (await localRequest("/study")).json());
-    if (summary.storeId !== this.storeId)
-      throw new Error("本机数据目录已变化，请重新打开应用。");
-    await userCache.put("study:summary", summary);
-    this.lastRead = Date.now();
-    this.publish({ summary, error: "" });
+    }
+    await this.acceptSummary(summary);
   }
-  enqueue = (intervals: StudyInterval[]) => {
+  private run(action: () => Promise<void>) {
     const task = this.queue
       .catch(() => undefined)
       .then(async () => {
         await this.start();
-        this.pending = mergeStudyIntervals([...this.pending, ...intervals]);
-        await this.cachePending();
-        await this.synchronize();
-      })
-      .catch((error) => this.failure(error));
-    this.queue = task;
+        await action();
+      });
+    this.queue = task.catch((error: unknown) => this.failure(error));
     return task;
-  };
+  }
+  enqueue = (intervals: StudyInterval[]) =>
+    this.run(async () => {
+      this.pending = mergeStudyIntervals([...this.pending, ...intervals]);
+      await this.cachePending();
+      await this.flushPending();
+    }).catch(() => undefined);
+  retry = () =>
+    this.run(async () => {
+      await this.readCurrent();
+      await this.flushPending();
+    });
   refresh = (): Promise<unknown> => {
     if (this.refreshPromise) return this.refreshPromise;
-    if (
-      !this.state.error &&
-      !this.pending.length &&
-      !this.recovered.size &&
-      Date.now() - this.lastRead < 5000
-    )
-      return this.queue;
-    const task = this.enqueue([])
-      .then(() => {
-        if (this.state.error) throw new Error(this.state.error);
-      })
-      .finally(() => {
-        if (this.refreshPromise === task) this.refreshPromise = undefined;
-      });
+    const task = this.run(async () => {
+      await this.readCurrent();
+    }).finally(() => {
+      if (this.refreshPromise === task) this.refreshPromise = undefined;
+    });
     this.refreshPromise = task;
     return task;
   };

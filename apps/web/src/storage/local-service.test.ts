@@ -122,7 +122,7 @@ describe("local service storage and migration", () => {
     try {
       await storage.load();
       await storage.save(original);
-      expect(await storage.refresh()).toEqual(original);
+      expect((await storage.refresh()).value).toEqual(original);
       original.selection = {
         courseId: "c-language",
         version: "example-1",
@@ -130,7 +130,7 @@ describe("local service storage and migration", () => {
         itemId: "C001",
       };
       await storage.save(original);
-      expect(await storage.refresh()).toEqual(original);
+      expect((await storage.refresh()).value).toEqual(original);
     } finally {
       service.userCache.close();
     }
@@ -206,6 +206,16 @@ describe("local service storage and migration", () => {
     expect(
       (await service.userCache.pending.toArray())[0].value.settings.appearance,
     ).toBe("dark");
+    const { mergeData } = await import("../refresh/merge");
+    const latest = (await second.refresh()).value!;
+    const rebased = mergeData(createStudyFixture(), stale, latest);
+    expect(rebased.conflicts).toEqual([]);
+    await second.save(rebased.data);
+    expect(state.value?.settings).toMatchObject({
+      fontSize: 21,
+      appearance: "dark",
+    });
+    expect(await service.userCache.pending.count()).toBe(0);
     service.userCache.close();
   });
   it("reads cached data offline, fails writes visibly, and saves the retained change on retry", async () => {
@@ -271,7 +281,7 @@ it("refreshes from the service without rerunning migration or treating a cache a
       settings: { ...state.value!.settings, fontSize: 21 },
     },
   };
-  expect((await storage.refresh())?.settings.fontSize).toBe(21);
+  expect((await storage.refresh()).value?.settings.fontSize).toBe(21);
   expect(migrations).toHaveLength(migrationCount);
   available = false;
   await expect(storage.refresh()).rejects.toThrow("无法连接本机服务");
@@ -287,7 +297,9 @@ it("refreshes from the service without rerunning migration or treating a cache a
     value: createStudyFixture(),
   };
   await storage.preserve(record);
-  expect(await storage.recoveries()).toEqual([record]);
+  expect(await storage.recoveries()).toEqual([
+    { ...record, storeId: state.storeId },
+  ]);
   service.userCache.close();
 });
 
@@ -390,7 +402,7 @@ it("keeps a valid cache readable when the server reports corrupt JSON", async ()
   await expect(storage.save(createStudyFixture())).rejects.toThrow("无法解析");
   expect(state.value).toBe(original);
   vi.stubGlobal("fetch", vi.fn(fetcher));
-  expect(await storage.refresh()).toEqual(original);
+  expect((await storage.refresh()).value).toEqual(original);
   expect(service.userStorageStatus.snapshot().loadFailure).toBeNull();
   service.userCache.close();
 });
@@ -420,7 +432,7 @@ it("retains readable caches without overriding the availability of a service rep
   });
   expect(state.value).toBe(original);
   vi.stubGlobal("fetch", vi.fn(fetcher));
-  expect(await storage.refresh()).toEqual(original);
+  expect((await storage.refresh()).value).toEqual(original);
   expect(service.userStorageStatus.snapshot().loadFailure).toBeNull();
   service.userCache.close();
 });
@@ -441,5 +453,38 @@ it("opens the chosen directory without importing a previous browser profile", as
   expect(
     await service.userCache.pending.get("previous-directory"),
   ).toBeDefined();
+  service.userCache.close();
+});
+
+it("reads the current data after an offline start and saves against its current revision", async () => {
+  const service = await import("./local-service");
+  const storage = new service.LocalAppStorage();
+  const cached = createStudyFixture();
+  cached.conversations[0].title = "旧缓存的对话";
+  const current = createStudyFixture();
+  current.conversations[0].title = "当前对话";
+  await service.userCache.put("state", {
+    storeId: "old-store",
+    revision: 90,
+    value: cached,
+  });
+  available = false;
+  expect(await storage.load()).toEqual(cached);
+
+  available = true;
+  state = { ...state, revision: 4, value: current };
+  expect(await storage.refresh()).toEqual({
+    previousStoreId: "old-store",
+    value: current,
+  });
+  expect(migrations).toEqual([]);
+  expect(service.userStorageStatus.snapshot().loadFailure).toBeNull();
+  await storage.save({
+    ...current,
+    settings: { ...current.settings, fontSize: 19 },
+  });
+  expect(state.value?.conversations[0].title).toBe("当前对话");
+  expect(state.value?.settings.fontSize).toBe(19);
+  expect(state.revision).toBe(5);
   service.userCache.close();
 });
