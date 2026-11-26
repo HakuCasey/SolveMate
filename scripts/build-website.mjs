@@ -17,6 +17,7 @@ const files = [
     "assets/solvemate-wordmark.png",
   ],
   ["apps/web/public/icon-192.png", "assets/icon-192.png"],
+  ["docs/website/assets/ink-landscape.jpg", "assets/ink-landscape.jpg"],
 ];
 
 // 仅把官网用到的静态文件放进发布产物。
