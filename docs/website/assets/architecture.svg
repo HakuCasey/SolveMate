@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="320" viewBox="0 0 760 320" role="img" aria-labelledby="title description">
+  <title id="title">SolveMate 软件架构</title>
+  <desc id="description">本机的 SolveMate 界面连接本机服务，读写资料与学习记录。本机服务把本轮问题和资料引用发送给所选 AI 服务。界面通过社区内容服务查询和下载资料、题目与教研工具。</desc>
+  <metadata>Source: architecture.drawio; deployment relationships documented in docs/architecture/overview.md.</metadata>
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M1 1L6.5 4L1 7" fill="none" stroke="#8f7a66" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+  <rect id="device" x="0" y="1" width="319" height="318" rx="15" fill="#efe8dc" stroke="#d9cbb8"/>
+  <g fill="none" stroke="#8f7a66" stroke-width="1.3" marker-end="url(#arrow)">
+    <path id="ui-service" d="M160 111L160 150"/>
+    <path id="service-data" d="M160 210L160 249"/>
+    <path id="ui-community" d="M290 81H500"/>
+    <path id="service-ai" d="M290 180H402V279H500"/>
+  </g>
+  <g font-family="PingFang SC,Hiragino Sans GB,Microsoft YaHei,sans-serif">
+    <text id="device-label" x="30" y="25" dominant-baseline="central" font-size="16" font-weight="650" fill="#873f36">本机</text>
+    <text id="external-label" x="500" y="25" dominant-baseline="central" font-size="16" font-weight="650" fill="#342c26">外部服务</text>
+    <rect id="app" x="30" y="51" width="260" height="60" rx="9" fill="#fffcf5" stroke="#873f36"/>
+    <svg id="app-icon" x="43" y="67" width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="#873f36" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M8 21h8m-4-5v5"/></svg>
+    <text id="app-title" x="76" y="71" dominant-baseline="central" font-size="18" font-weight="700" fill="#342c26">SolveMate</text>
+    <text id="app-detail" x="76" y="92.5" dominant-baseline="central" font-size="13.5" font-weight="400" fill="#62584d">网页、PWA 与桌面应用</text>
+    <rect id="local-service" x="30" y="150" width="260" height="60" rx="9" fill="#fffcf5" stroke="#cbbcab"/>
+    <svg id="local-service-icon" x="43" y="166" width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="#8f7a66" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/><path d="M7 7h.01M7 17h.01"/></svg>
+    <text id="local-service-title" x="76" y="170" dominant-baseline="central" font-size="18" font-weight="700" fill="#342c26">本机服务</text>
+    <text id="local-service-detail" x="76" y="191.5" dominant-baseline="central" font-size="13.5" font-weight="400" fill="#62584d">读写记录 · 处理提问</text>
+    <rect id="local-data" x="30" y="249" width="260" height="60" rx="9" fill="#fffcf5" stroke="#cbbcab"/>
+    <svg id="local-data-icon" x="43" y="265" width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="#8f7a66" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h8l4 4v14H6zM14 3v5h4M9 12h6m-6 4h6"/></svg>
+    <text id="local-data-title" x="76" y="269" dominant-baseline="central" font-size="18" font-weight="700" fill="#342c26">学习记录</text>
+    <text id="local-data-detail" x="76" y="290.5" dominant-baseline="central" font-size="13.5" font-weight="400" fill="#62584d">资料、对话、笔记</text>
+    <rect id="community" x="500" y="51" width="259" height="60" rx="9" fill="#fffcf5" stroke="#cbbcab"/>
+    <svg id="community-icon" x="513" y="67" width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="#8f7a66" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 6v14m0-14C9 4 6 4 3 5v13c3-1 6-1 9 2 3-3 6-3 9-2V5c-3-1-6-1-9 1Z"/></svg>
+    <text id="community-title" x="546" y="71" dominant-baseline="central" font-size="18" font-weight="700" fill="#342c26">社区内容服务</text>
+    <text id="community-detail" x="546" y="92.5" dominant-baseline="central" font-size="13.5" font-weight="400" fill="#62584d">资料、题目与教研工具</text>
+    <rect id="harness" x="500" y="249" width="259" height="60" rx="9" fill="#fffcf5" stroke="#cbbcab"/>
+    <svg id="harness-icon" x="513" y="265" width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="#8f7a66" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="18" cy="5" r="2"/><circle cx="18" cy="19" r="2"/><path d="m7 11 9-5m-9 7 9 5"/></svg>
+    <text id="harness-title" x="546" y="269" dominant-baseline="central" font-size="18" font-weight="700" fill="#342c26">所选 AI 服务</text>
+    <text id="harness-detail" x="546" y="290.5" dominant-baseline="central" font-size="13.5" font-weight="400" fill="#62584d">由用户配置，处理本轮提问</text>
+    <text id="ui-service-label" x="169" y="129" dominant-baseline="central" font-size="13.5" font-weight="400" fill="#62584d">读写记录 · 发起提问</text>
+    <text id="service-data-label" x="169" y="228" dominant-baseline="central" font-size="13.5" font-weight="400" fill="#62584d">保存与读取</text>
+    <text id="ui-community-label" x="395" y="66" dominant-baseline="central" text-anchor="middle" font-size="13.5" font-weight="400" fill="#62584d">查询版本 · 下载内容</text>
+    <text id="service-ai-label" x="413" y="211" dominant-baseline="central" font-size="13.5" font-weight="400" fill="#62584d">本轮问题 · 资料引用</text>
+  </g>
+</svg>

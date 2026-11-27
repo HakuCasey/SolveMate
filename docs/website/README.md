@@ -2,7 +2,9 @@
 
 官网介绍产品、用户指南和源码运行方式。页面和样式在本目录维护，标志与界面截图分别复用应用资源和[用户手册](../product/manual/README.md)。
 
-首屏的水墨山水背景位于 `assets/ink-landscape.jpg`。
+首屏的丽泽背景和导航栏的淡墨六爻分别位于 `assets/lize-ink.jpg` 和 `assets/lize-hexagram-header.png`。
+
+架构图在 `assets/architecture.drawio` 中保留宽屏和窄屏两页，修改图源后同步导出 `architecture.svg` 和 `architecture-mobile.svg`。
 
 ## 本地预览
 

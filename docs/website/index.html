@@ -5,19 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
-      content="SolveMate 是面向自主学习与智能备课的开源应用。导入自己的资料，边读边问，把理解整理成带来源的笔记。"
+      content="从资料出发和 AI 讨论，保留对话现场，随手记录笔记，在教研室管理 Skill 和输出模板。"
     />
     <meta name="theme-color" content="#f8f6ef" />
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="SolveMate · 知识平权" />
+    <meta property="og:title" content="SolveMate" />
     <meta
       property="og:description"
-      content="围绕自己的资料阅读、与 AI 讨论、整理笔记和准备教学内容。"
+      content="从资料出发和 AI 讨论，保留对话现场，随手记录笔记，在教研室管理 Skill 和输出模板。"
     />
-    <title>SolveMate · 知识平权</title>
+    <title>SolveMate</title>
     <link rel="icon" href="./assets/icon-192.png" type="image/png" />
     <link rel="stylesheet" href="./site.css" />
-    <script src="./site.js" defer></script>
   </head>
   <body id="top">
     <a class="skip-link" href="#main">跳到正文</a>
@@ -32,14 +31,22 @@
           />
         </a>
         <nav aria-label="主导航" class="site-nav">
-          <a href="#mission">使命</a>
           <a href="#features">功能</a>
           <a href="#architecture">架构</a>
           <a href="#start">快速开始</a>
         </nav>
-        <a class="github-link" href="https://github.com/HakuCasey/SolveMate"
-          >GitHub</a
-        >
+        <div class="header-links">
+          <img
+            class="lize-imprint"
+            src="./assets/lize-hexagram-header.png"
+            width="240"
+            height="206"
+            alt="兑卦六爻，上兑下兑"
+          />
+          <a class="github-link" href="https://github.com/HakuCasey/SolveMate"
+            >GitHub</a
+          >
+        </div>
       </div>
     </header>
 
@@ -48,11 +55,13 @@
         <div class="frame hero-inner">
           <div class="hero-copy">
             <p class="section-label">开源学习应用</p>
-            <h1 id="hero-title">读到哪里，<br /><span>就从哪里问。</span></h1>
-            <p class="hero-lede">
-              把自己的课本和课件带进来，边读边和 AI
-              讨论。把理解整理成带来源的笔记，也可以用同一份资料备课。
-            </p>
+            <h1 id="hero-title">和兑之吉，<br /><span>行未疑也。</span></h1>
+            <div class="hero-lede">
+              <p>
+                无论是自学还是备课，有时会卡在一个问题上，有时会突然冒出个好点子。抬头想找人讨论，身边却没人。
+              </p>
+              <p class="hero-summary">现在，你可以随时对照原文和 AI 聊天。</p>
+            </div>
             <div class="actions">
               <a class="button button-primary" href="#start">快速开始</a>
               <a class="button button-secondary" href="#features">了解功能</a>
@@ -69,16 +78,22 @@
             <figcaption>学科页 · 资料阅读与侧边对话</figcaption>
           </figure>
         </div>
-      </section>
-
-      <section class="mission" id="mission" aria-labelledby="mission-title">
-        <div class="frame mission-inner">
-          <h2 class="section-title" id="mission-title">知识平权</h2>
-          <p class="mission-detail">
-            SolveMate
-            从每个人正在读的资料出发，让自学时的疑问可以当下讨论，也让教师能围绕自己的课程准备讲义、试题与讲解。
-          </p>
-        </div>
+        <ul class="frame hero-scenarios" role="list">
+          <li>
+            <p><strong>遇到问题？</strong></p>
+            <p>直接提问，直到搞清楚。</p>
+          </li>
+          <li>
+            <p><strong>准备考试？</strong></p>
+            <p>
+              笔记和对话都保留，复习时可以回到原文，看看当时是怎么想明白的。
+            </p>
+          </li>
+          <li>
+            <p><strong>备课繁琐，出题又烦？</strong></p>
+            <p>让 AI 根据参考资料先写一版讲义或试题，省下从头准备的时间。</p>
+          </li>
+        </ul>
       </section>
 
       <section
@@ -86,134 +101,105 @@
         id="features"
         aria-labelledby="features-title"
       >
-        <p class="section-label">功能</p>
-        <h2 class="section-title" id="features-title">
-          从资料开始，把理解留下。
-        </h2>
-        <div class="feature-tabs" data-feature-tabs hidden>
-          <button type="button" data-panel="reading">阅读与对话</button>
-          <button type="button" data-panel="notes">笔记与复习</button>
-          <button type="button" data-panel="teaching">教研与备课</button>
-        </div>
-        <div class="feature-panels">
-          <article class="feature-panel" id="reading">
-            <div class="feature-text">
-              <h3>带着原文提问</h3>
-              <p>
-                导入
-                PDF、PPTX，或打开社区资料与题目。遇到疑问时，用当前页、指定页码或选中的原文作为提问依据；回看对话时可以返回资料的位置。
-              </p>
-              <a
-                class="text-link"
-                href="https://github.com/HakuCasey/SolveMate/blob/main/docs/product/manual/README.md#学科"
-                >查看阅读指南</a
-              >
-            </div>
-            <img
-              src="./assets/conversations.jpg"
-              width="1280"
-              height="720"
-              alt="对话列表显示教材和页码，条目右侧有返回阅读入口。"
-              loading="lazy"
-              decoding="async"
-            />
-          </article>
-          <article class="feature-panel" id="notes">
-            <div class="feature-text">
-              <h3>复习时找得回出处</h3>
-              <p>
-                把资料选段或对话内容加入笔记，在笔记本里整理自己的理解。从笔记可以回到资料或原对话，也可以把整个笔记本导出成
-                PDF。
-              </p>
-              <a
-                class="text-link"
-                href="https://github.com/HakuCasey/SolveMate/blob/main/docs/product/manual/README.md#笔记"
-                >查看笔记指南</a
-              >
-            </div>
-            <img
-              src="./assets/notes.jpg"
-              width="1280"
-              height="720"
-              alt="左侧按笔记本组织条目，每条笔记可查看来源。右侧是当前笔记正文。"
-              loading="lazy"
-              decoding="async"
-            />
-          </article>
-          <article class="feature-panel" id="teaching">
-            <div class="feature-text">
-              <h3>用自己的资料备课</h3>
-              <p>
-                在教研室选好资料和工具，与 AI
-                一起准备讲义、试题或题目讲解。可以编辑工具的 Skill
-                和输出模板，让生成内容符合自己的课程要求。
-              </p>
-              <a
-                class="text-link"
-                href="https://github.com/HakuCasey/SolveMate/blob/main/docs/product/manual/README.md#教研室"
-                >查看教研室指南</a
-              >
-            </div>
-            <img
-              src="./assets/teaching.jpg"
-              width="1280"
-              height="720"
-              alt="教研室顶部选中教材与试题研发工具，右侧对话栏用于说明任务。"
-              loading="lazy"
-              decoding="async"
-            />
-          </article>
-        </div>
+        <h2 class="section-title" id="features-title">功能</h2>
+        <article class="feature-panel" id="reading">
+          <div class="feature-text">
+            <h3>对话现场完整保留</h3>
+            <p>
+              阅读时聊过的内容和当时读到的位置一起保留。下次想接着聊，可以回到那一页或那道题。
+            </p>
+            <a
+              class="text-link"
+              href="https://github.com/HakuCasey/SolveMate/blob/main/docs/product/manual/README.md#对话"
+              >查看对话指南</a
+            >
+          </div>
+          <img
+            src="./assets/conversations.jpg"
+            width="1280"
+            height="720"
+            alt="对话列表显示教材和页码，条目右侧有返回阅读入口。"
+            loading="lazy"
+            decoding="async"
+          />
+        </article>
+        <article class="feature-panel" id="notes">
+          <div class="feature-text">
+            <h3>重要信息及时记录</h3>
+            <p>
+              读资料或聊天时，选中想留下的内容，就能马上加到笔记里。回看笔记时，还能打开当时的资料或对话。
+            </p>
+            <a
+              class="text-link"
+              href="https://github.com/HakuCasey/SolveMate/blob/main/docs/product/manual/README.md#笔记"
+              >查看笔记指南</a
+            >
+          </div>
+          <img
+            src="./assets/notes.jpg"
+            width="1280"
+            height="720"
+            alt="左侧按笔记本组织条目，每条笔记可查看来源。右侧是当前笔记正文。"
+            loading="lazy"
+            decoding="async"
+          />
+        </article>
+        <article class="feature-panel" id="teaching">
+          <div class="feature-text">
+            <h3>教研工具得心应手</h3>
+            <p>
+              教研室提供讲义研发、试题研发和试题精讲。Skill
+              和输出模板在一个窗口里查看、分别编辑，修改后可以另存为一份自定义工具。
+            </p>
+            <a
+              class="text-link"
+              href="https://github.com/HakuCasey/SolveMate/blob/main/docs/product/manual/README.md#教研室"
+              >查看教研室指南</a
+            >
+          </div>
+          <img
+            src="./assets/teaching.jpg"
+            width="1280"
+            height="720"
+            alt="教研室顶部选中教材与试题研发工具，右侧对话栏用于说明任务。"
+            loading="lazy"
+            decoding="async"
+          />
+        </article>
       </section>
 
       <section
-        class="architecture"
+        class="section architecture"
         id="architecture"
         aria-labelledby="architecture-title"
       >
-        <div class="frame architecture-inner">
+        <div class="frame architecture-layout">
           <div>
-            <p class="section-label">软件架构</p>
-            <h2 class="section-title" id="architecture-title">
-              <span class="title-phrase">学习记录</span
-              ><span class="title-phrase">保存在本机</span>
-            </h2>
-            <p class="section-copy">
-              网页版与桌面版共用同一套界面与本机数据。提问时，本机服务将问题和本轮资料引用交给你配置的
-              AI 服务。社区服务负责提供可下载的资料、题目和工具。
-            </p>
+            <h2 class="section-title" id="architecture-title">软件架构</h2>
+            <p class="section-copy">网页版和桌面版共用界面与本机数据。</p>
             <a
               class="text-link"
               href="https://github.com/HakuCasey/SolveMate/blob/main/docs/architecture/overview.md"
               >查看架构文档</a
             >
           </div>
-          <div
-            class="architecture-map"
-            role="group"
-            aria-label="客户端分别访问本机服务与社区内容服务"
-          >
-            <div class="architecture-node architecture-client">
-              <h3>SolveMate 客户端</h3>
-              <p>Web / PWA · Electron 桌面应用</p>
-            </div>
-            <div class="architecture-branches">
-              <div class="architecture-branch">
-                <p class="relationship">读写记录、发送提问</p>
-                <div class="architecture-node">
-                  <h3>本机服务</h3>
-                  <p>本机 SQLite 与文件<br />DeepSeek Harness、Hermes、Codex</p>
-                </div>
-              </div>
-              <div class="architecture-branch">
-                <p class="relationship">查询版本、下载内容</p>
-                <div class="architecture-node">
-                  <h3>社区内容服务</h3>
-                  <p>社区资料、题目与教研工具</p>
-                </div>
-              </div>
-            </div>
-          </div>
+          <figure class="architecture-diagram">
+            <picture>
+              <source
+                media="(max-width: 46rem)"
+                srcset="./assets/architecture-mobile.svg?v=2"
+                width="380"
+                height="320"
+              />
+              <img
+                src="./assets/architecture.svg?v=2"
+                width="760"
+                height="320"
+                loading="lazy"
+                alt="SolveMate 在本机读写资料和学习记录。本机服务向所选 AI 服务发送本轮问题和资料引用，客户端从社区内容服务查询和下载内容。"
+              />
+            </picture>
+          </figure>
         </div>
       </section>
 
@@ -222,43 +208,48 @@
         id="start"
         aria-labelledby="start-title"
       >
-        <div>
-          <p class="section-label">快速开始</p>
-          <h2 class="section-title" id="start-title">
-            <span class="title-phrase">在自己的电脑上</span
-            ><span class="title-phrase">运行</span>
-          </h2>
-          <p class="section-copy">
-            准备 Git、Node.js 24、npm 11 和 Python 3.12
-            或以上版本。打开应用后可从预置资料开始阅读，使用 AI 前请在「系统设置
-            → AI 配置」连接本机已安装的服务。
-          </p>
-          <div class="actions">
-            <a
-              class="button button-primary"
-              href="https://github.com/HakuCasey/SolveMate#使用方式"
-              >完整安装说明</a
-            >
-            <a
-              class="button button-secondary"
-              href="https://github.com/HakuCasey/SolveMate/blob/main/docs/product/manual/README.md"
-              >用户手册</a
-            >
-          </div>
-        </div>
-        <div class="start-steps">
-          <h3>获取源码</h3>
-          <pre><code>git clone https://github.com/HakuCasey/SolveMate.git
+        <h2 class="section-title" id="start-title">快速开始</h2>
+        <p class="section-copy">
+          源码运行需要 Git、Node.js 24、npm 11 和 Python 3.12 或以上版本。
+        </p>
+        <ol class="start-steps">
+          <li>
+            <h3>获取源码</h3>
+            <p>在终端下载项目并安装网页依赖。</p>
+            <pre><code>git clone https://github.com/HakuCasey/SolveMate.git
 cd SolveMate
 npm ci</code></pre>
-          <p>
-            按说明<a
-              href="https://github.com/HakuCasey/SolveMate#本地启动与访问"
-              >安装 Python 依赖</a
-            >，然后在仓库根目录执行 <code>npm start</code>。看到
-            <code>SolveMate is ready</code> 后，访问
-            <code>127.0.0.1:4173</code>。
-          </p>
+          </li>
+          <li>
+            <h3>启动应用</h3>
+            <p>
+              按系统<a
+                href="https://github.com/HakuCasey/SolveMate#本地启动与访问"
+                >安装 Python 依赖</a
+              >，再在仓库根目录运行：
+            </p>
+            <pre><code>npm start</code></pre>
+            <p>
+              看到 <code>SolveMate is ready</code> 后，访问
+              <a href="http://127.0.0.1:4173/">127.0.0.1:4173</a>。
+            </p>
+          </li>
+        </ol>
+        <p class="section-copy">
+          打开应用后可直接阅读预置资料。要使用 AI，在「系统设置 → AI
+          配置」连接本机已安装的服务。
+        </p>
+        <div class="actions">
+          <a
+            class="button button-primary"
+            href="https://github.com/HakuCasey/SolveMate#使用方式"
+            >完整安装说明</a
+          >
+          <a
+            class="button button-secondary"
+            href="https://github.com/HakuCasey/SolveMate/blob/main/docs/product/manual/README.md"
+            >用户手册</a
+          >
         </div>
       </section>
     </main>
