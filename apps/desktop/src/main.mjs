@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { mkdir, open } from "node:fs/promises";
 import { createInterface } from "node:readline";
 import { createServer } from "node:net";
@@ -13,7 +14,8 @@ import {
   session,
   shell,
 } from "electron";
-import { macAppUpdate } from "./app-update.mjs";
+import { desktopAppUpdate } from "./app-update.mjs";
+import { installerTarget } from "./installers.mjs";
 import {
   initialWindowBounds,
   readWindowSize,
@@ -49,8 +51,8 @@ let localService = null;
 let stopping = false;
 let recovering = false;
 const desktopDirectory = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const canDownloadUpdate =
-  app.isPackaged && process.platform === "darwin" && process.arch === "arm64";
+const updateTarget =
+  app.isPackaged && installerTarget(process.platform, process.arch);
 
 function resourcesDirectory() {
   return app.isPackaged
@@ -62,43 +64,89 @@ function serviceUrl() {
   return `http://127.0.0.1:${DESKTOP_PORT}`;
 }
 
-function downloadInstaller(contents, url) {
-  if (!contents || contents.isDestroyed())
-    throw new Error("The download window is unavailable.");
-  const session = contents.session;
-  const filename = new URL(url).pathname.split("/").at(-1);
-  return new Promise((resolve, reject) => {
-    const onDownload = (_event, item, source) => {
-      if (source !== contents || item.getURLChain()[0] !== url) return;
-      cleanup();
-      item.setSaveDialogOptions({
-        title: "保存安装包",
-        defaultPath: join(app.getPath("downloads"), filename),
-      });
-      item.once("done", (_event, status) => resolve(status));
-    };
-    const timeout = setTimeout(() => {
-      cleanup();
-      reject(new Error("The installer download did not start."));
-    }, 30_000);
-    function cleanup() {
-      clearTimeout(timeout);
-      session.off("will-download", onDownload);
+function installerDownloader(downloadSession) {
+  let pending;
+  downloadSession.on("will-download", (event, item, source) => {
+    const url = item.getURLChain()[0];
+    if (!url?.includes("?solvemate-download=")) return;
+    if (pending?.url !== url || pending.contents !== source) {
+      // 原请求取消或超时后仍可能收到下载事件，不能把它当成下一次下载。
+      event.preventDefault();
+      return;
     }
-    session.on("will-download", onDownload);
-    try {
-      contents.downloadURL(url);
-    } catch (error) {
-      cleanup();
-      reject(error);
-    }
+    pending.attach(item);
   });
+
+  return (contents, url, onProgress, signal) => {
+    if (!contents || contents.isDestroyed())
+      throw new Error("The download window is unavailable.");
+    const request = new URL(url);
+    const filename = request.pathname.split("/").at(-1);
+    const defaultPath = join(app.getPath("downloads"), filename);
+    request.searchParams.set("solvemate-download", randomUUID());
+    const requestURL = request.href;
+    return new Promise((resolve, reject) => {
+      let item;
+      const cancel = () => {
+        if (item) item.cancel();
+        else finish("cancelled");
+      };
+      const updated = (_event, status) => {
+        if (status === "progressing")
+          onProgress(item.getReceivedBytes(), item.getTotalBytes());
+      };
+      function finish(status, path) {
+        cleanup();
+        resolve({ status, path });
+      }
+      function cleanup() {
+        clearTimeout(timeout);
+        if (pending?.url === requestURL) pending = undefined;
+        signal.removeEventListener("abort", cancel);
+        item?.off("updated", updated);
+      }
+      const timeout = setTimeout(() => {
+        cleanup();
+        reject(new Error("The installer download did not start."));
+      }, 30_000);
+      pending = {
+        url: requestURL,
+        contents,
+        attach(download) {
+          clearTimeout(timeout);
+          pending = undefined;
+          item = download;
+          item.setSaveDialogOptions({ title: "保存安装包", defaultPath });
+          item.on("updated", updated);
+          item.once("done", (_event, status) =>
+            finish(status, item.getSavePath()),
+          );
+        },
+      };
+      if (signal.aborted) {
+        finish("cancelled");
+        return;
+      }
+      signal.addEventListener("abort", cancel, { once: true });
+      try {
+        contents.downloadURL(requestURL);
+      } catch (error) {
+        cleanup();
+        reject(error);
+      }
+    });
+  };
 }
 
-function registerMacUpdate() {
-  const update = macAppUpdate({
+function registerDesktopUpdate(target) {
+  const downloadInstaller = installerDownloader(session.defaultSession);
+  const update = desktopAppUpdate({
     version: app.getVersion(),
-    downloadInstaller: (url) => downloadInstaller(mainWindow?.webContents, url),
+    target,
+    downloadInstaller: (url, onProgress, signal) =>
+      downloadInstaller(mainWindow?.webContents, url, onProgress, signal),
+    openInstaller: (path) => shell.openPath(path),
+    revealInstaller: (path) => shell.showItemInFolder(path),
     publishState(state) {
       const contents = mainWindow?.webContents;
       if (
@@ -280,7 +328,7 @@ async function createMainWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
-      ...(canDownloadUpdate
+      ...(updateTarget
         ? { preload: join(desktopDirectory, "src", "preload.cjs") }
         : {}),
     },
@@ -374,7 +422,7 @@ if (!hasLock) {
       session.defaultSession.setCodeCachePath(
         join(cacheDirectory, "Code Cache"),
       );
-      if (canDownloadUpdate) registerMacUpdate();
+      if (updateTarget) registerDesktopUpdate(updateTarget);
       return openMainWindow();
     })
     .catch((error) => {

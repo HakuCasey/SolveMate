@@ -43,7 +43,7 @@
 
 ### 数据管理
 
-- [ ] **完成桌面安装包发布与验收。** Mac 版支持在应用内检查并下载 DMG，用户打开安装包后覆盖安装。Windows 应用内更新及两端干净系统安装与卸载验收仍待完成。桌面构建默认读取 GitHub Pages 的社区内容。见 [020](docs/features/020-desktop-application/spec.md)。
+- [ ] **完成桌面安装包发布与验收。** Mac 与 Windows 共用应用内检查和下载安装包的流程。Windows 新包发布及实机更新验证待完成，两端仍需完成干净系统安装和卸载验收。桌面构建默认读取 GitHub Pages 的社区内容。见 [020](docs/features/020-desktop-application/spec.md)。
 
 - [x] **备份与恢复完整本地数据。** [018](docs/features/018-data-backup/spec.md)导出资料、记录与 AI 配置的 ZIP，校验后恢复，替换前自动备份，失败回退；保留原生会话编号并拒绝旧版本覆盖。桌面版和源码版均已支持查看、更改用户数据路径及复制现有数据。
 

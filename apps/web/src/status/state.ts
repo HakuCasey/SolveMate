@@ -3,32 +3,44 @@ import { liveTurnFor } from "../ai/state";
 import type { UpdateState } from "../pwa/update-controller";
 
 /** 常驻文字说明当前状态；操作按钮单独命名，不能用操作名代替就绪状态。 */
-export function applicationStatus(state: UpdateState, desktop = false) {
+export function applicationStatus(
+  state: UpdateState & { installerVersion?: string },
+  currentDesktopVersion?: string,
+) {
   const views = {
     idle: {
       label: "检查更新",
       status: "尚未检查",
-      action: desktop ? "下载更新" : "检查更新",
+      action: "检查更新",
     },
     checking: {
       label: "正在检查…",
-      status: "正在检查更新",
+      status: currentDesktopVersion ? "更新检查中" : "正在检查更新",
       action: "正在检查…",
+    },
+    available: {
+      label: "有新版",
+      status: state.installerVersion
+        ? `最新版本 v${state.installerVersion}`
+        : "有新版",
+      action: "下载更新",
     },
     downloading: {
       label: "正在下载…",
-      status: "正在下载新版",
+      status: state.installerVersion
+        ? `正在下载 v${state.installerVersion} 版本`
+        : "正在下载新版",
       action: "正在下载…",
     },
     downloaded: {
       label: "安装包已下载",
-      status: "安装包已下载，打开后即可安装",
-      action: "重新下载",
+      status: "已下载",
+      action: "打开目录",
     },
     current: {
       label: "检查更新",
       status: "已是最新版本",
-      action: "再次检查",
+      action: currentDesktopVersion ? "检查更新" : "再次检查",
     },
     ready: {
       label: "新版就绪",
@@ -42,12 +54,16 @@ export function applicationStatus(state: UpdateState, desktop = false) {
     },
     error: {
       label: "更新失败",
-      status: "更新失败",
-      action: "重试",
+      status: currentDesktopVersion ? "检查失败" : "更新失败",
+      action: currentDesktopVersion ? "检查更新" : "重试",
     },
   };
+  const view = views[state.status];
+  const showsCurrent = currentDesktopVersion && state.status !== "downloaded";
   return {
-    ...views[state.status],
+    ...view,
+    status: showsCurrent ? `当前版本 v${currentDesktopVersion}` : view.status,
+    detail: showsCurrent ? view.status : undefined,
     busy: ["checking", "downloading", "reloading"].includes(state.status),
   };
 }

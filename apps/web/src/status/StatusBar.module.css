@@ -61,20 +61,37 @@
 .summary {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 4px 16px;
+  justify-content: space-between;
+  gap: 12px;
+}
+.summary:has([data-version]) {
+  min-height: 28px;
 }
 .currentStatus {
+  min-width: 0;
   margin: 0;
   color: var(--sm-soft);
   font-size: 12px;
   line-height: 1.6;
   overflow-wrap: anywhere;
 }
-.popover[data-tone="active"] .currentStatus {
+.statusDetail {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 4px;
+}
+.downloadPercent {
+  flex-shrink: 0;
+  color: var(--sm-soft);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.popover[data-tone="active"] .currentStatus:not([data-version]) {
   color: var(--sm-accent);
 }
-.popover[data-tone="danger"] .currentStatus {
+.popover[data-tone="danger"] .currentStatus:not([data-version]) {
   color: var(--sm-danger);
 }
 .body {
@@ -89,8 +106,41 @@
   margin-bottom: 0;
 }
 .appVersion {
+  margin-inline-start: 8px;
   color: var(--sm-soft);
+  font-size: 11px;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.installerFile {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+.installerFile button,
+.installerFile p {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 12px;
+}
+.installerFile button {
+  justify-self: start;
+  max-width: 100%;
+  padding: 0;
+  text-align: start;
+  color: var(--sm-accent);
+}
+.installerFile button:hover {
+  text-decoration: underline;
+}
+.installerFile p {
+  color: var(--sm-soft);
+}
+.installerFile + .alert {
+  margin-top: 8px;
 }
 .popover button {
   cursor: pointer;
@@ -121,7 +171,7 @@
   background: var(--sm-ground);
 }
 .summary .inlineAction {
-  margin-inline-start: auto;
+  flex-shrink: 0;
   min-height: 28px;
   padding: 3px 9px;
   border: 1px solid var(--sm-line);

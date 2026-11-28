@@ -7,6 +7,7 @@ on:
       - .github/workflows/website.yml
       - docs/website/**
       - scripts/build-website.mjs
+      - apps/desktop/src/installers.mjs
       - data/**
       - apps/server/src/**
       - apps/server/pyproject.toml

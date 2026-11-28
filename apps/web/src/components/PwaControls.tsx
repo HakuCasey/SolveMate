@@ -21,12 +21,36 @@ export function PwaControls({
   const [open, setOpen] = useState(false);
   const [retryingSave, setRetryingSave] = useState(false);
   const showNotice = useSaveFeedback();
-  const { state, supported, desktop, check, reload, clearReloadError } =
-    useAppUpdate(prepareReload, () =>
-      showNotice("应用新版本已就绪，可在侧栏状态栏中点击“更新应用”。"),
-    );
-  const view = applicationStatus(state, desktop);
+  const {
+    state,
+    supported,
+    desktop,
+    check,
+    download,
+    cancelDownload,
+    reload,
+    showInstaller,
+    clearReloadError,
+  } = useAppUpdate(prepareReload, () =>
+    showNotice("应用新版本已就绪，可在侧栏状态栏中点击“更新应用”。"),
+  );
+  const view = applicationStatus(
+    state,
+    desktop && supported ? appVersion : undefined,
+  );
   const ready = state.status === "ready";
+  const available = state.status === "available";
+  const downloadingInstaller = desktop && state.status === "downloading";
+  const downloaded = state.status === "downloaded";
+  const installerFile = state.installerFile;
+  const statusDetail = (ready && saveFailure) || state.error;
+  const updateAction = downloaded
+    ? () => showInstaller("revealInstaller")
+    : available
+      ? download
+      : ready
+        ? reload
+        : check;
   const tone = ready
     ? "ready"
     : state.status === "error"
@@ -49,9 +73,30 @@ export function PwaControls({
               ? "当前浏览器不支持应用更新"
               : "开发预览不提供应用更新"
       }
+      statusDetail={view.detail}
+      statusDetailAside={
+        state.status === "downloading" &&
+        state.downloadPercent !== undefined && (
+          <span
+            className={styles.downloadPercent}
+            role="progressbar"
+            aria-label="下载进度"
+            aria-valuenow={state.downloadPercent}
+          >
+            {state.downloadPercent}%
+          </span>
+        )
+      }
+      titleDetail={
+        !view.detail && (
+          <span className={styles.appVersion} title="当前版本">
+            v{appVersion}
+          </span>
+        )
+      }
       action={
         supported &&
-        !view.busy &&
+        (!view.busy || downloadingInstaller) &&
         !(ready && saveFailure) && (
           <button
             type="button"
@@ -60,22 +105,34 @@ export function PwaControls({
                 ? `${styles.inlineAction} ${styles.primary}`
                 : styles.inlineAction
             }
-            onClick={ready ? reload : check}
+            onClick={downloadingInstaller ? cancelDownload : updateAction}
           >
-            {view.action}
+            {downloadingInstaller ? "取消下载" : view.action}
           </button>
         )
       }
       tone={tone}
       busy={view.busy}
     >
-      <p className={styles.appVersion}>当前版本 v{appVersion}</p>
-      {(state.error || (ready && saveFailure)) && (
-        <div className={`${styles.alert} ${styles.error}`} role="alert">
-          {saveFailure || state.error}
+      {installerFile && (
+        <div className={styles.installerFile}>
+          <button
+            type="button"
+            aria-label={`打开安装包 ${installerFile.name}`}
+            title={installerFile.path}
+            onClick={() => showInstaller("openInstaller")}
+          >
+            {installerFile.name}
+          </button>
+          <p title={installerFile.path}>{installerFile.directory}</p>
         </div>
       )}
-      {ready && saveFailure && (
+      {!!statusDetail && (
+        <div className={`${styles.alert} ${styles.error}`} role="alert">
+          {statusDetail}
+        </div>
+      )}
+      {ready && !!saveFailure && (
         <div className={styles.actions}>
           {!saveConflict && (
             <button

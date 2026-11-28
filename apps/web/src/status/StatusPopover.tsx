@@ -16,20 +16,26 @@ export function StatusPopover({
   category,
   value,
   status = value,
+  statusDetail,
+  statusDetailAside,
   tone = "neutral",
   busy = false,
   open,
   onOpenChange,
+  titleDetail,
   action,
   children,
 }: {
   category: keyof typeof categoryIcons;
   value: string;
   status?: string;
+  statusDetail?: string;
+  statusDetailAside?: ReactNode;
   tone?: StatusTone;
   busy?: boolean;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  titleDetail?: ReactNode;
   action?: ReactNode;
   children?: ReactNode;
 }) {
@@ -56,7 +62,12 @@ export function StatusPopover({
       </Popover.Trigger>
       <Popover.Portal>
         <PopoverPanel
-          title={category}
+          title={
+            <>
+              {category}
+              {titleDetail}
+            </>
+          }
           icon={CategoryIcon}
           width={240}
           padding={12}
@@ -70,9 +81,20 @@ export function StatusPopover({
           aria-label={`${category}详情`}
         >
           <div className={styles.summary}>
-            <p className={styles.currentStatus}>{status}</p>
+            <p
+              className={styles.currentStatus}
+              data-version={!!statusDetail || undefined}
+            >
+              {status}
+            </p>
             {action}
           </div>
+          {statusDetail && (
+            <div className={styles.statusDetail}>
+              <p className={styles.currentStatus}>{statusDetail}</p>
+              {statusDetailAside}
+            </div>
+          )}
           {Children.toArray(children).length > 0 && (
             <div className={styles.body}>{children}</div>
           )}

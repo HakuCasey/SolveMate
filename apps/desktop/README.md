@@ -36,11 +36,13 @@ Windows 的应用程序和窗口共用 `apps/desktop/assets/icon.ico`。替换�
 
 构建时会重新生成桌面网页和 Python 本机服务。桌面网页不注册 PWA Service Worker。本机服务包含 Python 运行环境和运行依赖，安装后的用户无需安装 Node.js 或 Python。
 
-## macOS 发布更新
+## 应用更新
 
 `Publish macOS installer` 由与桌面软件版本匹配的 `vX.Y.Z` 标签触发。发布任务构建并校验 DMG，再上传到对应的 GitHub Release。
 
-Mac 版的「应用更新 → 下载更新」会保存最新版本的 DMG。下载完成后，打开安装包并覆盖安装。
+Windows 用 `Publish Windows installer` 为对应版本上传 Setup.exe。安装包上传并确认能下载后，在 [下载版本清单](../../docs/website/downloads.json) 更新该平台版本。官网的下载按钮和桌面版检查更新都读同一份清单。
+
+Mac 和 Windows 从「应用更新」检查并下载安装包，下载完成后由用户打开安装包并覆盖安装。
 
 ## 当前限制
 

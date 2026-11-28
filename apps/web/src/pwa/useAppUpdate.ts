@@ -5,13 +5,22 @@ import { logError } from "../logger";
 
 const initial: UpdateState = { status: "idle", error: "" };
 const automaticCheckInterval = 60 * 60 * 1000;
+type DesktopUpdateState = UpdateState & {
+  installerFile?: { path: string; name: string; directory: string };
+  installerVersion?: string;
+  downloadPercent?: number;
+};
 
 declare global {
   interface Window {
     solvemateAppUpdate?: {
-      getState(): Promise<UpdateState>;
-      download(): Promise<UpdateState>;
-      subscribe(listener: (state: UpdateState) => void): () => void;
+      getState(): Promise<DesktopUpdateState>;
+      check(): Promise<DesktopUpdateState>;
+      download(): Promise<DesktopUpdateState>;
+      cancelDownload(): Promise<DesktopUpdateState>;
+      openInstaller(): Promise<DesktopUpdateState>;
+      revealInstaller(): Promise<DesktopUpdateState>;
+      subscribe(listener: (state: DesktopUpdateState) => void): () => void;
     };
   }
 }
@@ -22,35 +31,35 @@ export function useAppUpdate(prepareReload: () => void, onReady: () => void) {
   useEffect(() => {
     callbacks.current = { prepareReload, onReady };
   }, [prepareReload, onReady]);
-  const [state, setState] = useState(initial);
+  const [state, setState] = useState<DesktopUpdateState>(initial);
   const [offlineReady, setOfflineReady] = useState(false);
   const controller = useRef<AppUpdateController | null>(null);
   const reloadAction = useRef<() => void>(() => undefined);
   const checkAction = useRef<() => void>(() => undefined);
   const desktop = import.meta.env.VITE_DESKTOP === "1";
-  const macUpdate = desktop ? window.solvemateAppUpdate : undefined;
+  const desktopUpdate = desktop ? window.solvemateAppUpdate : undefined;
   const webSupported =
     import.meta.env.PROD && !desktop && "serviceWorker" in navigator;
   useEffect(() => {
-    if (!macUpdate) return;
+    if (!desktopUpdate) return;
     let active = true;
     let receivedState = false;
-    const unsubscribe = macUpdate.subscribe((next) => {
+    const unsubscribe = desktopUpdate.subscribe((next) => {
       receivedState = true;
       setState(next);
     });
-    void macUpdate.getState().then(
+    void desktopUpdate.getState().then(
       (next) => {
         if (active && !receivedState) setState(next);
       },
       (error: unknown) =>
-        logError("Failed to read the Mac update state.", error),
+        logError("Failed to read the desktop update state.", error),
     );
     return () => {
       active = false;
       unsubscribe();
     };
-  }, [macUpdate]);
+  }, [desktopUpdate]);
   useEffect(() => {
     if (!webSupported) return;
     let active = true;
@@ -212,17 +221,38 @@ export function useAppUpdate(prepareReload: () => void, onReady: () => void) {
       if (controller.current === updates) controller.current = null;
     };
   }, [webSupported]);
+  function desktopAction(
+    action:
+      | "check"
+      | "download"
+      | "cancelDownload"
+      | "openInstaller"
+      | "revealInstaller",
+    errorMessage: string,
+  ) {
+    if (!desktopUpdate) return;
+    void desktopUpdate[action]().catch((error: unknown) => {
+      logError(
+        `Failed to perform the desktop update action: ${action}.`,
+        error,
+      );
+      setState((current) => ({ ...current, error: errorMessage }));
+    });
+  }
   return {
     state,
     offlineReady,
-    supported: webSupported || !!macUpdate,
+    supported: webSupported || !!desktopUpdate,
     desktop,
     check: () => {
-      if (!macUpdate) return checkAction.current();
-      void macUpdate.download().catch((error: unknown) => {
-        logError("Failed to request a Mac installer download.", error);
-        setState({ status: "error", error: "无法下载安装包，请重试。" });
-      });
+      if (!desktopUpdate) return checkAction.current();
+      desktopAction("check", "无法检查更新，请重试。");
+    },
+    download: () => desktopAction("download", "无法下载安装包，请重试。"),
+    cancelDownload: () =>
+      desktopAction("cancelDownload", "无法取消下载，请重试。"),
+    showInstaller: (action: "openInstaller" | "revealInstaller") => {
+      desktopAction(action, "无法打开安装包或其所在的文件夹。");
     },
     reload: () => reloadAction.current(),
     clearReloadError: () => {
