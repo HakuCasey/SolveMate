@@ -88,6 +88,10 @@
 .body p:last-child {
   margin-bottom: 0;
 }
+.appVersion {
+  color: var(--sm-soft);
+  font-size: 12px;
+}
 .popover button {
   cursor: pointer;
   font: inherit;
