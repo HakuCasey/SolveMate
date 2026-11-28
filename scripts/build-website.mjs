@@ -29,10 +29,19 @@ const files = [
 const versions = JSON.parse(
   await readFile(join(root, "docs/website/downloads.json"), "utf8"),
 );
+const downloadButtons = [
+  ["darwin-arm64", "primary", "下载 macOS 版"],
+  ["win32-x64", "secondary", "下载 Windows 版"],
+]
+  .filter(([target]) => Object.hasOwn(versions, target))
+  .map(([target, style, label]) => {
+    const { url } = desktopInstaller(target, versions[target]);
+    return `<a class="button button-${style}" href="${url}">${label}</a>`;
+  });
 const template = await readFile(join(root, "docs/website/index.html"), "utf8");
 const index = template.replace(
-  /\{\{download:([\w-]+)\}\}/g,
-  (_match, target) => desktopInstaller(target, versions[target]).url,
+  "{{download-buttons}}",
+  downloadButtons.join("\n              "),
 );
 
 // 官网按钮和桌面应用共用已发布版本清单。
