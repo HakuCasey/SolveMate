@@ -30,14 +30,16 @@ const versions = JSON.parse(
   await readFile(join(root, "docs/website/downloads.json"), "utf8"),
 );
 const downloadButtons = [
-  ["darwin-arm64", "primary", "下载 macOS 版"],
-  ["win32-x64", "secondary", "下载 Windows 版"],
-]
-  .filter(([target]) => Object.hasOwn(versions, target))
-  .map(([target, style, label]) => {
-    const { url } = desktopInstaller(target, versions[target]);
-    return `<a class="button button-${style}" href="${url}">${label}</a>`;
-  });
+  ["darwin-arm64", "primary", "macOS"],
+  ["win32-x64", "secondary", "Windows"],
+].map(([target, style, platform]) => {
+  const className = `button button-${style}`;
+  if (!Object.hasOwn(versions, target)) {
+    return `<button class="${className}" type="button" disabled>${platform} 版暂未发布</button>`;
+  }
+  const { url } = desktopInstaller(target, versions[target]);
+  return `<a class="${className}" href="${url}">下载 ${platform} 版</a>`;
+});
 const template = await readFile(join(root, "docs/website/index.html"), "utf8");
 const index = template.replace(
   "{{download-buttons}}",

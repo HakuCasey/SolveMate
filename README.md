@@ -31,7 +31,7 @@ SolveMate 是一款面向自学的开源应用。阅读资料时，可以对照�
 
 ### 桌面安装版
 
-从[官网](https://hakucasey.github.io/SolveMate/)下载 macOS 安装包，打开 DMG 后将 SolveMate 拖入「应用程序」。桌面版无需另装 Node.js 或 Python。
+从[官网](https://hakucasey.github.io/SolveMate/)下载 macOS 或 Windows 安装包。macOS 打开 DMG 后将 SolveMate 拖入「应用程序」，Windows 运行下载的 Setup.exe。桌面版无需另装 Node.js 或 Python。
 
 ### 源码运行环境
 
