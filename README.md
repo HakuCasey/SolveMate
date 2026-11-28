@@ -1,16 +1,21 @@
 <p align="center">
-  <img src="apps/web/public/logo.png" alt="SolveMate" width="280" />
+  <img src="apps/web/src/assets/solvemate-wordmark.png" alt="SolveMate" width="280" />
 </p>
 
 # SolveMate
 
-[访问官网](https://hakucasey.github.io/SolveMate/)
-
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Node.js 24](https://img.shields.io/badge/Node.js-24-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org/)
+[![npm 11](https://img.shields.io/badge/npm-11-CB3837?logo=npm&logoColor=white)](https://www.npmjs.com/)
+[![Python 3.12+](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![TypeScript 5.9](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)](CONTRIBUTING.md)
 
 ## 简介
 
-SolveMate 是一款面向自学和备课的开源学习应用。阅读资料时，可以对照当前页、指定页码或选段和 AI 讨论。
+[访问官网](https://hakucasey.github.io/SolveMate/)
+
+SolveMate 是一款面向自学的开源应用。阅读资料时，可以对照当前页、指定页码或选段和 AI 讨论。
 
 - **对话现场完整保留。** 再次打开对话时，可以回到当时读的那一页或那道题，接着原来的讨论。
 - **重要信息及时记录。** 资料选段和对话内容都能当场记成笔记。回看笔记时可以打开出处，笔记本也可以导出 PDF。
@@ -24,7 +29,7 @@ SolveMate 是一款面向自学和备课的开源学习应用。阅读资料时�
 
 桌面安装包包含网页、Electron、Python 运行环境和本机服务，安装后的用户不需要安装 Node.js 或 Python。使用 AI 回复仍需安装并配置至少一个支持的 Harness；导入 PPTX 需要 LibreOffice，PDF 不需要。
 
-在 Apple Silicon Mac 上，打开内部验证用的 DMG，将 SolveMate 拖入“应用程序”后启动。当前应用使用临时签名，Developer ID 签名和公证尚待完成。Windows 已配置 Setup.exe 构建，安装与卸载待实机验收。
+搭载 Apple 芯片的 Mac 可从[官网](https://hakucasey.github.io/SolveMate/)下载 DMG。打开后将 SolveMate 拖入“应用程序”。当前发布的 v0.0.1 使用临时签名，尚未完成 Apple 公证。Windows 安装包待发布。
 
 首次使用空数据目录时，对话和笔记均为空。可直接阅读预置的高等数学、C 语言社区资料与题目，也可使用三个教研工具。已有记录可通过“系统设置 → 备份与恢复 → 备份文件”导入 ZIP 备份。
 
