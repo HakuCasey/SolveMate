@@ -1,0 +1,14 @@
+extends: ./electron-builder.yml
+forceCodeSigning: true
+mac:
+  identity: ""
+  hardenedRuntime: true
+  notarize: true
+  artifactName: SolveMate-${version}-${arch}.${ext}
+  target:
+    - dmg
+    - zip
+  publish:
+    provider: github
+    owner: HakuCasey
+    repo: SolveMate

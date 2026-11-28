@@ -3,7 +3,7 @@ import { liveTurnFor } from "../ai/state";
 import type { UpdateState } from "../pwa/update-controller";
 
 /** 常驻文字说明当前状态；操作按钮单独命名，不能用操作名代替就绪状态。 */
-export function applicationStatus(state: UpdateState) {
+export function applicationStatus(state: UpdateState, desktop = false) {
   const views = {
     idle: {
       label: "检查更新",
@@ -14,6 +14,11 @@ export function applicationStatus(state: UpdateState) {
       label: "正在检查…",
       status: "正在检查更新",
       action: "正在检查…",
+    },
+    available: {
+      label: "有新版",
+      status: "有新版可下载",
+      action: "下载更新",
     },
     downloading: {
       label: "正在下载…",
@@ -28,7 +33,7 @@ export function applicationStatus(state: UpdateState) {
     ready: {
       label: "新版就绪",
       status: "新版就绪",
-      action: "更新应用",
+      action: desktop ? "重启安装" : "更新应用",
     },
     reloading: {
       label: "正在更新…",

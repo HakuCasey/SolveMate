@@ -20,19 +20,28 @@ export function PwaControls({
   const [open, setOpen] = useState(false);
   const [retryingSave, setRetryingSave] = useState(false);
   const showNotice = useSaveFeedback();
-  const { state, supported, desktop, check, reload, clearReloadError } =
-    useAppUpdate(prepareReload, () =>
-      showNotice("应用新版本已就绪，可在侧栏状态栏中点击“更新应用”。"),
-    );
-  const view = applicationStatus(state);
+  const {
+    state,
+    supported,
+    desktop,
+    check,
+    download,
+    reload,
+    clearReloadError,
+  } = useAppUpdate(prepareReload, () =>
+    showNotice("应用新版本已就绪，可在侧栏状态栏中点击“更新应用”。"),
+  );
+  const view = applicationStatus(state, desktop);
   const ready = state.status === "ready";
-  const tone = ready
-    ? "ready"
-    : state.status === "error"
-      ? "danger"
-      : view.busy
-        ? "active"
-        : "neutral";
+  const available = state.status === "available";
+  const tone =
+    ready || available
+      ? "ready"
+      : state.status === "error"
+        ? "danger"
+        : view.busy
+          ? "active"
+          : "neutral";
   return (
     <StatusPopover
       open={open}
@@ -55,11 +64,11 @@ export function PwaControls({
           <button
             type="button"
             className={
-              ready
+              ready || available
                 ? `${styles.inlineAction} ${styles.primary}`
                 : styles.inlineAction
             }
-            onClick={ready ? reload : check}
+            onClick={ready ? reload : available ? download : check}
           >
             {view.action}
           </button>

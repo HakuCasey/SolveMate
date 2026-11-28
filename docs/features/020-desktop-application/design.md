@@ -33,7 +33,13 @@ Electron 通过系统 `userData` 目录取得应用数据位置，并将其中�
 
 构建环境需要额外安装 `apps/desktop/requirements-build.lock` 中的 PyInstaller。macOS 和 Windows 必须在各自系统中生成本机服务和安装包，不能在一个系统中交叉生成另一系统的 Python 程序。
 
-macOS 内部应用使用 ad hoc 临时签名，用于本机验证。公开发布前配置 Developer ID 签名和公证；Windows 公开包配置代码签名。应用自动更新需要签名和稳定的发布地址，放在后续范围中完成。
+macOS 本地构建使用 ad hoc 临时签名。GitHub 发布任务使用 Developer ID 签名和 Apple 公证，并同时上传 DMG、更新 ZIP 与 electron-builder 生成的 `latest-mac.yml`。
+
+### macOS 应用更新
+
+Electron 主进程通过 electron-updater 读取 GitHub Releases 和下载更新。界面沿用「应用更新」气泡。主进程持有检查、下载与安装状态，只接收本机应用主窗口的更新请求。关闭窗口、正常退出和重新打开应用都不会触发应用安装。安装前在原窗口检查尚未保存的修改，用现有更新记录保存未发送的输入和阅读位置；确认重启时等待旧本机服务退出，新进程继续读取原数据目录。
+
+首次使用应用内更新时，需要手动覆盖安装支持更新的已签名版本。使用两个正式签名版本完成实机验收后，再公布此能力。
 
 ## 当前验证
 

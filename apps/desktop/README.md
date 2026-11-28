@@ -36,6 +36,12 @@ Windows 的应用程序和窗口共用 `apps/desktop/assets/icon.ico`。替换�
 
 构建时会重新生成桌面网页和 Python 本机服务。桌面网页不注册 PWA Service Worker。本机服务包含 Python 运行环境和运行依赖，安装后的用户无需安装 Node.js 或 Python。
 
+## macOS 发布更新
+
+`Publish macOS installer` 由与桌面软件版本匹配的 `vX.Y.Z` 标签触发。发布任务使用 GitHub Actions Secrets 中的 `MAC_CSC_LINK`（Developer ID Application 的 P12 文件，Base64 编码）、`MAC_CSC_KEY_PASSWORD`、`APPLE_ID`、`APPLE_TEAM_ID` 和 `APPLE_APP_SPECIFIC_PASSWORD`。签名和公证校验通过后，任务把 DMG、更新 ZIP 和 `latest-mac.yml` 发布到同一个 GitHub Release。
+
+用支持更新的旧版测试「应用更新 → 检查更新 → 下载更新 → 重启安装」，确认取消后仍可继续使用。v0.0.1 用户需手动覆盖安装一次支持应用更新的版本。
+
 ## 当前限制
 
 - macOS v0.0.1 安装包文件名为 `SolveMate-0.0.1-arm64.dmg`，适用于搭载 Apple 芯片的 Mac。此版本使用 ad hoc 临时签名，尚未完成 Developer ID 签名和公证。

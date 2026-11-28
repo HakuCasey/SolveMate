@@ -6,6 +6,18 @@ import { logError } from "../logger";
 const initial: UpdateState = { status: "idle", error: "" };
 const automaticCheckInterval = 60 * 60 * 1000;
 
+declare global {
+  interface Window {
+    solvemateAppUpdate?: {
+      getState(): Promise<UpdateState>;
+      check(): Promise<UpdateState>;
+      download(): Promise<UpdateState>;
+      install(): Promise<UpdateState>;
+      subscribe(listener: (state: UpdateState) => void): () => void;
+    };
+  }
+}
+
 /** 原生更新事件集中在此处理；只有用户确认的当前窗口能够重载。 */
 export function useAppUpdate(prepareReload: () => void, onReady: () => void) {
   const callbacks = useRef({ prepareReload, onReady });
@@ -18,10 +30,39 @@ export function useAppUpdate(prepareReload: () => void, onReady: () => void) {
   const reloadAction = useRef<() => void>(() => undefined);
   const checkAction = useRef<() => void>(() => undefined);
   const desktop = import.meta.env.VITE_DESKTOP === "1";
-  const supported =
+  const nativeUpdate = desktop ? window.solvemateAppUpdate : undefined;
+  const webSupported =
     import.meta.env.PROD && !desktop && "serviceWorker" in navigator;
+  const nativeState = useRef(initial);
+  const nativeActionPending = useRef(false);
   useEffect(() => {
-    if (!supported) return;
+    if (!nativeUpdate) return;
+    let active = true;
+    let receivedState = false;
+    const receive = (next: UpdateState) => {
+      if (nativeState.current.status === "reloading" && next.status === "ready")
+        clearReloadCheckpoint(localStorage);
+      nativeState.current = next;
+      setState(next);
+    };
+    const unsubscribe = nativeUpdate.subscribe((next) => {
+      receivedState = true;
+      receive(next);
+    });
+    void nativeUpdate.getState().then(
+      (next) => {
+        if (active && !receivedState) receive(next);
+      },
+      (error: unknown) =>
+        logError("Failed to read the macOS update state.", error),
+    );
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, [nativeUpdate]);
+  useEffect(() => {
+    if (!webSupported) return;
     let active = true;
     let notified = false;
     let lastCheck = 0;
@@ -180,15 +221,46 @@ export function useAppUpdate(prepareReload: () => void, onReady: () => void) {
       window.removeEventListener("online", check);
       if (controller.current === updates) controller.current = null;
     };
-  }, [supported]);
+  }, [webSupported]);
+
+  async function desktopAction(action: "check" | "download" | "install") {
+    if (!nativeUpdate || nativeActionPending.current) return;
+    nativeActionPending.current = true;
+    let checkpointSaved = false;
+    try {
+      if (action === "install") {
+        callbacks.current.prepareReload();
+        checkpointSaved = true;
+      }
+      const next = await nativeUpdate[action]();
+      if (checkpointSaved && next.status === "ready")
+        clearReloadCheckpoint(localStorage);
+    } catch (error) {
+      if (checkpointSaved) clearReloadCheckpoint(localStorage);
+      setState({
+        ...nativeState.current,
+        error:
+          action === "install" && !checkpointSaved && error instanceof Error
+            ? error.message
+            : "未能完成更新操作，请重试。",
+      });
+    } finally {
+      nativeActionPending.current = false;
+    }
+  }
+
   return {
     state,
     offlineReady,
-    supported,
+    supported: webSupported || !!nativeUpdate,
     desktop,
-    check: () => checkAction.current(),
-    reload: () => reloadAction.current(),
+    check: () =>
+      nativeUpdate ? void desktopAction("check") : checkAction.current(),
+    download: () => void desktopAction("download"),
+    reload: () =>
+      nativeUpdate ? void desktopAction("install") : reloadAction.current(),
     clearReloadError: () => {
+      if (nativeUpdate) setState((current) => ({ ...current, error: "" }));
       if (controller.current?.snapshot().status === "ready")
         controller.current.markReady();
     },

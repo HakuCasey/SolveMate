@@ -28,6 +28,7 @@ mac:
   # 正式发布时使用开发者证书替换该设置，并启用 hardened runtime 与公证。
   identity: "-"
   hardenedRuntime: false
+  publish: null
   target:
     - dmg
 win:

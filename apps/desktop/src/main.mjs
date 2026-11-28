@@ -1,10 +1,20 @@
 import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
 import { mkdir, open } from "node:fs/promises";
 import { createInterface } from "node:readline";
 import { createServer } from "node:net";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { app, BrowserWindow, dialog, screen, shell } from "electron";
+import {
+  app,
+  autoUpdater,
+  BrowserWindow,
+  dialog,
+  ipcMain,
+  screen,
+  shell,
+} from "electron";
+import { macAppUpdate } from "./app-update.mjs";
 import {
   initialWindowBounds,
   readWindowSize,
@@ -36,7 +46,13 @@ let mainWindow = null;
 let localService = null;
 let stopping = false;
 let recovering = false;
+let updateClosing = false;
+let updateServiceStop = null;
 const desktopDirectory = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const canUpdate =
+  app.isPackaged &&
+  process.platform === "darwin" &&
+  existsSync(join(process.resourcesPath, "app-update.yml"));
 
 function resourcesDirectory() {
   return app.isPackaged
@@ -72,6 +88,49 @@ function processResult(child) {
         signal: child.signalCode,
         error: null,
       });
+  });
+}
+
+async function registerMacUpdate() {
+  const { autoUpdater: updater } = (await import("electron-updater")).default;
+  const update = macAppUpdate(updater, autoUpdater, {
+    publishState(state) {
+      const contents = mainWindow?.webContents;
+      if (
+        contents &&
+        !contents.isDestroyed() &&
+        belongsToService(contents.getURL(), serviceUrl())
+      )
+        contents.send("app-update:state", state);
+    },
+    async confirmInstall() {
+      if (!mainWindow) return false;
+      const { response } = await dialog.showMessageBox(mainWindow, {
+        type: "question",
+        title: "应用更新",
+        message: "重启应用并安装新版？",
+        buttons: ["重启安装", "取消"],
+        defaultId: 1,
+        cancelId: 1,
+      });
+      return response === 0;
+    },
+    flushStorage() {
+      mainWindow?.webContents.session.flushStorageData();
+    },
+  });
+  ipcMain.handle("app-update", (event, action) => {
+    if (
+      event.sender !== mainWindow?.webContents ||
+      event.senderFrame !== event.sender.mainFrame ||
+      !belongsToService(event.senderFrame?.url, serviceUrl())
+    )
+      throw new Error("Untrusted application update request.");
+    return update(action);
+  });
+  autoUpdater.on("before-quit-for-update", () => {
+    stopping = true;
+    updateClosing = true;
   });
 }
 
@@ -208,6 +267,9 @@ async function createMainWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      ...(canUpdate
+        ? { preload: join(desktopDirectory, "src", "preload.cjs") }
+        : {}),
     },
   });
   window.webContents.setWindowOpenHandler(({ url }) => {
@@ -224,6 +286,20 @@ async function createMainWindow() {
   window.once("ready-to-show", () => window.show());
   let lastSize = bounds;
   window.on("close", (event) => {
+    if (updateClosing && localService) {
+      // 等旧进程释放端口，再让 macOS 关闭窗口并启动新版。
+      event.preventDefault();
+      if (!updateServiceStop) {
+        const { child, exited } = localService;
+        child.kill();
+        const timeout = setTimeout(() => child.kill("SIGKILL"), 10_000);
+        updateServiceStop = exited.then(() => {
+          clearTimeout(timeout);
+          if (!window.isDestroyed()) window.close();
+        });
+      }
+      return;
+    }
     const size = window.getNormalBounds();
     // 仅因小屏而缩小的窗口，不覆盖用户在大屏上选定的尺寸。
     if (size.width !== lastSize.width || size.height !== lastSize.height) {
@@ -280,8 +356,9 @@ if (!hasLock) {
   // 否则主模块和 ready 事件会互相等待，应用只能停留在启动状态。
   void app
     .whenReady()
-    .then(() => {
+    .then(async () => {
       console.info("Desktop application is ready.");
+      if (canUpdate) await registerMacUpdate();
       return openMainWindow();
     })
     .catch((error) => {

@@ -43,7 +43,7 @@
 
 ### 数据管理
 
-- [ ] **完成桌面安装包发布与验收。** [v0.0.1](https://github.com/HakuCasey/SolveMate/releases/tag/v0.0.1) 已提供 macOS 和 Windows 安装包。后续完成干净系统安装与卸载验收、正式签名、公证和应用内更新。后续桌面构建默认读取 GitHub Pages 的社区内容。见 [020](docs/features/020-desktop-application/spec.md)。
+- [ ] **完成桌面安装包发布与验收。** [v0.0.1](https://github.com/HakuCasey/SolveMate/releases/tag/v0.0.1) 已提供 macOS 和 Windows 安装包。macOS 已接入应用内更新，待配置正式签名及公证并用两个发布版本完成实机验证。Windows 应用内更新及两端干净系统安装与卸载验收仍待完成。后续桌面构建默认读取 GitHub Pages 的社区内容。见 [020](docs/features/020-desktop-application/spec.md)。
 
 - [x] **备份与恢复完整本地数据。** [018](docs/features/018-data-backup/spec.md)导出资料、记录与 AI 配置的 ZIP，校验后恢复，替换前自动备份，失败回退；保留原生会话编号并拒绝旧版本覆盖。桌面版和源码版均已支持查看、更改用户数据路径及复制现有数据。
 
