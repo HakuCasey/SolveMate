@@ -40,6 +40,10 @@ let recovering = false;
 const desktopDirectory = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const canDownloadUpdate =
   app.isPackaged && process.platform === "darwin" && process.arch === "arm64";
+// 从旧安装包升级时，也要向本机服务重新请求入口页面。
+const revalidatePage = {
+  extraHeaders: "Cache-Control: no-cache\nPragma: no-cache",
+};
 
 function resourcesDirectory() {
   return app.isPackaged
@@ -231,7 +235,7 @@ async function recoverLocalService(detail = "本机服务意外停止。") {
   if (result.response === 0) {
     try {
       await startLocalService();
-      await mainWindow?.loadURL(serviceUrl());
+      await mainWindow?.loadURL(serviceUrl(), revalidatePage);
       recovering = false;
       return;
     } catch (error) {
@@ -310,7 +314,7 @@ async function createMainWindow() {
 async function openMainWindow() {
   const window = await createMainWindow();
   if (localService || (await startWithPrompt())) {
-    await window.loadURL(serviceUrl());
+    await window.loadURL(serviceUrl(), revalidatePage);
     return;
   }
   app.quit();

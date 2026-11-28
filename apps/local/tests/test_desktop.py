@@ -18,6 +18,12 @@ def test_desktop_service_serves_existing_web_and_protects_local_api(tmp_path):
         page = client.get("/")
         assert page.status_code == 200
         assert "SolveMate" in page.text
+        assert page.headers["cache-control"] == "no-store"
+        reloaded = client.get(
+            "/index.html", headers={"If-None-Match": page.headers["etag"]}
+        )
+        assert reloaded.status_code == 200
+        assert reloaded.headers["cache-control"] == "no-store"
         protected = client.get("/local-api/v1/settings")
         assert protected.status_code == 403
         assert protected.json()["code"] == "client_required"

@@ -8,7 +8,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from .acp import ConnectionError
@@ -47,6 +47,19 @@ from .user_data import UserData, UserDataError, migrate_uploads
 from .user_routes import router as user_router
 
 ROOT = Path(__file__).resolve().parents[4]
+
+
+class DesktopWebFiles(StaticFiles):
+    def file_response(self, full_path, stat_result, scope, status_code=200):
+        if Path(full_path).name == "index.html":
+            # 同一端口会服务不同安装版本，入口 HTML 必须来自当前安装包。
+            return FileResponse(
+                full_path,
+                stat_result=stat_result,
+                status_code=status_code,
+                headers={"Cache-Control": "no-store"},
+            )
+        return super().file_response(full_path, stat_result, scope, status_code)
 
 
 def create_app(
@@ -479,7 +492,7 @@ def create_app(
         # 安装版由本机服务提供现有网页，保证页面和接口使用同一来源。
         app.mount(
             "/",
-            StaticFiles(directory=Path(web_root), html=True, check_dir=True),
+            DesktopWebFiles(directory=Path(web_root), html=True, check_dir=True),
             name="web",
         )
     return app
