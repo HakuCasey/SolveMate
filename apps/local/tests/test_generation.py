@@ -22,12 +22,30 @@ def short_deadlines(monkeypatch):
     monkeypatch.setattr(generation, "GENERATION_STOP_TIMEOUT", 0.1)
 
 
+def control_loop_time(monkeypatch):
+    loop = asyncio.get_running_loop()
+    current = loop.time()
+    monkeypatch.setattr(loop, "time", lambda: current)
+
+    async def advance(seconds):
+        nonlocal current
+        current += seconds
+        # 让事件循环先处理更早到期的计时器，再发送下一段进展。
+        tick = loop.create_future()
+        loop.call_at(current, tick.set_result, None)
+        await tick
+
+    return advance
+
+
 @pytest.mark.parametrize("kind", ["text", "thinking", "tool", "turn", "received"])
-def test_actual_progress_can_continue_beyond_one_idle_period(kind):
+def test_actual_progress_can_continue_beyond_one_idle_period(kind, monkeypatch):
     async def exercise():
+        advance = control_loop_time(monkeypatch)
+
         async def prompt(*args, **kwargs):
             for _ in range(6):
-                await asyncio.sleep(0.04)
+                await advance(0.04)
                 execution.update({"sessionId": "original", "kind": kind, "text": "a"})
             return "completed"
 
@@ -134,35 +152,38 @@ def test_manual_stop_and_external_cancellation_keep_existing_behavior():
 def test_service_resets_on_updates_preserves_partial_reply_and_resumes_same_session(
     tmp_path, monkeypatch, progress_kind
 ):
-    class TimedAcp(FakeAcp):
-        mode = "progress"
-
-        async def call(self, method, params, timeout=40):
-            if method != "session/prompt":
-                return await super().call(method, params, timeout)
-            assert timeout is None  # 传输层不再提前截断有进展的整轮生成。
-            sid = params["sessionId"]
-            self.calls.append((method, params))
-            if self.mode == "progress":
-                for _ in range(6):
-                    await asyncio.sleep(0.04)
-                    if progress_kind == "text":
-                        self.emit(sid, "部分")
-                    else:
-                        self.on_update(
-                            {
-                                "sessionId": sid,
-                                "update": {"sessionUpdate": "agent_thought_chunk"},
-                            }
-                        )
-                self.emit(sid, "最终回答")
-                return {"stopReason": "end_turn"}
-            self.emit(sid, "保留这部分回答")
-            self.waiters[sid] = asyncio.Event()
-            await self.waiters[sid].wait()
-            return {"stopReason": "cancelled"}
-
     async def exercise():
+        advance = control_loop_time(monkeypatch)
+
+        class TimedAcp(FakeAcp):
+            mode = "progress"
+
+            async def call(self, method, params, timeout=40):
+                if method != "session/prompt":
+                    return await super().call(method, params, timeout)
+                assert timeout is None  # 传输层等待原生结束结果。
+                sid = params["sessionId"]
+                self.calls.append((method, params))
+                if self.mode == "progress":
+                    for _ in range(6):
+                        await advance(0.04)
+                        if progress_kind == "text":
+                            self.emit(sid, "部分")
+                        else:
+                            self.on_update(
+                                {
+                                    "sessionId": sid,
+                                    "update": {"sessionUpdate": "agent_thought_chunk"},
+                                }
+                            )
+                    self.emit(sid, "最终回答")
+                    return {"stopReason": "end_turn"}
+                self.emit(sid, "保留这部分回答")
+                self.waiters[sid] = asyncio.Event()
+                await advance(generation.GENERATION_IDLE_TIMEOUT * 2)
+                assert self.waiters[sid].is_set()
+                return {"stopReason": "cancelled"}
+
         monkeypatch.setenv("DSH_HOME", str(tmp_path / "harness"))
         TimedAcp.calls, TimedAcp.sessions = [], set()
         store = Store(tmp_path)
