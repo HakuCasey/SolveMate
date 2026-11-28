@@ -1,7 +1,48 @@
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  renameSync,
+  rmSync,
+} from "node:fs";
 import { homedir } from "node:os";
-import { join, posix, win32 } from "node:path";
+import { dirname, join, posix, win32 } from "node:path";
 
 export const DESKTOP_PORT = 43127;
+
+/** 将旧版存放在系统缓存目录中的记录迁出，替换目录前保留原件。 */
+export function prepareDesktopSession(sessionDirectory, legacyDirectory) {
+  if (existsSync(sessionDirectory)) return;
+  const parent = dirname(sessionDirectory);
+  mkdirSync(parent, { recursive: true });
+  const staged = mkdtempSync(join(parent, ".desktop-session-"));
+  try {
+    for (const name of [
+      "IndexedDB",
+      "Local Storage",
+      "Session Storage",
+      "WebStorage",
+    ]) {
+      const previous = join(legacyDirectory, name);
+      if (existsSync(previous)) {
+        cpSync(previous, join(staged, name), { recursive: true });
+      }
+    }
+    renameSync(staged, sessionDirectory);
+  } finally {
+    rmSync(staged, { recursive: true, force: true });
+  }
+}
+
+/** 关闭 HTTP 缓存后，Electron 不会主动移除旧的磁盘缓存。 */
+export function clearDesktopHttpCache(sessionDirectory) {
+  rmSync(join(sessionDirectory, "Cache"), {
+    recursive: true,
+    force: true,
+    maxRetries: 2,
+  });
+}
 
 function pathsFor(platform) {
   return platform === "win32" ? win32 : posix;

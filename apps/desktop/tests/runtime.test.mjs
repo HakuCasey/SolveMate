@@ -1,15 +1,77 @@
 import assert from "node:assert/strict";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 import test from "node:test";
-import { join } from "node:path";
 import {
   applicationDataDirectory,
   DESKTOP_PORT,
   belongsToService,
+  clearDesktopHttpCache,
   desktopEnvironment,
   localExecutable,
+  prepareDesktopSession,
   systemApplicationDirectory,
   waitForService,
 } from "../src/runtime.mjs";
+
+test("opens a new desktop session with the previous browser records but without cached responses", (t) => {
+  const root = mkdtempSync(join(tmpdir(), "solvemate-http-cache-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const session = join(root, "desktop-session");
+  const legacy = join(root, "system-cache", "SolveMate");
+  const response = join(legacy, "Cache", "old-index");
+  const database = join(root, "data", "app.sqlite3");
+  const retained = [
+    join("Local Storage", "prefs"),
+    join("IndexedDB", "pending"),
+  ];
+  for (const file of [
+    response,
+    database,
+    ...retained.map((file) => join(legacy, file)),
+  ]) {
+    mkdirSync(dirname(file), { recursive: true });
+    writeFileSync(file, "test fixture");
+  }
+
+  prepareDesktopSession(session, legacy);
+  clearDesktopHttpCache(legacy);
+  clearDesktopHttpCache(legacy);
+
+  assert.equal(existsSync(response), false);
+  assert.equal(existsSync(join(session, "Cache")), false);
+  for (const file of retained) {
+    assert.equal(readFileSync(join(session, file), "utf8"), "test fixture");
+    assert.equal(readFileSync(join(legacy, file), "utf8"), "test fixture");
+  }
+  assert.equal(readFileSync(database, "utf8"), "test fixture");
+
+  const pending = join(session, "IndexedDB", "pending");
+  writeFileSync(pending, "new pending change");
+  prepareDesktopSession(session, legacy);
+  assert.equal(readFileSync(pending, "utf8"), "new pending change");
+});
+
+test("creates the session directory on a clean installation", (t) => {
+  const root = mkdtempSync(join(tmpdir(), "solvemate-desktop-session-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const session = join(root, "SolveMate", "desktop-session");
+  const legacy = join(root, "system-cache", "SolveMate");
+
+  prepareDesktopSession(session, legacy);
+  clearDesktopHttpCache(legacy);
+
+  assert(existsSync(session));
+  assert.equal(existsSync(legacy), false);
+});
 
 test("accepts navigation only from the exact local service origin", () => {
   const service = `http://127.0.0.1:${DESKTOP_PORT}`;

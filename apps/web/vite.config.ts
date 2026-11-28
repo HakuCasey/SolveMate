@@ -110,6 +110,7 @@ export default defineConfig({
   ],
   build: {
     outDir: process.env.SOLVEMATE_WEB_OUT_DIR ?? "dist",
+    emptyOutDir: process.env.VITE_DESKTOP === "1" ? true : undefined,
     rolldownOptions: {
       output: {
         codeSplitting: {

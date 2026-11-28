@@ -4,7 +4,15 @@ import { createInterface } from "node:readline";
 import { createServer } from "node:net";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { app, BrowserWindow, dialog, ipcMain, screen, shell } from "electron";
+import {
+  app,
+  BrowserWindow,
+  dialog,
+  ipcMain,
+  screen,
+  session,
+  shell,
+} from "electron";
 import { macAppUpdate } from "./app-update.mjs";
 import {
   initialWindowBounds,
@@ -14,21 +22,24 @@ import {
 import {
   DESKTOP_PORT,
   belongsToService,
+  clearDesktopHttpCache,
   desktopEnvironment,
   localExecutable,
+  prepareDesktopSession,
   waitForService,
 } from "./runtime.mjs";
 
 app.setName("SolveMate");
-// 网页缓存和用户数据分开：缓存放本机临时目录（更新/排错可直接清），
-// 数据放漫游目录（升级、卸载默认保留）。
+// 安装包提供网页和资源，桌面版每次启动直接读取当前安装包。
+app.commandLine.appendSwitch("disable-http-cache");
 const cacheRoot =
   process.platform === "win32"
     ? process.env.LOCALAPPDATA || app.getPath("userData")
     : process.platform === "darwin"
       ? join(app.getPath("home"), "Library", "Caches")
       : app.getPath("temp");
-app.setPath("sessionData", join(cacheRoot, "SolveMate"));
+const cacheDirectory = join(cacheRoot, "SolveMate");
+const sessionDirectory = join(app.getPath("userData"), "desktop-session");
 console.info("Desktop main process loaded.");
 
 const hasLock = app.requestSingleInstanceLock();
@@ -40,10 +51,6 @@ let recovering = false;
 const desktopDirectory = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const canDownloadUpdate =
   app.isPackaged && process.platform === "darwin" && process.arch === "arm64";
-// 从旧安装包升级时，也要向本机服务重新请求入口页面。
-const revalidatePage = {
-  extraHeaders: "Cache-Control: no-cache\nPragma: no-cache",
-};
 
 function resourcesDirectory() {
   return app.isPackaged
@@ -235,7 +242,7 @@ async function recoverLocalService(detail = "本机服务意外停止。") {
   if (result.response === 0) {
     try {
       await startLocalService();
-      await mainWindow?.loadURL(serviceUrl(), revalidatePage);
+      await mainWindow?.loadURL(serviceUrl());
       recovering = false;
       return;
     } catch (error) {
@@ -314,7 +321,7 @@ async function createMainWindow() {
 async function openMainWindow() {
   const window = await createMainWindow();
   if (localService || (await startWithPrompt())) {
-    await window.loadURL(serviceUrl(), revalidatePage);
+    await window.loadURL(serviceUrl());
     return;
   }
   app.quit();
@@ -344,12 +351,29 @@ app.on("before-quit", () => {
 if (!hasLock) {
   app.quit();
 } else {
+  let activeSessionDirectory = sessionDirectory;
+  try {
+    prepareDesktopSession(sessionDirectory, cacheDirectory);
+  } catch (error) {
+    // 迁移未完成时继续读取原记录，下次启动可重试。
+    console.warn("Failed to move desktop session data.", error);
+    activeSessionDirectory = cacheDirectory;
+  }
+  app.setPath("sessionData", activeSessionDirectory);
+  try {
+    clearDesktopHttpCache(cacheDirectory);
+  } catch (error) {
+    console.warn("Failed to remove the previous desktop HTTP cache.", error);
+  }
   // Electron 会在主模块加载完成后进入 ready。这里注册回调，不能在模块顶层等待，
   // 否则主模块和 ready 事件会互相等待，应用只能停留在启动状态。
   void app
     .whenReady()
     .then(() => {
       console.info("Desktop application is ready.");
+      session.defaultSession.setCodeCachePath(
+        join(cacheDirectory, "Code Cache"),
+      );
       if (canDownloadUpdate) registerMacUpdate();
       return openMainWindow();
     })
