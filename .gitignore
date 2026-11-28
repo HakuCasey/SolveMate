@@ -21,6 +21,7 @@ apps/desktop/resources/
 apps/desktop/runtime/
 apps/desktop/.web/
 apps/desktop/*.spec
+apps/download-stats/.wrangler/
 
 # 私有 AI 协作文件保存在仓库外的工作区。
 /.codex/

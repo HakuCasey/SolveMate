@@ -6,6 +6,27 @@
 
 架构图在 `assets/architecture.drawio` 中保留宽屏和窄屏两页，修改图源后同步导出 `architecture.svg` 和 `architecture-mobile.svg`。
 
+## 安装包版本
+
+官网的 Mac 和 Windows 下载按钮目前都指向 `v0.0.1`。需要更换官网安装包时，确认对应的 GitHub Release 安装包可下载，手动修改 [`website-downloads.json`](website-downloads.json) 中的平台版本，再部署官网。官网仍在提供的安装包须保留在 GitHub Releases。
+
+应用内「检查更新」读取 GitHub Pages 上的 [`downloads.json`](downloads.json)。发布新安装包并确认可下载后，只更新这个文件中的对应平台版本，已安装用户即可在应用内检查并下载新版。
+
+## 下载统计
+
+Cloudflare D1 按版本、平台和入口保存累计次数。`website` 记录官网安装包按钮的点击，`app-update` 记录应用内发起的下载。在 Cloudflare 控制台打开 D1 数据库并查询 `download_counts` 即可查看，计数表只有版本、平台、入口和次数。安装包继续从 GitHub Releases 下载。
+
+首次启用时，在 `apps/download-stats` 中运行以下命令。D1 创建命令会把数据库绑定加入 `wrangler.toml`。
+
+```sh
+npx wrangler login
+npx wrangler d1 create solvemate-download-stats --binding DOWNLOADS --update-config
+npx wrangler d1 migrations apply solvemate-download-stats --remote
+npx wrangler deploy
+```
+
+在 GitHub 仓库的「Settings → Secrets and variables → Actions → Variables」中设置 `SOLVEMATE_DOWNLOAD_STATS_URL`，值为 Worker 的 HTTPS 地址加 `/download`，再运行 `Publish website`。计数从启用后开始，应用内统计要求客户端安装了支持上报的版本。GitHub Releases 里的安装包总下载量可另行查看。
+
 ## 本地预览
 
 从仓库根目录运行：

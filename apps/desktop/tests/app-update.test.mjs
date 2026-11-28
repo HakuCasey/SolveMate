@@ -105,6 +105,43 @@ test("a check for the current release does not offer a download", async () => {
   assert.equal((await update("download")).status, "current");
 });
 
+test("reports an app download once and downloads even when statistics are unavailable", async () => {
+  const events = [];
+  const update = desktopAppUpdate({
+    target: windows,
+    version: "0.0.1",
+    request: async (url, options) => {
+      if (options.method === "POST") {
+        events.push(Object.fromEntries(new URL(url).searchParams));
+        throw new Error("Statistics service offline");
+      }
+      if (options.method === "HEAD") return new Response(null);
+      return Response.json({
+        [windows]: "0.0.2",
+        statisticsUrl: "https://stats.example.test/download",
+      });
+    },
+    publishState: () => {},
+    downloadInstaller: async (url) => {
+      assert.equal(
+        url,
+        `${releases}/download/v0.0.2/SolveMate-0.0.2-x64-Setup.exe`,
+      );
+      return {
+        status: "completed",
+        path: "/downloads/SolveMate-0.0.2-x64-Setup.exe",
+      };
+    },
+  });
+  assert.equal((await update("check")).status, "available");
+  assert.deepEqual(events, []);
+  assert.equal((await update("download")).status, "downloaded");
+  await update("download");
+  assert.deepEqual(events, [
+    { version: "0.0.2", target: "win32-x64", source: "app-update" },
+  ]);
+});
+
 test("reports real download progress when the installer size is known", async () => {
   const progress = [];
   let onProgress;

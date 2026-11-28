@@ -1,6 +1,10 @@
 import { stat } from "node:fs/promises";
 import { parse } from "node:path";
 import { desktopInstaller } from "./installers.mjs";
+import {
+  downloadStatisticsEndpoint,
+  recordInstallerDownload,
+} from "./download-statistics.mjs";
 
 const downloadsURL = "https://hakucasey.github.io/SolveMate/downloads.json";
 
@@ -26,7 +30,8 @@ export async function newerDesktopInstaller(
     return null;
   const asset = await request(installer.url, { method: "HEAD", signal });
   if (!asset.ok) throw new Error("The listed installer is not available.");
-  return installer;
+  const statisticsUrl = downloadStatisticsEndpoint(versions?.statisticsUrl);
+  return statisticsUrl ? { ...installer, statisticsUrl } : installer;
 }
 
 export function desktopAppUpdate({
@@ -94,6 +99,11 @@ export function desktopAppUpdate({
     const controller = new AbortController();
     activeDownload = controller;
     publish("downloading");
+    void recordInstallerDownload(
+      installer.statisticsUrl,
+      { version: installer.version, target, source: "app-update" },
+      request,
+    );
     try {
       const { status, path } = await downloadInstaller(
         installer.url,

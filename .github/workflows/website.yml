@@ -7,6 +7,7 @@ on:
       - .github/workflows/website.yml
       - docs/website/**
       - scripts/build-website.mjs
+      - apps/desktop/src/download-statistics.mjs
       - apps/desktop/src/installers.mjs
       - data/**
       - apps/server/src/**
@@ -43,6 +44,8 @@ jobs:
       - uses: actions/configure-pages@v5
         id: pages
       - run: node scripts/build-website.mjs
+        env:
+          SOLVEMATE_DOWNLOAD_STATS_URL: ${{ vars.SOLVEMATE_DOWNLOAD_STATS_URL }}
       - name: Publish community content
         env:
           PAGES_URL: ${{ steps.pages.outputs.base_url }}

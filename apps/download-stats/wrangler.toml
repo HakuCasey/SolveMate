@@ -1,0 +1,4 @@
+name = "solvemate-download-stats"
+main = "worker.mjs"
+compatibility_date = "2025-05-05"
+workers_dev = true
