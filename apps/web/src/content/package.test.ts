@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { packageFixture } from "./fixtures.test-support";
 import { readPackage } from "./package";
-import { parseCatalog, parseManifest, parseUpdate } from "./contracts";
+import { courseUpdate, parseCatalog, parseManifest } from "./contracts";
 import { createInitialData, getCurrentContent } from "../data/catalog";
 import { sameContent } from "../state/conversations";
 import { updatedSelection } from "./selection";
@@ -106,44 +106,37 @@ describe("official course package validation", () => {
       parseManifest({ ...manifest, size_bytes: 20 * 1024 * 1024 }),
     ).toThrow();
   });
-  it("validates catalog identities and refuses inconsistent update decisions", async () => {
+  it("validates catalog identities and only updates published historical versions", async () => {
     const { manifest } = await packageFixture();
+    const previous = "0".repeat(64);
     const remote = {
-      ...manifest.course,
+      course: manifest.course,
       latest_version: manifest.version,
-      manifest_url: manifest.download_url.replace(/\/download$/, ""),
-      download_url: manifest.download_url,
+      versions: [previous, manifest.version],
     };
-    expect(parseCatalog({ schema_version: 1, courses: [remote] })).toHaveLength(
-      1,
-    );
+    const [course] = parseCatalog({ schema_version: 1, courses: [remote] });
     expect(() =>
       parseCatalog({ schema_version: 1, courses: [remote, remote] }),
     ).toThrow();
-    const unknown = {
-      course_id: "calculus",
-      current_version: "other",
+    expect(() =>
+      parseCatalog({
+        schema_version: 1,
+        courses: [{ ...remote, versions: [previous] }],
+      }),
+    ).toThrow();
+    expect(courseUpdate(course, null, manifest).status).toBe("not_installed");
+    expect(courseUpdate(course, manifest.version, manifest).status).toBe(
+      "up_to_date",
+    );
+    expect(courseUpdate(course, previous, manifest).status).toBe(
+      "update_available",
+    );
+    expect(courseUpdate(course, "other", manifest)).toMatchObject({
       status: "unknown_version",
       update_available: false,
-      latest: manifest,
-    };
-    expect(parseUpdate(unknown, "calculus", "other").status).toBe(
-      "unknown_version",
-    );
+    });
     expect(() =>
-      parseUpdate({ ...unknown, update_available: true }, "calculus", "other"),
-    ).toThrow();
-    expect(() =>
-      parseUpdate(
-        {
-          ...unknown,
-          current_version: manifest.version,
-          status: "update_available",
-          update_available: true,
-        },
-        "calculus",
-        manifest.version,
-      ),
+      courseUpdate(course, null, { ...manifest, version: previous }),
     ).toThrow();
   });
   it("rejects unspecified versions and keeps explicit selections valid when a newer course changes IDs", async () => {

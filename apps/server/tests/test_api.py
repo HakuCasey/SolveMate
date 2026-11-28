@@ -237,3 +237,23 @@ def test_missing_publication_fails_startup(tmp_path):
         TestClient(create_app(settings)),
     ):
         pass
+
+
+def test_publication_paths_match_static_files(
+    client: TestClient, content_settings: Settings
+):
+    catalog = client.get("/api/v1/catalog.json")
+    assert (
+        catalog.content == (content_settings.content_dir / "catalog.json").read_bytes()
+    )
+    course = catalog.json()["courses"][0]
+    release = f"courses/{course['course']['id']}/{course['latest_version']}"
+    tool = catalog.json()["tools"][0]
+    for path in (
+        f"{release}/manifest.json",
+        f"{release}/content.zip",
+        f"tools/{tool['id']}/{tool['latest_version']}.json",
+    ):
+        response = client.get(f"/api/v1/{path}")
+        assert response.status_code == 200
+        assert response.content == (content_settings.content_dir / path).read_bytes()

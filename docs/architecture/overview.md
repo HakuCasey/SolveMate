@@ -73,7 +73,7 @@ ID 用于识别对象，名称用于展示，来源记录内容从哪里取得�
 | 首版运行方式     | Web / PWA / Electron 桌面应用      | Web/PWA 与桌面应用复用同一界面和本机接口；桌面安装包包含本机运行环境，正式签名和 Windows 实机验收待完成。   |
 | 本地存储         | 本机 SQLite 与文件；浏览器使用缓存 | 当前保存会话、机器人配置、设置、阅读选择、笔记本、笔记与标签，以及下载课程。                                 |
 | AI 接入          | 独立本机服务，Python + FastAPI     | 通过 DSH 原生 Host 接收正文增量，处理模型选项、停止、权限与原编号恢复；其他 API 和 harness 分别适配。   |
-| 社区内容服务     | Python + FastAPI                   | 便于现有维护者开发内容服务和数据工具。实现可随需要调整，客户端依赖明确的数据格式和接口。                     |
+| 社区内容服务     | GitHub Pages、Python + FastAPI     | 统一生成目录和固定版本文件。GitHub Pages 公开分发，FastAPI 供源码启动使用。                                   |
 
 界面配套方案沿用 Radix Primitives 与 CSS Modules，学习资料使用 PDF.js，题目与笔记使用 Markdown 与 KaTeX；PWA 缓存使用 vite-plugin-pwa / Workbox。版本由 npm 锁文件确定，测试使用 Vitest，检查使用 TypeScript、ESLint 和 Prettier。
 
@@ -102,7 +102,7 @@ Windows、macOS 的系统差异由本机底层代码处理，前端和会话业�
 
 GitHub Actions 在 macOS 和 Windows 分别运行检查、测试和构建。2026-11-12 的提交 `025729a` 已通过双平台完整检查；第三方软件的实际安装、账号调用和桌面交互仍需实机验收。
 
-当前本机 AI 连接位于 `apps/local/`，使用 Python + FastAPI。源码启动时，`npm start` 统一管理网页和两个 Python 服务；桌面应用启动打包后的本机服务，社区内容服务仍独立部署。
+当前本机 AI 连接位于 `apps/local/`，使用 Python + FastAPI。源码启动时，`npm start` 统一管理网页和两个 Python 服务。桌面应用启动打包后的本机服务，默认从官网的 GitHub Pages 地址获取社区内容。
 
 ## 本地数据与离线行为
 

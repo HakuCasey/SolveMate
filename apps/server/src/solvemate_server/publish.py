@@ -10,7 +10,9 @@ import re
 import tempfile
 import zipfile
 from pathlib import Path, PurePosixPath
+from urllib.error import HTTPError
 from urllib.parse import urlsplit
+from urllib.request import Request, urlopen
 
 from pydantic import ValidationError
 
@@ -167,6 +169,46 @@ def atomic_write(path: Path, payload: bytes) -> None:
             temporary.unlink(missing_ok=True)
 
 
+def restore_publication(base_url: str, content_dir: Path) -> None:
+    """从上一份 Pages 产物恢复版本历史，交给同一个发布器校验和更新。"""
+    if content_dir.exists():
+        raise ValueError("The Pages output directory must not already exist.")
+
+    def fetch(path: str) -> bytes:
+        request = Request(
+            f"{base_url.rstrip('/')}/{path}", headers={"Cache-Control": "no-cache"}
+        )
+        with urlopen(request, timeout=30) as response:
+            return response.read()
+
+    try:
+        payload = fetch("catalog.json")
+    except HTTPError as error:
+        if error.code != 404:
+            raise
+        return
+    catalog = PublishedCatalog.model_validate_json(payload)
+    content_dir.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(dir=content_dir.parent) as temporary:
+        staging = Path(temporary)
+        for course in catalog.courses:
+            for version in course.versions:
+                release = f"courses/{course.course.id}/{version}"
+                destination = staging / release
+                destination.mkdir(parents=True)
+                for name in ("manifest.json", "content.zip"):
+                    (destination / name).write_bytes(fetch(f"{release}/{name}"))
+        for tool in catalog.tools:
+            for version in tool.versions:
+                path = f"tools/{tool.id}/{version}.json"
+                destination = staging / path
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                destination.write_bytes(fetch(path))
+        (staging / "catalog.json").write_bytes(payload)
+        ContentRepository(staging).validate()
+        staging.rename(content_dir)
+
+
 def publish(data_dir: Path, content_dir: Path) -> PublishedCatalog:
     try:
         definition = SourceCatalog.model_validate_json(
@@ -277,8 +319,11 @@ def main() -> None:
     )
     parser.add_argument("--data-dir", type=Path, default=settings.data_dir)
     parser.add_argument("--content-dir", type=Path, default=settings.content_dir)
+    parser.add_argument("--previous-url", help="Restore the last public release first.")
     arguments = parser.parse_args()
     try:
+        if arguments.previous_url:
+            restore_publication(arguments.previous_url, arguments.content_dir)
         publish(arguments.data_dir, arguments.content_dir)
     except (OSError, ValueError, RuntimeError, RepositoryError) as error:
         logger.error("Content publication failed: %s", error)

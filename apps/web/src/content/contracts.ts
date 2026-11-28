@@ -7,8 +7,7 @@ export interface CourseInfo {
 }
 export interface RemoteCourse extends CourseInfo {
   latest_version: string;
-  manifest_url: string;
-  download_url: string;
+  versions: string[];
 }
 export type ContentKind =
   | "textbook"
@@ -175,49 +174,42 @@ export function parseCatalog(value: unknown): RemoteCourse[] {
     throw new ContentError("暂不支持这个内容目录版本。");
   const courses = items(data.courses).map((value): RemoteCourse => {
     const data = record(value),
-      course = info(data),
-      version = digest(data.latest_version);
-    const manifest_url = text(data.manifest_url),
-      download_url = text(data.download_url);
-    if (
-      manifest_url !== `/api/v1/courses/${course.id}/versions/${version}` ||
-      download_url !== `${manifest_url}/download`
-    )
-      throw new ContentError("课程版本地址不正确。");
-    return { ...course, latest_version: version, manifest_url, download_url };
+      course = info(data.course),
+      latest_version = digest(data.latest_version),
+      versions = items(data.versions).map(digest);
+    unique(versions);
+    if (!versions.includes(latest_version))
+      throw new ContentError("目录缺少课程的最新版本。");
+    return { ...course, latest_version, versions };
   });
   unique(courses.map((course) => course.id));
   return courses;
 }
-export function parseUpdate(
-  value: unknown,
-  courseId: string,
+export function courseUpdate(
+  course: RemoteCourse,
   currentVersion: string | null,
+  latest: ReleaseManifest,
 ): UpdateResponse {
-  const data = record(value),
-    latest = parseManifest(data.latest);
-  const status = data.status;
   if (
-    data.course_id !== courseId ||
-    latest.course.id !== courseId ||
-    data.current_version !== currentVersion ||
-    (status !== "not_installed" &&
-      status !== "up_to_date" &&
-      status !== "update_available" &&
-      status !== "unknown_version") ||
-    data.update_available !==
-      (status === "not_installed" || status === "update_available") ||
-    (status === "up_to_date" && currentVersion !== latest.version) ||
-    ((status === "update_available" || status === "unknown_version") &&
-      (!currentVersion || currentVersion === latest.version)) ||
-    (status === "not_installed" && currentVersion !== null)
+    latest.version !== course.latest_version ||
+    latest.course.id !== course.id ||
+    latest.course.title !== course.title ||
+    latest.course.description !== course.description ||
+    latest.course.release !== course.release
   )
     throw new ContentError("版本查询结果不一致。");
+  // 哈希无法排序，只有出现在目录里的历史版本才能更新。
+  let status: UpdateResponse["status"] = "unknown_version";
+  if (currentVersion === null) status = "not_installed";
+  else if (currentVersion === latest.version) status = "up_to_date";
+  else if (course.versions.includes(currentVersion))
+    status = "update_available";
   return {
-    course_id: courseId,
+    course_id: course.id,
     current_version: currentVersion,
     status,
-    update_available: data.update_available,
+    update_available:
+      status === "not_installed" || status === "update_available",
     latest,
   };
 }

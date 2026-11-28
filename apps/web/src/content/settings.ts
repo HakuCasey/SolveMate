@@ -1,8 +1,11 @@
 import { useSyncExternalStore } from "react";
 
-/** 网页和桌面版共用完整的社区内容服务地址。正式发布时由构建环境写入。 */
+/** 桌面安装包默认读取公开目录，源码启动仍可使用本地发布目录。 */
 export const DEFAULT_CONTENT_SERVICE_URL =
-  import.meta.env.VITE_CONTENT_API_URL || "http://127.0.0.1:8000/api/v1";
+  import.meta.env.VITE_CONTENT_API_URL ||
+  (import.meta.env.VITE_DESKTOP === "1"
+    ? "https://hakucasey.github.io/SolveMate/community"
+    : "http://127.0.0.1:8000/api/v1");
 
 function trimTrailingSlashes(value: string) {
   return value.replace(/\/+$/, "");

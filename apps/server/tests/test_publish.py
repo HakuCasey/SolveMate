@@ -1,11 +1,15 @@
 import json
+from functools import partial
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from threading import Thread
+from urllib.error import HTTPError
 
 import pytest
 
 from solvemate_server.config import Settings
-from solvemate_server.publish import publish
-from solvemate_server.repository import ContentRepository
+from solvemate_server.publish import publish, restore_publication
+from solvemate_server.repository import ContentRepository, RepositoryError
 
 
 def test_republish_is_deterministic_and_does_not_create_duplicate_versions(
@@ -19,6 +23,59 @@ def test_republish_is_deterministic_and_does_not_create_duplicate_versions(
         len(course.versions) == 1
         for course in ContentRepository(root).validate().courses
     )
+
+
+def test_pages_publication_restores_and_validates_history(
+    content_settings: Settings, tmp_path: Path
+):
+    source = content_settings.content_dir
+    handler = partial(SimpleHTTPRequestHandler, directory=str(tmp_path))
+    with ThreadingHTTPServer(("127.0.0.1", 0), handler) as server:
+        thread = Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            base = f"http://127.0.0.1:{server.server_port}"
+            target = tmp_path / "next"
+            restore_publication(f"{base}/first", target)
+            assert not target.exists()
+            restore_publication(f"{base}/{source.name}", target)
+
+            old = ContentRepository(source).catalog().courses[0]
+            definition_path = content_settings.data_dir / "catalog.json"
+            definition = json.loads(definition_path.read_bytes())
+            definition["courses"][0]["description"] += " 新说明。"
+            definition_path.write_text(json.dumps(definition), encoding="utf-8")
+            updated = publish(content_settings.data_dir, target).courses[0]
+            assert updated.latest_version != old.latest_version
+            assert old.latest_version in updated.versions
+            _, archive = ContentRepository(target).release(updated, old.latest_version)
+            assert (
+                archive.read_bytes()
+                == (
+                    source
+                    / "courses"
+                    / old.course.id
+                    / old.latest_version
+                    / "content.zip"
+                ).read_bytes()
+            )
+            assert ContentRepository(target).validate().tools
+
+            broken = (
+                source / "courses" / old.course.id / old.latest_version / "content.zip"
+            )
+            broken.write_bytes(b"corrupted")
+            rejected = tmp_path / "rejected"
+            with pytest.raises(RepositoryError):
+                restore_publication(f"{base}/{source.name}", rejected)
+            assert not rejected.exists()
+            broken.unlink()
+            with pytest.raises(HTTPError):
+                restore_publication(f"{base}/{source.name}", rejected)
+            assert not rejected.exists()
+        finally:
+            server.shutdown()
+            thread.join()
 
 
 @pytest.mark.parametrize(

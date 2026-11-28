@@ -112,6 +112,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         repository.validate()
         return {"status": "ok"}
 
+    @app.get("/api/v1/catalog.json", include_in_schema=False)
+    def published_catalog(request: Request):
+        return cached_json(request, repository.catalog())
+
     @app.get("/api/v1/courses", response_model=CatalogResponse)
     def courses(request: Request):
         catalog = repository.catalog()
@@ -176,6 +180,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         )
 
     @app.get(
+        "/api/v1/courses/{course_id}/{version}/manifest.json",
+        include_in_schema=False,
+    )
+    @app.get(
         "/api/v1/courses/{course_id}/versions/{version}", response_model=ReleaseManifest
     )
     def manifest(course_id: CoursePath, version: VersionPath, request: Request):
@@ -185,6 +193,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         )
         return cached_json(request, release, immutable=version != "latest")
 
+    @app.get(
+        "/api/v1/courses/{course_id}/{version}/content.zip",
+        include_in_schema=False,
+    )
     @app.head(
         "/api/v1/courses/{course_id}/versions/{version}/download",
         include_in_schema=False,
@@ -229,6 +241,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             request, {"tools": repository.catalog().model_dump()["tools"]}
         )
 
+    @app.get("/api/v1/tools/{tool_id}/{version}.json", include_in_schema=False)
     @app.get("/api/v1/tools/{tool_id}/versions/{version}/download")
     def download_tool(tool_id: CoursePath, version: VersionPath, request: Request):
         if version == "latest":

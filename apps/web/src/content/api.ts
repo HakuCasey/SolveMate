@@ -3,9 +3,11 @@ import { DEFAULT_CONTENT_SERVICE_URL } from "./settings";
 import {
   ContentError,
   MAX_PACKAGE_BYTES,
+  courseUpdate,
   parseCatalog,
-  parseUpdate,
+  parseManifest,
   type ReleaseManifest,
+  type RemoteCourse,
 } from "./contracts";
 
 /** 请求仅发送公开课程编号与版本，不携带浏览器凭据或学习记录。 */
@@ -82,35 +84,31 @@ export class ContentApi {
     );
   }
   async tools(signal?: AbortSignal) {
-    return parseTools(await this.json("/tools", signal));
+    return parseTools(await this.json("/catalog.json", signal));
   }
   async downloadTool(entry: RemoteTool, signal?: AbortSignal) {
     const bytes = await this.bytes(
-      `/tools/${encodeURIComponent(entry.id)}/versions/${entry.latest_version}/download`,
+      `/tools/${encodeURIComponent(entry.id)}/${entry.latest_version}.json`,
       256 * 1024,
       signal,
     );
     return decodeTool(bytes, entry);
   }
   async catalog(signal?: AbortSignal) {
-    return parseCatalog(await this.json("/courses", signal));
+    return parseCatalog(await this.json("/catalog.json", signal));
   }
   async update(
-    courseId: string,
+    course: RemoteCourse,
     currentVersion: string | null,
     signal?: AbortSignal,
   ) {
-    const query = currentVersion
-      ? `?current_version=${encodeURIComponent(currentVersion)}`
-      : "";
-    return parseUpdate(
+    const manifest = parseManifest(
       await this.json(
-        `/courses/${encodeURIComponent(courseId)}/updates${query}`,
+        `/courses/${encodeURIComponent(course.id)}/${course.latest_version}/manifest.json`,
         signal,
       ),
-      courseId,
-      currentVersion,
     );
+    return courseUpdate(course, currentVersion, manifest);
   }
   async download(
     manifest: ReleaseManifest,
@@ -118,7 +116,7 @@ export class ContentApi {
     progress?: (received: number) => void,
   ) {
     const bytes = await this.bytes(
-      `/courses/${encodeURIComponent(manifest.course.id)}/versions/${manifest.version}/download`,
+      `/courses/${encodeURIComponent(manifest.course.id)}/${manifest.version}/content.zip`,
       Math.min(manifest.size_bytes, MAX_PACKAGE_BYTES),
       signal,
       progress,

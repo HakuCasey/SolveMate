@@ -43,7 +43,7 @@
 
 ### 数据管理
 
-- [ ] **完成桌面安装包发布与验收。** [v0.0.1](https://github.com/HakuCasey/SolveMate/releases/tag/v0.0.1) 已提供 Apple 芯片版 macOS 安装包。后续完成干净系统安装与卸载验收、Windows Setup.exe 构建、正式签名、公证和应用内更新。社区内容正式服务地址确定后写入发布构建。见 [020](docs/features/020-desktop-application/spec.md)。
+- [ ] **完成桌面安装包发布与验收。** [v0.0.1](https://github.com/HakuCasey/SolveMate/releases/tag/v0.0.1) 已提供 macOS 和 Windows 安装包。后续完成干净系统安装与卸载验收、正式签名、公证和应用内更新。后续桌面构建默认读取 GitHub Pages 的社区内容。见 [020](docs/features/020-desktop-application/spec.md)。
 
 - [x] **备份与恢复完整本地数据。** [018](docs/features/018-data-backup/spec.md)导出资料、记录与 AI 配置的 ZIP，校验后恢复，替换前自动备份，失败回退；保留原生会话编号并拒绝旧版本覆盖。桌面版和源码版均已支持查看、更改用户数据路径及复制现有数据。
 
@@ -198,7 +198,7 @@
 
 本地主题导入及其保存和兼容规则保留为后续候选，当前设计见 [009](docs/features/009-theme-configuration/design.md)。
 
-项目支持方面的候选包括持续集成结果跟进、社区内容服务正式地址与部署方式、发布目录备份，以及更多浏览器和安装环境的兼容性验证。
+项目支持方面的候选包括持续集成结果跟进、发布目录备份，以及更多浏览器和安装环境的兼容性验证。
 
 ### 发版前需要确定的事项
 

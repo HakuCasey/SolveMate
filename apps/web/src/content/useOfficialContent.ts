@@ -134,7 +134,7 @@ export function useOfficialContent() {
         const catalog = await api.catalog();
         const results = await Promise.all(
           catalog.map((course) =>
-            api.update(course.id, storedVersion(local, course.id)),
+            api.update(course, storedVersion(local, course.id)),
           ),
         );
         if (request !== contentGeneration.current || downloading.current)
@@ -202,15 +202,21 @@ export function useOfficialContent() {
       };
       report("downloading");
       try {
-        const update = repair
-          ? {
-              latest: repair.manifest,
-              status: "up_to_date" as const,
-              course_id: courseId,
-              current_version: previousVersion,
-              update_available: false,
-            }
-          : await api.update(courseId, previousVersion, controller.signal);
+        let update: UpdateResponse;
+        if (repair) {
+          update = {
+            latest: repair.manifest,
+            status: "up_to_date",
+            course_id: courseId,
+            current_version: previousVersion,
+            update_available: false,
+          };
+        } else {
+          const catalog = await api.catalog(controller.signal);
+          const course = catalog.find((entry) => entry.id === courseId);
+          if (!course) throw new ContentError("社区目录中没有这门课程。");
+          update = await api.update(course, previousVersion, controller.signal);
+        }
         if (update.status === "unknown_version")
           throw new ContentError("社区服务无法确认本地版本，已保留当前内容。");
         if (
