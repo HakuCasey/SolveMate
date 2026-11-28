@@ -275,14 +275,9 @@ section[id],
   font-family: inherit;
 }
 
-.download-note {
+.download-source {
   margin-top: 0.6rem;
-  color: var(--muted);
   font-size: 0.875rem;
-}
-
-.download-note a {
-  margin-inline-start: 0.35rem;
 }
 
 .hero-product {
