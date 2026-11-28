@@ -3,6 +3,7 @@ import { useAppUpdate } from "../pwa/useAppUpdate";
 import { useSaveFeedback } from "./SaveFeedback";
 import { StatusPopover } from "../status/StatusPopover";
 import { applicationStatus } from "../status/state";
+import { appVersion } from "../version";
 import styles from "../status/StatusBar.module.css";
 export function PwaControls({
   prepareReload,
@@ -68,6 +69,7 @@ export function PwaControls({
       tone={tone}
       busy={view.busy}
     >
+      <p className={styles.appVersion}>当前版本 v{appVersion}</p>
       {(state.error || (ready && saveFailure)) && (
         <div className={`${styles.alert} ${styles.error}`} role="alert">
           {saveFailure || state.error}
