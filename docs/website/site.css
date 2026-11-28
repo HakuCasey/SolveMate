@@ -290,26 +290,6 @@ section[id],
   font-size: 0.875rem;
 }
 
-.hero-scenarios {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1.25rem clamp(1.25rem, 4vw, 3.75rem);
-  margin-block: 6.5rem 0;
-  padding: 1.15rem 0 0;
-  border-top: 1px solid var(--line);
-  color: var(--muted);
-  list-style: none;
-}
-
-.hero-scenarios strong {
-  display: block;
-  margin-bottom: 0.35rem;
-  color: var(--ink);
-  font-family: var(--serif);
-  font-size: 1.22rem;
-  line-height: 1.35;
-}
-
 .section {
   padding-block: clamp(3.5rem, 8vw, 6.75rem);
 }
@@ -481,7 +461,6 @@ code {
   }
 
   .hero-inner,
-  .hero-scenarios,
   .feature-panel,
   .architecture-layout,
   .start-steps {
@@ -498,10 +477,6 @@ code {
     height: 15.5rem;
     background-size: 33rem auto;
     opacity: 0.68;
-  }
-
-  .hero-scenarios {
-    margin-block-start: 2.8rem;
   }
 
   .hero-copy {
