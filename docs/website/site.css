@@ -268,6 +268,23 @@ section[id],
   background: var(--paper-shadow);
 }
 
+.button:disabled {
+  border-color: var(--line);
+  background: var(--paper-shadow);
+  color: var(--muted);
+  font-family: inherit;
+}
+
+.download-note {
+  margin-top: 0.6rem;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.download-note a {
+  margin-inline-start: 0.35rem;
+}
+
 .hero-product {
   min-width: 0;
 }
