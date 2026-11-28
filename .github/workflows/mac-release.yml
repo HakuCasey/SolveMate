@@ -1,0 +1,41 @@
+name: Publish macOS installer
+
+on:
+  push:
+    tags: ["v0.0.1"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-15
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: "24"
+          cache: npm
+      - uses: actions/setup-python@v7.1.0
+        with:
+          python-version: "3.12"
+      - run: npm ci
+      - run: |
+          python -m pip install -r apps/server/requirements.lock -r apps/local/requirements.lock -r apps/desktop/requirements-build.lock
+          python -m pip install --no-deps --no-build-isolation -e apps/local
+      - run: npm run desktop:make
+      - name: Verify and publish the DMG
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(node -p 'require("./apps/desktop/package.json").version')
+          test "$GITHUB_REF_NAME" = "v$version"
+          dmg="apps/desktop/out/SolveMate-${version}-arm64.dmg"
+          hdiutil verify "$dmg"
+          gh release create "$GITHUB_REF_NAME" "$dmg" \
+            --verify-tag --latest \
+            --title "SolveMate v${version}" \
+            --notes "此版本提供适用于 Apple 芯片 Mac 的安装包。安装包使用临时签名，尚未完成 Apple 公证，macOS 可能会拦截首次打开。"

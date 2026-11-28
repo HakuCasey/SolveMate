@@ -38,7 +38,7 @@ Windows 的应用程序和窗口共用 `apps/desktop/assets/icon.ico`。替换�
 
 ## 当前限制
 
-- 当前已生成 `apps/desktop/out/SolveMate-0.1.0-arm64.dmg`。内部包中的应用使用 ad hoc 临时签名。公开分发前需完成 Developer ID 签名和公证。
+- macOS v0.0.1 安装包文件名为 `SolveMate-0.0.1-arm64.dmg`，适用于搭载 Apple 芯片的 Mac。此版本使用 ad hoc 临时签名，尚未完成 Developer ID 签名和公证。
 - macOS 和 Windows 的 CI 执行 `desktop:package`，检查未压缩应用的构建。Windows 安装程序须另用 `desktop:make` 生成，并在 Windows 上验收。
 - 社区内容服务不装入客户端。可在“系统设置 → 社区内容”保存服务地址；未连接服务时仍可使用已保存的资料和工具。
 - PPTX 转换仍需另装 LibreOffice；PDF 不需要。
