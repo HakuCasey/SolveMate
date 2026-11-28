@@ -10,9 +10,11 @@ import styles from "../components/ContentManager.module.css";
 export function OfficialTools({
   tools,
   onUse,
+  updating,
 }: {
   tools: TeachingTools;
   onUse: () => void;
+  updating: boolean;
 }) {
   const [choice, setChoice] = useState<TeachingTool | null>(null);
   // 离线时仍显示已安装工具；是否安装始终从本地工具目录读取。
@@ -41,7 +43,7 @@ export function OfficialTools({
           onUsed={onUse}
         />
       )}
-      <h2 className={styles.sectionTitle}>教研工具</h2>
+      <h2 className={styles.sectionTitle}>工具库</h2>
       {tools.error && (
         <p className={styles.notice} role="alert">
           {tools.error}
@@ -51,7 +53,7 @@ export function OfficialTools({
         <p className={styles.notice}>
           {tools.checking
             ? "正在读取工具目录…"
-            : "工具目录暂不可用，可点击检查内容更新重试。"}
+            : "工具目录暂不可用，可点击「检查更新」重试。"}
         </p>
       )}
       <div className={styles.list}>
@@ -65,6 +67,17 @@ export function OfficialTools({
             !!installed &&
             !!remote &&
             installed.version !== remote.latest_version;
+          const publishedAt =
+            remote && !update
+              ? remote.updatedAt
+              : installed?.version
+                ? installed.updatedAt
+                : undefined;
+          const date = new Date(publishedAt ?? 0);
+          const publishedOn =
+            publishedAt && Number.isFinite(date.getTime())
+              ? date.toISOString().slice(0, 10)
+              : undefined;
           return (
             <TeachingToolActions key={entry.id} tools={tools} tool={installed}>
               <article className={styles.card} aria-label={title}>
@@ -89,7 +102,7 @@ export function OfficialTools({
                     {installed && (
                       <button
                         className={styles.primary}
-                        disabled={!!tools.busy}
+                        disabled={updating || !!tools.busy}
                         onClick={() => setChoice(structuredClone(installed))}
                       >
                         使用
@@ -100,7 +113,7 @@ export function OfficialTools({
                         className={
                           installed ? styles.secondary : styles.primary
                         }
-                        disabled={!!tools.busy || !remote}
+                        disabled={updating || !!tools.busy || !remote}
                         onClick={() => {
                           if (remote)
                             void tools.download(remote).catch(() => {});
@@ -118,11 +131,13 @@ export function OfficialTools({
                 <p className={styles.description} title={entry.description}>
                   {entry.description}
                 </p>
-                <p className={styles.date}>
-                  {installed
-                    ? `更新日期 ${new Date(installed.updatedAt).toLocaleDateString()}`
-                    : "尚未下载"}
-                </p>
+                {publishedOn ? (
+                  <p className={styles.date}>
+                    社区更新 <time dateTime={publishedOn}>{publishedOn}</time>
+                  </p>
+                ) : !installed ? (
+                  <p className={styles.date}>尚未下载</p>
+                ) : null}
               </article>
             </TeachingToolActions>
           );

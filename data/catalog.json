@@ -6,6 +6,7 @@
       "title": "高等数学",
       "description": "原创高等数学示例教材、24 道题目及配套课程记忆。",
       "release": "example-2",
+      "published_on": { "textbooks": "2026-11-28", "questions": "2026-11-28" },
       "files": [
         {
           "id": "B001",
@@ -44,6 +45,7 @@
       "title": "C 语言",
       "description": "原创 C11 示例教材、12 道程序阅读题及配套课程记忆。",
       "release": "example-2",
+      "published_on": { "textbooks": "2026-11-28", "questions": "2026-11-28" },
       "files": [
         {
           "id": "CB001",

@@ -25,6 +25,38 @@ def test_republish_is_deterministic_and_does_not_create_duplicate_versions(
     )
 
 
+def test_publication_dates_follow_versions_without_changing_the_package(
+    content_settings: Settings,
+):
+    source = content_settings.data_dir / "catalog.json"
+    definition = json.loads(source.read_bytes())
+    changes = definition["courses"][0]
+    changes["published_on"] = {"textbooks": "2026-11-01", "questions": "2026-11-02"}
+    source.write_text(json.dumps(definition), encoding="utf-8")
+    directory = content_settings.content_dir
+    original = ContentRepository(directory).catalog().courses[0]
+    saved = publish(content_settings.data_dir, directory).courses[0]
+    assert saved.latest_version == original.latest_version
+    assert saved.versions == original.versions
+    assert saved.model_dump(mode="json")["publication_dates"][saved.latest_version] == {
+        "textbooks": "2026-11-01",
+        "questions": "2026-11-02",
+    }
+
+    changes["release"] += "-next"
+    changes["published_on"]["questions"] = "2026-11-03"
+    source.write_text(json.dumps(definition), encoding="utf-8")
+    next_entry = publish(content_settings.data_dir, directory).courses[0]
+    assert next_entry.latest_version != saved.latest_version
+    assert (
+        next_entry.publication_dates[saved.latest_version]
+        == (saved.publication_dates[saved.latest_version])
+    )
+    assert next_entry.model_dump(mode="json")["publication_dates"][
+        next_entry.latest_version
+    ] == {"textbooks": "2026-11-01", "questions": "2026-11-03"}
+
+
 def test_pages_publication_restores_and_validates_history(
     content_settings: Settings, tmp_path: Path
 ):

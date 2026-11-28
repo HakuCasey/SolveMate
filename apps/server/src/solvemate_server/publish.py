@@ -111,7 +111,9 @@ def read_course(data_dir: Path, course: CourseSpec) -> dict[str, bytes]:
 
 def build_release(data_dir: Path, course: CourseSpec) -> tuple[ReleaseManifest, bytes]:
     files = read_course(data_dir, course)
-    info = CourseInfo.model_validate(course.model_dump(exclude={"files"}))
+    info = CourseInfo.model_validate(
+        course.model_dump(exclude={"files", "published_on"})
+    )
     descriptors = [
         ContentFile(
             **item.model_dump(),
@@ -243,7 +245,9 @@ def publish(data_dir: Path, content_dir: Path) -> PublishedCatalog:
             else PublishedCatalog(courses=[])
         )
         entries: list[CatalogEntry] = []
-        for manifest, payload in releases:
+        for course, (manifest, payload) in zip(
+            definition.courses, releases, strict=True
+        ):
             parent = content_dir / "courses" / manifest.course.id
             parent.mkdir(parents=True, exist_ok=True)
             destination = parent / manifest.version
@@ -272,11 +276,19 @@ def publish(data_dir: Path, content_dir: Path) -> PublishedCatalog:
             versions = list(old.versions) if old else []
             if manifest.version not in versions:
                 versions.append(manifest.version)
+            publication_dates = dict(old.publication_dates) if old else {}
+            if course.published_on:
+                # 发布源可更正同一版本的日期，日期与已发布的 ZIP 独立。
+                publication_dates[manifest.version] = {
+                    **publication_dates.get(manifest.version, {}),
+                    **course.published_on,
+                }
             entries.append(
                 CatalogEntry(
                     course=manifest.course,
                     latest_version=manifest.version,
                     versions=versions,
+                    publication_dates=publication_dates,
                 )
             )
         tool_entries = []

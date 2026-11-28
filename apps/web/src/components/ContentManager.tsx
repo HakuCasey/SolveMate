@@ -2,8 +2,9 @@ import { SidebarToggle } from "./SidebarLayout";
 import type { PersonalMaterials } from "../materials/useMaterials";
 import { OfficialTools } from "../research/OfficialTools";
 import type { TeachingTools } from "../research/useTeachingTools";
-import { useEffect } from "react";
-import { BookOpen, Check, ListChecks, RefreshCw, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { AlertDialog } from "radix-ui";
+import { BookOpen, ListChecks, RefreshCw, X } from "lucide-react";
 import type { OfficialContent } from "../content/useOfficialContent";
 import type { OfficialLibrary } from "../content/library";
 import { contentApiBase, useContentServiceUrl } from "../content/settings";
@@ -31,18 +32,24 @@ export function ContentManager({
   materials,
 }: Props) {
   const { checking, connectionError, transfer, refresh, checkedAt } = content;
+  const [activity, setActivity] = useState<
+    "idle" | "checking" | "result" | "updating"
+  >("idle");
+  const checkButton = useRef<HTMLButtonElement>(null);
   const configuredServiceUrl = useContentServiceUrl();
   const refreshTools = tools.refresh;
-  const toolUpdates = tools.items.filter(
-    (t) =>
-      t.source === "official" &&
-      tools.remote.some((r) => r.id === t.id && r.latest_version !== t.version),
-  ).length;
-  const availableUpdates =
-    toolUpdates +
-    library.entries.filter(
-      (item) => item.downloaded && item.packageState.updateAvailable,
-    ).length;
+  const toolUpdates = tools.remote.filter((release) =>
+    tools.items.some(
+      (tool) =>
+        tool.source === "official" &&
+        tool.id === release.id &&
+        tool.version !== release.latest_version,
+    ),
+  );
+  const materialUpdates = library.entries.filter(
+    (item) => item.downloaded && item.packageState.updateAvailable,
+  );
+  const availableUpdates = toolUpdates.length + materialUpdates.length;
   const unknownVersions =
     tools.items.some(
       (t) =>
@@ -65,25 +72,97 @@ export function ContentManager({
   const busy =
     !!transfer &&
     ["downloading", "verifying", "saving"].includes(transfer.phase);
+  const checkError = connectionError || tools.error;
+  const result = checkError
+    ? "未能检查全部社区内容，请重试。"
+    : !checkedAt
+      ? "未能完成检查，请重试。"
+      : availableUpdates > 0
+        ? `有 ${availableUpdates} 项内容可更新。`
+        : unknownVersions
+          ? "部分本地版本暂无法核对。"
+          : unverifiedVersions
+            ? "本地版本已变化，请重新检查。"
+            : library.entries.some((item) => item.downloaded) ||
+                tools.items.some((tool) => tool.source === "official")
+              ? "已下载的社区内容均为最新版本。"
+              : "暂无已下载的社区内容。";
+
+  async function updateAvailable() {
+    setActivity("updating");
+    try {
+      for (const item of materialUpdates) {
+        if (!(await onInstall(item.id, true))) return;
+      }
+      for (const tool of toolUpdates) await tools.download(tool);
+    } catch {
+      // 资料和工具各自显示操作错误，已保存的更新继续可用。
+    } finally {
+      setActivity("idle");
+    }
+  }
+
   return (
     <section className={styles.page} aria-label="社区内容">
       <header className={styles.heading}>
         <SidebarToggle />
         <h1>社区内容</h1>
-        <button
-          className={styles.secondary}
-          disabled={
-            checking || tools.checking || busy || operation.busy || !!tools.busy
-          }
-          onClick={() => {
-            void refresh();
-            void refreshTools();
-          }}
-        >
-          <RefreshCw aria-hidden="true" />
-          {checking || tools.checking ? "正在检查内容更新…" : "检查内容更新"}
-        </button>
+        <div className={styles.headingActions}>
+          <button
+            ref={checkButton}
+            type="button"
+            disabled={
+              activity !== "idle" ||
+              checking ||
+              tools.checking ||
+              busy ||
+              operation.busy ||
+              !!tools.busy
+            }
+            onClick={async () => {
+              setActivity("checking");
+              await Promise.all([refresh(), refreshTools()]);
+              setActivity("result");
+            }}
+          >
+            <RefreshCw aria-hidden="true" />
+            {activity === "updating"
+              ? "正在更新…"
+              : checking || tools.checking || activity === "checking"
+                ? "正在检查…"
+                : "检查更新"}
+          </button>
+        </div>
       </header>
+      <AlertDialog.Root
+        open={activity === "result"}
+        onOpenChange={(open) => {
+          if (!open)
+            setActivity((current) => (current === "result" ? "idle" : current));
+        }}
+      >
+        <AlertDialog.Portal>
+          <AlertDialog.Overlay className={styles.resultOverlay} />
+          <AlertDialog.Content
+            className={styles.resultDialog}
+            onCloseAutoFocus={(event) => {
+              event.preventDefault();
+              checkButton.current?.focus();
+            }}
+          >
+            <AlertDialog.Title>检查结果</AlertDialog.Title>
+            <AlertDialog.Description>{result}</AlertDialog.Description>
+            <div className={styles.resultActions}>
+              <AlertDialog.Cancel>确定</AlertDialog.Cancel>
+              {!checkError && checkedAt && availableUpdates > 0 && (
+                <AlertDialog.Action onClick={() => void updateAvailable()}>
+                  更新
+                </AlertDialog.Action>
+              )}
+            </div>
+          </AlertDialog.Content>
+        </AlertDialog.Portal>
+      </AlertDialog.Root>
       <div className={styles.body}>
         {configuredServiceUrl && (
           <p className={styles.notice} role="status">
@@ -91,35 +170,7 @@ export function ContentManager({
             （在「系统设置 → 社区内容」中修改）
           </p>
         )}
-        {!checking &&
-          !tools.checking &&
-          !tools.error &&
-          !connectionError &&
-          checkedAt && (
-            <p
-              className={styles.checkResult}
-              role="status"
-              data-updates={availableUpdates > 0}
-            >
-              {availableUpdates > 0 ? (
-                <RefreshCw aria-hidden="true" />
-              ) : (
-                <Check aria-hidden="true" />
-              )}
-              {availableUpdates > 0
-                ? `有 ${availableUpdates} 项内容可更新，仍可使用本地版本。`
-                : unknownVersions
-                  ? "检查完成，部分本地版本暂无法核对，仍可使用。"
-                  : unverifiedVersions
-                    ? "本地版本已变化，请重新检查内容更新。"
-                    : library.entries.some((item) => item.downloaded) ||
-                        tools.items.some((t) => t.source === "official")
-                      ? "检查完成，已下载的社区内容均为最新版本。"
-                      : "检查完成，可下载下列社区内容。"}
-            </p>
-          )}
-        <OfficialTools tools={tools} onUse={onUseTool} />
-        <h2 className={styles.sectionTitle}>学习资料与题目</h2>
+        <h2 className={styles.sectionTitle}>资料库</h2>
         {connectionError && (
           <p className={styles.notice} role="alert">
             {connectionError}
@@ -134,7 +185,7 @@ export function ContentManager({
           {library.entries.map((item) => {
             const { source: entry, packageState: state } = item;
             const saved = item.downloaded;
-            const updatedAt = item.downloaded ? item.updatedAt : undefined;
+            const publishedOn = item.publishedOn;
             const currentTransfer =
               transfer?.courseId === entry.id && transfer.materialId === item.id
                 ? transfer
@@ -200,6 +251,7 @@ export function ContentManager({
                           disabled={
                             busy ||
                             checking ||
+                            activity === "updating" ||
                             !item.canAcquire ||
                             (!!connectionError && !item.canAcquire) ||
                             operation.busy
@@ -224,26 +276,13 @@ export function ContentManager({
                       {item.kind === "questions" ? "题目" : "学习资料"}
                     </span>
                   </div>
-                  <p className={styles.date}>
-                    {saved &&
-                    updatedAt !== undefined &&
-                    Number.isFinite(updatedAt) ? (
-                      <>
-                        更新日期{" "}
-                        <time dateTime={new Date(updatedAt!).toISOString()}>
-                          {new Date(updatedAt!).toLocaleDateString("zh-CN", {
-                            year: "numeric",
-                            month: "2-digit",
-                            day: "2-digit",
-                          })}
-                        </time>
-                      </>
-                    ) : saved ? (
-                      "更新日期未知"
-                    ) : (
-                      "尚未下载"
-                    )}
-                  </p>
+                  {publishedOn ? (
+                    <p className={styles.date}>
+                      社区更新 <time dateTime={publishedOn}>{publishedOn}</time>
+                    </p>
+                  ) : !saved ? (
+                    <p className={styles.date}>尚未下载</p>
+                  ) : null}
                   {state.unknown && (
                     <p className={styles.noticeInline}>
                       本地版本暂无法核对，仍可阅读。
@@ -283,6 +322,11 @@ export function ContentManager({
             );
           })}
         </div>
+        <OfficialTools
+          tools={tools}
+          onUse={onUseTool}
+          updating={activity === "updating"}
+        />
       </div>
     </section>
   );

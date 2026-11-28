@@ -10,13 +10,14 @@ import { ContentManager } from "./ContentManager";
 import { makeSnapshot } from "../content/storage";
 import { packageFixture } from "../content/fixtures.test-support";
 import { readPackage } from "../content/package";
-import type { UpdateResponse } from "../content/contracts";
+import type { RemoteCourse, UpdateResponse } from "../content/contracts";
 import type { OfficialContent } from "../content/useOfficialContent";
 
 function render(
   snapshot = makeSnapshot(),
   updates: Record<string, UpdateResponse> = {},
   hasLocalFiles = true,
+  remote: RemoteCourse[] = [],
 ) {
   const content: OfficialContent = {
     snapshot,
@@ -24,7 +25,7 @@ function render(
     reloadLocal: async () => snapshot,
     ready: true,
     loadError: "",
-    remote: [],
+    remote,
     updates,
     checking: false,
     checkedAt: 1,
@@ -69,7 +70,7 @@ function render(
                 )?.installedAt ?? 0,
             })),
           },
-          [],
+          remote,
           updates,
         ),
         operation: { busy: false, error: "" },
@@ -111,7 +112,8 @@ describe("official material cards", () => {
         update_available: true,
       },
     });
-    expect(html).toContain("有 1 项内容可更新，仍可使用本地版本。");
+    expect(html).not.toContain("项内容可更新");
+    expect(html).toContain("检查更新");
     expect(html).toContain("有新版可更新");
     expect(html).toContain(">阅读</button>");
     expect(html).toContain(">更新</button>");
@@ -137,7 +139,7 @@ describe("official material cards", () => {
     expect(html).not.toContain(">阅读</button>");
     expect(html).not.toContain("example-1");
   });
-  it("shows the saved date and a reading action without exposing version identifiers", async () => {
+  it("shows publication dates for the installed version rather than the local save date", async () => {
     const { archive, manifest } = await packageFixture();
     const course = await readPackage(manifest, archive);
     const html = render(
@@ -154,9 +156,33 @@ describe("official material cards", () => {
         ],
         [{ courseId: course.id, version: manifest.version }],
       ),
+      {},
+      true,
+      [
+        {
+          ...manifest.course,
+          latest_version: "f".repeat(64),
+          versions: [manifest.version, "f".repeat(64)],
+          publication_dates: {
+            [manifest.version]: {
+              textbooks: "2026-11-05",
+              questions: "2026-11-06",
+            },
+            ["f".repeat(64)]: {
+              textbooks: "2026-11-28",
+              questions: "2026-11-27",
+            },
+          },
+        },
+      ],
     );
-    expect(html).toContain("更新日期");
-    expect(html).toContain("2026/11/12");
+    expect(html).toContain("社区更新");
+    expect(html).toContain('dateTime="2026-11-05"');
+    expect(html).toContain('dateTime="2026-11-06"');
+    expect(html).not.toContain("2026-11-28");
+    expect(html).not.toContain("2026-11-27");
+    expect(html).not.toContain("2026-11-12");
+    expect(html).not.toContain("日期未知");
     expect(html).toContain(">阅读</button>");
     expect(html.match(/>阅读<\/button>/g)).toHaveLength(4);
     expect(html).not.toContain(manifest.version.slice(0, 8));

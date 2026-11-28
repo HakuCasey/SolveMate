@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { Download, RotateCcw } from "lucide-react";
+import { Download, ExternalLink, RotateCcw } from "lucide-react";
 import type { Settings } from "@solvemate/contracts";
 import {
   DEFAULT_CONTENT_SERVICE_URL,
+  contentApiBase,
   contentServiceUrlError,
   normalizeContentServiceUrl,
 } from "../content/settings";
@@ -23,13 +24,14 @@ export function ContentServiceSettings({
   onSave,
   onOpenContent,
 }: Props) {
-  const saved =
-    normalizeContentServiceUrl(settings.contentServiceUrl) ??
-    DEFAULT_CONTENT_SERVICE_URL;
+  const saved = contentApiBase(settings.contentServiceUrl);
   const [draft, setDraft] = useState(saved);
   const [error, setError] = useState<string | null>(null);
+  const normalized = normalizeContentServiceUrl(draft);
+  const defaultUrl = normalizeContentServiceUrl(DEFAULT_CONTENT_SERVICE_URL);
   const changed =
-    normalizeContentServiceUrl(draft) !== normalizeContentServiceUrl(saved);
+    (normalized ?? (draft.trim() || defaultUrl)) !==
+    normalizeContentServiceUrl(saved);
 
   function save() {
     const problem = contentServiceUrlError(draft);
@@ -37,12 +39,9 @@ export function ContentServiceSettings({
       setError(problem);
       return;
     }
-    const normalized = normalizeContentServiceUrl(draft);
     onSave({
       ...settings,
-      ...(normalized
-        ? { contentServiceUrl: normalized }
-        : { contentServiceUrl: undefined }),
+      contentServiceUrl: normalized === defaultUrl ? undefined : normalized,
     });
     setDraft(normalized ?? DEFAULT_CONTENT_SERVICE_URL);
     setError(null);
@@ -56,8 +55,27 @@ export function ContentServiceSettings({
         save();
       }}
     >
+      <div className={styles.actions}>
+        <button
+          className={`${styles.action} ${styles.open}`}
+          type="button"
+          onClick={onOpenContent}
+        >
+          <Download aria-hidden="true" />
+          社区内容
+        </button>
+        <a
+          className={styles.action}
+          href="https://hakucasey.github.io/SolveMate/"
+          target="_blank"
+          rel="noreferrer"
+        >
+          <ExternalLink aria-hidden="true" />
+          软件官网
+        </a>
+      </div>
       <label className={styles.field}>
-        <span>内容服务地址</span>
+        <span>地址</span>
         <input
           className={styles.input}
           value={draft}
@@ -68,6 +86,7 @@ export function ContentServiceSettings({
           }}
           spellCheck={false}
           autoComplete="off"
+          inputMode="url"
           aria-invalid={error ? true : undefined}
         />
       </label>
@@ -77,13 +96,17 @@ export function ContentServiceSettings({
         </p>
       )}
       <div className={styles.actions}>
-        <button className={styles.primary} type="submit" disabled={!changed}>
+        <button
+          className={`${styles.action} ${styles.primary}`}
+          type="submit"
+          disabled={!changed}
+        >
           保存
         </button>
         <button
-          className={styles.secondary}
+          className={styles.action}
           type="button"
-          disabled={!changed}
+          disabled={draft === DEFAULT_CONTENT_SERVICE_URL}
           onClick={() => {
             setDraft(DEFAULT_CONTENT_SERVICE_URL);
             setError(null);
@@ -93,10 +116,6 @@ export function ContentServiceSettings({
           恢复默认
         </button>
       </div>
-      <button className={styles.open} type="button" onClick={onOpenContent}>
-        <Download aria-hidden="true" />
-        打开社区内容页
-      </button>
     </form>
   );
 }

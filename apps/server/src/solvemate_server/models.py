@@ -1,5 +1,6 @@
 """发布源文件、持久化目录与 HTTP 返回的数据约定。"""
 
+from datetime import date
 from pathlib import PurePosixPath
 from typing import Annotated, Literal
 
@@ -51,8 +52,12 @@ class CourseInfo(Model):
     release: Text
 
 
+PublicationDates = dict[Literal["textbooks", "questions"], date]
+
+
 class CourseSpec(CourseInfo):
     files: list[SourceFile] = Field(min_length=4, max_length=6)
+    published_on: PublicationDates = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def complete_files(self) -> "CourseSpec":
@@ -134,6 +139,7 @@ class CatalogEntry(Model):
     course: CourseInfo
     latest_version: Digest
     versions: list[Digest] = Field(min_length=1)
+    publication_dates: dict[Digest, PublicationDates] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def valid_versions(self) -> "CatalogEntry":
@@ -143,6 +149,8 @@ class CatalogEntry(Model):
             raise ValueError(
                 "Published versions must be unique and include the latest version."
             )
+        if not self.publication_dates.keys() <= set(self.versions):
+            raise ValueError("Publication dates must refer to published versions.")
         return self
 
 

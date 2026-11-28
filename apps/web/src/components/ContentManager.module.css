@@ -7,18 +7,37 @@
   container-type: inline-size;
 }
 .heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 14px;
-  padding: 24px;
-  border-bottom: 1px solid var(--sm-line);
+  composes: header from "./PaneHeader.module.css";
 }
 .heading h1 {
   flex: 1;
-  font: var(--sm-ui-title-font);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   margin: 0;
+}
+.headingActions {
+  composes: actions from "./PaneHeader.module.css";
+}
+.resultOverlay {
+  composes: overlay from "./ConversationSwitchDialog.module.css";
+}
+.resultDialog {
+  composes: dialog from "./ConversationSwitchDialog.module.css";
+  width: min(340px, calc(100vw - 32px));
+  padding: 16px;
+}
+.resultDialog h2 {
+  margin: 0 0 8px;
+}
+.resultDialog p {
+  margin: 0;
+  font: var(--sm-ui-body-font);
+}
+.resultActions {
+  composes: actions from "./ConversationSwitchDialog.module.css";
+  margin-top: 16px;
 }
 .body {
   flex: 1;
@@ -204,9 +223,6 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
     padding: 16px;
   }
-  .heading {
-    padding: 20px 16px;
-  }
   .notice {
     margin-inline: 16px;
   }
@@ -217,19 +233,8 @@
   }
 }
 
-.checkResult {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  margin: 12px 24px 0;
-  color: var(--sm-soft);
-  font-size: 12px;
-}
-.checkResult[data-updates="true"],
 .card .updateNotice {
   color: var(--sm-accent);
-}
-.card .updateNotice {
   display: inline-flex;
   flex-shrink: 0;
   align-items: center;
@@ -238,7 +243,6 @@
   font-weight: 400;
   white-space: nowrap;
 }
-.checkResult svg,
 .updateNotice svg {
   width: 14px;
   height: 14px;

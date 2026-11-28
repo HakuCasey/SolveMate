@@ -8,7 +8,9 @@ export interface CourseInfo {
 export interface RemoteCourse extends CourseInfo {
   latest_version: string;
   versions: string[];
+  publication_dates?: Record<string, PublicationDates>;
 }
+type PublicationDates = Partial<Record<"textbooks" | "questions", string>>;
 export type ContentKind =
   | "textbook"
   | "questions"
@@ -180,7 +182,30 @@ export function parseCatalog(value: unknown): RemoteCourse[] {
     unique(versions);
     if (!versions.includes(latest_version))
       throw new ContentError("目录缺少课程的最新版本。");
-    return { ...course, latest_version, versions };
+    const publication_dates = data.publication_dates;
+    return {
+      ...course,
+      latest_version,
+      versions,
+      ...(publication_dates !== undefined && {
+        publication_dates: Object.fromEntries(
+          Object.entries(record(publication_dates)).map(([version, value]) => {
+            if (!versions.includes(version))
+              throw new ContentError("发布日期与课程版本不一致。");
+            const dates = record(value);
+            const published: PublicationDates = {};
+            for (const kind of ["textbooks", "questions"] as const) {
+              const day = dates[kind];
+              if (day === undefined) continue;
+              if (typeof day !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(day))
+                throw new ContentError("课程发布日期格式不正确。");
+              published[kind] = day;
+            }
+            return [version, published];
+          }),
+        ),
+      }),
+    };
   });
   unique(courses.map((course) => course.id));
   return courses;

@@ -26,7 +26,7 @@ export class CommunityCatalogEntry {
   readonly subjectId: string | null;
   readonly packageState: ReturnType<typeof materialState>;
   constructor(
-    readonly source: CourseInfo,
+    readonly source: CourseInfo | RemoteCourse,
     readonly entry: Entry,
     readonly course: Course | undefined,
     snapshot: ContentSnapshot,
@@ -57,6 +57,16 @@ export class CommunityCatalogEntry {
     const value =
       this.metadata?.updatedAt ?? this.packageState.saved?.installedAt;
     return value && value > 0 ? value : undefined;
+  }
+  get publishedOn() {
+    const source = this.source;
+    if (!("latest_version" in source)) return undefined;
+    const dates = source.publication_dates;
+    if (this.downloaded && this.version) {
+      const installed = dates?.[this.version]?.[this.kind];
+      if (installed || !this.packageState.current) return installed;
+    }
+    return dates?.[source.latest_version]?.[this.kind];
   }
   get kind() {
     return this.entry.kind;
@@ -148,7 +158,7 @@ export class OfficialLibrary {
       snapshot.activeCourses,
       data.subjects,
     );
-    const sources: CourseInfo[] = [...remote];
+    const sources: (CourseInfo | RemoteCourse)[] = [...remote];
     for (const course of snapshot.activeCourses)
       if (!sources.some((item) => item.id === course.id)) {
         const saved = courseState(snapshot, course.id).saved;

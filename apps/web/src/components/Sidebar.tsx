@@ -474,16 +474,12 @@ export function Sidebar({
                 </Popover.Trigger>
                 <PopoverPanel
                   className={styles.popover}
-                  title="社区内容"
-                  icon={Download}
-                  titleId="content-settings-heading"
-                  width={296}
-                  maxWidth={296}
+                  width={324}
                   side="right"
                   align="end"
                   sideOffset={12}
                   collisionPadding={12}
-                  aria-labelledby="content-settings-heading"
+                  aria-label="社区内容设置"
                   onCloseAutoFocus={(event) => event.preventDefault()}
                 >
                   <ContentServiceSettings
