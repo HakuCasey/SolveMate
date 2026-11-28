@@ -4,6 +4,8 @@
 
 # SolveMate
 
+[访问官网](https://hakucasey.github.io/SolveMate/)
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ## 简介
