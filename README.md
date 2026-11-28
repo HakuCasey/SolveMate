@@ -21,7 +21,7 @@ SolveMate 是一款面向自学的开源应用。阅读资料时，可以对照�
 - **重要信息及时记录。** 资料选段和对话内容都能当场记成笔记。回看笔记时可以打开出处，笔记本也可以导出 PDF。
 - **教研工具得心应手。** 预置讲义研发、试题研发和试题精讲。Skill 和输出模板在教研室统一管理，分别编辑后可以另存成一份自定义工具。
 
-支持阅读 PDF、PPTX 及社区题目，连接本机 DeepSeek Harness、Hermes 或 Codex，并自定义机器人。资料、对话、笔记和配置保存在本机。应用提供 Web/PWA 和 macOS 桌面安装包。正式签名、公证及 Windows 实机验收待完成。更多产品思路见[产品愿景](docs/product/vision.md)。
+支持阅读 PDF、PPTX 及社区题目，连接本机 DeepSeek Harness、Hermes 或 Codex，并自定义机器人。资料、对话、笔记和配置保存在本机。应用提供 Web/PWA 和 macOS 桌面安装包。更多产品思路见[产品愿景](docs/product/vision.md)。
 
 ## 使用方式
 
@@ -29,7 +29,7 @@ SolveMate 是一款面向自学的开源应用。阅读资料时，可以对照�
 
 桌面安装包包含网页、Electron、Python 运行环境和本机服务，安装后的用户不需要安装 Node.js 或 Python。使用 AI 回复仍需安装并配置至少一个支持的 Harness；导入 PPTX 需要 LibreOffice，PDF 不需要。
 
-搭载 Apple 芯片的 Mac 可从[官网](https://hakucasey.github.io/SolveMate/)下载 DMG。打开后将 SolveMate 拖入“应用程序”。当前发布的 v0.0.1 使用临时签名，尚未完成 Apple 公证。Windows 安装包待发布。
+从[官网](https://hakucasey.github.io/SolveMate/)下载 macOS 安装包，打开 DMG 后将 SolveMate 拖入「应用程序」。Windows 安装包待发布。
 
 首次使用空数据目录时，对话和笔记均为空。可直接阅读预置的高等数学、C 语言社区资料与题目，也可使用三个教研工具。已有记录可通过“系统设置 → 备份与恢复 → 备份文件”导入 ZIP 备份。
 
