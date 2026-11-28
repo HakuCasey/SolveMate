@@ -8,7 +8,7 @@
 
 ## 安装包版本
 
-官网的 Mac 和 Windows 下载按钮目前都指向 `v0.0.1`。需要更换官网安装包时，确认对应的 GitHub Release 安装包可下载，手动修改 [`website-downloads.json`](website-downloads.json) 中的平台版本，再部署官网。官网仍在提供的安装包须保留在 GitHub Releases。
+官网的 Mac 和 Windows 下载版本记录在 [`website-downloads.json`](website-downloads.json)。需要更换官网安装包时，确认对应的 GitHub Release 安装包可下载，手动修改清单中的平台版本，再部署官网。官网仍在提供的安装包须保留在 GitHub Releases。
 
 应用内「检查更新」读取 GitHub Pages 上的 [`downloads.json`](downloads.json)。发布新安装包并确认可下载后，只更新这个文件中的对应平台版本，已安装用户即可在应用内检查并下载新版。
 
