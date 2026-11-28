@@ -5,9 +5,8 @@ import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const check = process.argv.includes("--check");
-// 这些 npm 包未附许可证文件；只对已核对的版本补充许可证文本。
+// 这些 npm 包未附许可证文件；只对已核对的版本使用上游原文副本。
 const supplemental = {
-  "lazy-val@1.0.5": "lazy-val",
   "rehype-katex@7.0.1": "remark-math",
   "remark-math@6.0.0": "remark-math",
   "react-remove-scroll-bar@2.3.8": "react-remove-scroll-bar",

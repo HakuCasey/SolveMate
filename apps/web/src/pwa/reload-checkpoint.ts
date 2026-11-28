@@ -10,10 +10,6 @@ export interface ReloadCheckpoint {
 }
 const storageKey = "solvemate:update-checkpoint:v1";
 type CheckpointStorage = Pick<Storage, "getItem" | "setItem" | "removeItem">;
-// 桌面更新会退出整个进程，临时阅读位置需要跨窗口恢复。
-function checkpointStorage(): CheckpointStorage {
-  return window.solvemateAppUpdate ? localStorage : sessionStorage;
-}
 const record = (value: unknown): value is Record<string, unknown> =>
   !!value && typeof value === "object" && !Array.isArray(value);
 const offset = (value: unknown) =>
@@ -106,7 +102,7 @@ export function loadReloadCheckpoint(storage?: CheckpointStorage): {
   error: string;
 } {
   try {
-    const saved = (storage ?? checkpointStorage()).getItem(storageKey);
+    const saved = (storage ?? sessionStorage).getItem(storageKey);
     if (!saved) return { value: null, error: "" };
     const value: unknown = JSON.parse(saved);
     if (!validCheckpoint(value))
@@ -131,7 +127,7 @@ export function saveReloadCheckpoint(
   try {
     if (!validCheckpoint(value))
       throw new Error("Invalid application update checkpoint.");
-    const target = storage ?? checkpointStorage();
+    const target = storage ?? sessionStorage;
     const serialized = JSON.stringify(value);
     target.setItem(storageKey, serialized);
     if (target.getItem(storageKey) !== serialized)
@@ -141,15 +137,16 @@ export function saveReloadCheckpoint(
       "Failed to save application update drafts and reading state.",
       failure,
     );
-    throw new Error("无法保存当前输入和阅读位置，请释放存储空间后重试。", {
-      cause: failure,
-    });
+    throw new Error(
+      "无法保存更新前的草稿和阅读位置，请释放浏览器存储空间后重试。",
+      { cause: failure },
+    );
   }
 }
 
 export function clearReloadCheckpoint(storage?: CheckpointStorage) {
   try {
-    (storage ?? checkpointStorage()).removeItem(storageKey);
+    (storage ?? sessionStorage).removeItem(storageKey);
   } catch (failure) {
     logError(
       "Failed to remove the restored application update checkpoint.",

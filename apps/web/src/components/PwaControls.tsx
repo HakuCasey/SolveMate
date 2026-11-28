@@ -3,7 +3,6 @@ import { useAppUpdate } from "../pwa/useAppUpdate";
 import { useSaveFeedback } from "./SaveFeedback";
 import { StatusPopover } from "../status/StatusPopover";
 import { applicationStatus } from "../status/state";
-import { appVersion } from "../version";
 import styles from "../status/StatusBar.module.css";
 export function PwaControls({
   prepareReload,
@@ -21,28 +20,19 @@ export function PwaControls({
   const [open, setOpen] = useState(false);
   const [retryingSave, setRetryingSave] = useState(false);
   const showNotice = useSaveFeedback();
-  const {
-    state,
-    supported,
-    desktop,
-    check,
-    download,
-    reload,
-    clearReloadError,
-  } = useAppUpdate(prepareReload, () =>
-    showNotice("应用新版本已就绪，可在侧栏状态栏中点击“更新应用”。"),
-  );
+  const { state, supported, desktop, check, reload, clearReloadError } =
+    useAppUpdate(prepareReload, () =>
+      showNotice("应用新版本已就绪，可在侧栏状态栏中点击“更新应用”。"),
+    );
   const view = applicationStatus(state, desktop);
   const ready = state.status === "ready";
-  const available = state.status === "available";
-  const tone =
-    ready || available
-      ? "ready"
-      : state.status === "error"
-        ? "danger"
-        : view.busy
-          ? "active"
-          : "neutral";
+  const tone = ready
+    ? "ready"
+    : state.status === "error"
+      ? "danger"
+      : view.busy
+        ? "active"
+        : "neutral";
   return (
     <StatusPopover
       open={open}
@@ -65,11 +55,11 @@ export function PwaControls({
           <button
             type="button"
             className={
-              ready || available
+              ready
                 ? `${styles.inlineAction} ${styles.primary}`
                 : styles.inlineAction
             }
-            onClick={ready ? reload : available ? download : check}
+            onClick={ready ? reload : check}
           >
             {view.action}
           </button>
@@ -78,7 +68,6 @@ export function PwaControls({
       tone={tone}
       busy={view.busy}
     >
-      <p className={styles.appVersion}>当前版本 v{appVersion}</p>
       {(state.error || (ready && saveFailure)) && (
         <div className={`${styles.alert} ${styles.error}`} role="alert">
           {saveFailure || state.error}

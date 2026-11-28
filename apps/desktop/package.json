@@ -1,7 +1,7 @@
 {
   "name": "@solvemate/desktop",
   "productName": "SolveMate",
-  "version": "0.0.3",
+  "version": "0.0.2",
   "description": "SolveMate desktop application",
   "author": "HakuCasey",
   "private": true,
@@ -14,9 +14,6 @@
     "make": "npm run prepare:assets && electron-builder",
     "check": "node --check src/main.mjs && node --check src/runtime.mjs && node --check src/app-update.mjs && node --check src/preload.cjs && node --check scripts/prepare-assets.mjs",
     "test": "node --test tests/*.test.mjs"
-  },
-  "dependencies": {
-    "electron-updater": "6.8.12"
   },
   "devDependencies": {
     "electron": "45.3.4",

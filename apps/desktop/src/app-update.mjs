@@ -1,100 +1,73 @@
-function prepareNativeInstall(nativeUpdater) {
-  return new Promise((resolve, reject) => {
-    const ready = () => {
-      cleanup();
-      resolve();
-    };
-    const failed = (error) => {
-      cleanup();
-      reject(error);
-    };
-    const notAvailable = () => failed(new Error("No macOS update was staged."));
-    function cleanup() {
-      nativeUpdater.off("update-downloaded", ready);
-      nativeUpdater.off("error", failed);
-      nativeUpdater.off("update-not-available", notAvailable);
-    }
-    nativeUpdater.on("update-downloaded", ready);
-    nativeUpdater.on("error", failed);
-    nativeUpdater.on("update-not-available", notAvailable);
-    try {
-      nativeUpdater.checkForUpdates();
-    } catch (error) {
-      failed(error);
-    }
+const repository = "https://github.com/HakuCasey/SolveMate";
+const stableTag = /^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
+
+export async function newerMacInstaller(currentVersion, request = fetch) {
+  const latest = `${repository}/releases/latest`;
+  const response = await request(latest, {
+    redirect: "manual",
+    signal: AbortSignal.timeout(15_000),
+    headers: { "Cache-Control": "no-cache" },
   });
+  const location = response.headers.get("location");
+  if (response.status !== 302 || !location)
+    throw new Error("GitHub did not return a stable release.");
+  const target = new URL(location, latest);
+  const tag = target.pathname.split("/").at(-1);
+  if (
+    !stableTag.test(tag) ||
+    target.href !== `${repository}/releases/tag/${tag}` ||
+    !stableTag.test(`v${currentVersion}`)
+  )
+    throw new Error("Invalid GitHub release version.");
+  const version = tag.slice(1);
+  if (version.localeCompare(currentVersion, "en", { numeric: true }) <= 0)
+    return null;
+  // 发布任务用相同的版本和架构命名 DMG，下载固定版本。
+  return `${repository}/releases/download/${tag}/SolveMate-${version}-arm64.dmg`;
 }
 
-/** 用户确认后才让原生更新器接收并检查已下载的 ZIP。 */
-export function macAppUpdate(
-  updater,
-  nativeUpdater,
-  { publishState, confirmInstall, flushStorage },
-) {
+export function macAppUpdate({
+  version,
+  publishState,
+  downloadInstaller,
+  request,
+}) {
   let state = { status: "idle", error: "" };
-  let confirming = false;
-  let nativeReady = false;
-  updater.autoDownload = false;
-  updater.autoInstallOnAppQuit = false;
-
   function publish(status, error = "") {
     state = { status, error };
     publishState(state);
   }
 
-  function installFailed(error) {
-    console.error("Failed to install the macOS update.", error);
-    publish("ready", "安装新版失败，请重试。");
-  }
-  // 查询、下载和签名检查返回 Promise；最终重启失败只通过事件返回。
-  updater.on("error", (error) => {
-    if (state.status === "reloading" && nativeReady) installFailed(error);
-  });
-
   return async (action) => {
     if (
-      action === "check" &&
-      ["idle", "current", "error"].includes(state.status)
-    ) {
-      publish("checking");
-      try {
-        const result = await updater.checkForUpdates();
-        if (!result) throw new Error("The macOS updater is disabled.");
-        publish(result.isUpdateAvailable ? "available" : "current");
-      } catch (error) {
-        console.error("Failed to check for macOS updates.", error);
-        publish("error", "检查更新失败，请检查网络后重试。");
+      action !== "download" ||
+      ["checking", "downloading"].includes(state.status)
+    )
+      return state;
+    publish("checking");
+    try {
+      const url = await newerMacInstaller(version, request);
+      if (!url) {
+        publish("current");
+        return state;
       }
-    } else if (action === "download" && state.status === "available") {
       publish("downloading");
-      try {
-        await updater.downloadUpdate();
-        publish("ready");
-      } catch (error) {
-        console.error("Failed to download the macOS update.", error);
-        publish("available", "下载新版失败，请重试。");
-      }
-    } else if (
-      action === "install" &&
-      state.status === "ready" &&
-      !confirming
-    ) {
-      confirming = true;
-      try {
-        if (!(await confirmInstall())) return state;
-        publish("reloading");
-        // 单独等待签名检查，失败重试时不会重复登记库内的重启回调。
-        if (!nativeReady) {
-          await prepareNativeInstall(nativeUpdater);
-          nativeReady = true;
-        }
-        flushStorage();
-        updater.quitAndInstall();
-      } catch (error) {
-        installFailed(error);
-      } finally {
-        confirming = false;
-      }
+      const result = await downloadInstaller(url);
+      if (result === "completed") publish("downloaded");
+      else if (result === "cancelled") publish("idle");
+      else publish("error", "安装包下载中断，请重试。");
+    } catch (error) {
+      const downloading = state.status === "downloading";
+      console.error(
+        downloading
+          ? "Failed to download the Mac installer."
+          : "Failed to check for Mac updates.",
+        error,
+      );
+      publish(
+        "error",
+        downloading ? "安装包下载失败，请重试。" : "无法获取最新版本，请重试。",
+      );
     }
     return state;
   };

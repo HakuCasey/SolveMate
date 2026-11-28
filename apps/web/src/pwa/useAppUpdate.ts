@@ -10,9 +10,7 @@ declare global {
   interface Window {
     solvemateAppUpdate?: {
       getState(): Promise<UpdateState>;
-      check(): Promise<UpdateState>;
       download(): Promise<UpdateState>;
-      install(): Promise<UpdateState>;
       subscribe(listener: (state: UpdateState) => void): () => void;
     };
   }
@@ -30,37 +28,29 @@ export function useAppUpdate(prepareReload: () => void, onReady: () => void) {
   const reloadAction = useRef<() => void>(() => undefined);
   const checkAction = useRef<() => void>(() => undefined);
   const desktop = import.meta.env.VITE_DESKTOP === "1";
-  const nativeUpdate = desktop ? window.solvemateAppUpdate : undefined;
+  const macUpdate = desktop ? window.solvemateAppUpdate : undefined;
   const webSupported =
     import.meta.env.PROD && !desktop && "serviceWorker" in navigator;
-  const nativeState = useRef(initial);
-  const nativeActionPending = useRef(false);
   useEffect(() => {
-    if (!nativeUpdate) return;
+    if (!macUpdate) return;
     let active = true;
     let receivedState = false;
-    const receive = (next: UpdateState) => {
-      if (nativeState.current.status === "reloading" && next.status === "ready")
-        clearReloadCheckpoint(localStorage);
-      nativeState.current = next;
-      setState(next);
-    };
-    const unsubscribe = nativeUpdate.subscribe((next) => {
+    const unsubscribe = macUpdate.subscribe((next) => {
       receivedState = true;
-      receive(next);
+      setState(next);
     });
-    void nativeUpdate.getState().then(
+    void macUpdate.getState().then(
       (next) => {
-        if (active && !receivedState) receive(next);
+        if (active && !receivedState) setState(next);
       },
       (error: unknown) =>
-        logError("Failed to read the macOS update state.", error),
+        logError("Failed to read the Mac update state.", error),
     );
     return () => {
       active = false;
       unsubscribe();
     };
-  }, [nativeUpdate]);
+  }, [macUpdate]);
   useEffect(() => {
     if (!webSupported) return;
     let active = true;
@@ -222,45 +212,20 @@ export function useAppUpdate(prepareReload: () => void, onReady: () => void) {
       if (controller.current === updates) controller.current = null;
     };
   }, [webSupported]);
-
-  async function desktopAction(action: "check" | "download" | "install") {
-    if (!nativeUpdate || nativeActionPending.current) return;
-    nativeActionPending.current = true;
-    let checkpointSaved = false;
-    try {
-      if (action === "install") {
-        callbacks.current.prepareReload();
-        checkpointSaved = true;
-      }
-      const next = await nativeUpdate[action]();
-      if (checkpointSaved && next.status === "ready")
-        clearReloadCheckpoint(localStorage);
-    } catch (error) {
-      if (checkpointSaved) clearReloadCheckpoint(localStorage);
-      setState({
-        ...nativeState.current,
-        error:
-          action === "install" && !checkpointSaved && error instanceof Error
-            ? error.message
-            : "未能完成更新操作，请重试。",
-      });
-    } finally {
-      nativeActionPending.current = false;
-    }
-  }
-
   return {
     state,
     offlineReady,
-    supported: webSupported || !!nativeUpdate,
+    supported: webSupported || !!macUpdate,
     desktop,
-    check: () =>
-      nativeUpdate ? void desktopAction("check") : checkAction.current(),
-    download: () => void desktopAction("download"),
-    reload: () =>
-      nativeUpdate ? void desktopAction("install") : reloadAction.current(),
+    check: () => {
+      if (!macUpdate) return checkAction.current();
+      void macUpdate.download().catch((error: unknown) => {
+        logError("Failed to request a Mac installer download.", error);
+        setState({ status: "error", error: "无法下载安装包，请重试。" });
+      });
+    },
+    reload: () => reloadAction.current(),
     clearReloadError: () => {
-      if (nativeUpdate) setState((current) => ({ ...current, error: "" }));
       if (controller.current?.snapshot().status === "ready")
         controller.current.markReady();
     },

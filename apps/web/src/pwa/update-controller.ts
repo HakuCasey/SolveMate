@@ -1,8 +1,8 @@
 export type UpdateStatus =
   | "idle"
   | "checking"
-  | "available"
   | "downloading"
+  | "downloaded"
   | "current"
   | "ready"
   | "reloading"

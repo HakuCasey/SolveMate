@@ -1,19 +1,10 @@
 import { spawn } from "node:child_process";
-import { existsSync } from "node:fs";
 import { mkdir, open } from "node:fs/promises";
 import { createInterface } from "node:readline";
 import { createServer } from "node:net";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-  app,
-  autoUpdater,
-  BrowserWindow,
-  dialog,
-  ipcMain,
-  screen,
-  shell,
-} from "electron";
+import { app, BrowserWindow, dialog, ipcMain, screen, shell } from "electron";
 import { macAppUpdate } from "./app-update.mjs";
 import {
   initialWindowBounds,
@@ -46,13 +37,9 @@ let mainWindow = null;
 let localService = null;
 let stopping = false;
 let recovering = false;
-let updateClosing = false;
-let updateServiceStop = null;
 const desktopDirectory = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const canUpdate =
-  app.isPackaged &&
-  process.platform === "darwin" &&
-  existsSync(join(process.resourcesPath, "app-update.yml"));
+const canDownloadUpdate =
+  app.isPackaged && process.platform === "darwin" && process.arch === "arm64";
 
 function resourcesDirectory() {
   return app.isPackaged
@@ -62,6 +49,64 @@ function resourcesDirectory() {
 
 function serviceUrl() {
   return `http://127.0.0.1:${DESKTOP_PORT}`;
+}
+
+function downloadInstaller(contents, url) {
+  if (!contents || contents.isDestroyed())
+    throw new Error("The download window is unavailable.");
+  const session = contents.session;
+  const filename = new URL(url).pathname.split("/").at(-1);
+  return new Promise((resolve, reject) => {
+    const onDownload = (_event, item, source) => {
+      if (source !== contents || item.getURLChain()[0] !== url) return;
+      cleanup();
+      item.setSaveDialogOptions({
+        title: "保存安装包",
+        defaultPath: join(app.getPath("downloads"), filename),
+      });
+      item.once("done", (_event, status) => resolve(status));
+    };
+    const timeout = setTimeout(() => {
+      cleanup();
+      reject(new Error("The installer download did not start."));
+    }, 30_000);
+    function cleanup() {
+      clearTimeout(timeout);
+      session.off("will-download", onDownload);
+    }
+    session.on("will-download", onDownload);
+    try {
+      contents.downloadURL(url);
+    } catch (error) {
+      cleanup();
+      reject(error);
+    }
+  });
+}
+
+function registerMacUpdate() {
+  const update = macAppUpdate({
+    version: app.getVersion(),
+    downloadInstaller: (url) => downloadInstaller(mainWindow?.webContents, url),
+    publishState(state) {
+      const contents = mainWindow?.webContents;
+      if (
+        contents &&
+        !contents.isDestroyed() &&
+        belongsToService(contents.getURL(), serviceUrl())
+      )
+        contents.send("app-update:state", state);
+    },
+  });
+  ipcMain.handle("app-update", (event, action) => {
+    if (
+      event.sender !== mainWindow?.webContents ||
+      event.senderFrame !== event.sender.mainFrame ||
+      !belongsToService(event.senderFrame?.url, serviceUrl())
+    )
+      throw new Error("Untrusted application update request.");
+    return update(action);
+  });
 }
 
 async function requirePort() {
@@ -88,49 +133,6 @@ function processResult(child) {
         signal: child.signalCode,
         error: null,
       });
-  });
-}
-
-async function registerMacUpdate() {
-  const { autoUpdater: updater } = (await import("electron-updater")).default;
-  const update = macAppUpdate(updater, autoUpdater, {
-    publishState(state) {
-      const contents = mainWindow?.webContents;
-      if (
-        contents &&
-        !contents.isDestroyed() &&
-        belongsToService(contents.getURL(), serviceUrl())
-      )
-        contents.send("app-update:state", state);
-    },
-    async confirmInstall() {
-      if (!mainWindow) return false;
-      const { response } = await dialog.showMessageBox(mainWindow, {
-        type: "question",
-        title: "应用更新",
-        message: "重启应用并安装新版？",
-        buttons: ["重启安装", "取消"],
-        defaultId: 1,
-        cancelId: 1,
-      });
-      return response === 0;
-    },
-    flushStorage() {
-      mainWindow?.webContents.session.flushStorageData();
-    },
-  });
-  ipcMain.handle("app-update", (event, action) => {
-    if (
-      event.sender !== mainWindow?.webContents ||
-      event.senderFrame !== event.sender.mainFrame ||
-      !belongsToService(event.senderFrame?.url, serviceUrl())
-    )
-      throw new Error("Untrusted application update request.");
-    return update(action);
-  });
-  autoUpdater.on("before-quit-for-update", () => {
-    stopping = true;
-    updateClosing = true;
   });
 }
 
@@ -267,7 +269,7 @@ async function createMainWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
-      ...(canUpdate
+      ...(canDownloadUpdate
         ? { preload: join(desktopDirectory, "src", "preload.cjs") }
         : {}),
     },
@@ -286,20 +288,6 @@ async function createMainWindow() {
   window.once("ready-to-show", () => window.show());
   let lastSize = bounds;
   window.on("close", (event) => {
-    if (updateClosing && localService) {
-      // 等旧进程释放端口，再让 macOS 关闭窗口并启动新版。
-      event.preventDefault();
-      if (!updateServiceStop) {
-        const { child, exited } = localService;
-        child.kill();
-        const timeout = setTimeout(() => child.kill("SIGKILL"), 10_000);
-        updateServiceStop = exited.then(() => {
-          clearTimeout(timeout);
-          if (!window.isDestroyed()) window.close();
-        });
-      }
-      return;
-    }
     const size = window.getNormalBounds();
     // 仅因小屏而缩小的窗口，不覆盖用户在大屏上选定的尺寸。
     if (size.width !== lastSize.width || size.height !== lastSize.height) {
@@ -356,9 +344,9 @@ if (!hasLock) {
   // 否则主模块和 ready 事件会互相等待，应用只能停留在启动状态。
   void app
     .whenReady()
-    .then(async () => {
+    .then(() => {
       console.info("Desktop application is ready.");
-      if (canUpdate) await registerMacUpdate();
+      if (canDownloadUpdate) registerMacUpdate();
       return openMainWindow();
     })
     .catch((error) => {

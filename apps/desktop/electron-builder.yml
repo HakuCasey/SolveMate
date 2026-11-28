@@ -24,8 +24,7 @@ extraResources:
 mac:
   category: public.app-category.education
   icon: assets/icon.icns
-  # 内部安装包使用临时签名，避免未签名应用停在 macOS 启动阶段。
-  # 正式发布时使用开发者证书替换该设置，并启用 hardened runtime 与公证。
+  # 为手动安装的 Mac 应用添加临时签名。
   identity: "-"
   hardenedRuntime: false
   publish: null

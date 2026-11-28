@@ -812,11 +812,6 @@ function Workspace({ content }: { content: OfficialContent }) {
     if (activeConversationId === id) setActiveConversationId(null);
   }
   function prepareReload() {
-    if (
-      window.solvemateAppUpdate &&
-      Object.values(ai.turns).some((turn) => turn.status === "running")
-    )
-      throw new Error("还有对话正在回复，请等回复结束后再安装更新。");
     const currentSaveState = readSaveState();
     if (
       (loadState === "ready" &&

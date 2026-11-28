@@ -8,22 +8,22 @@ export function applicationStatus(state: UpdateState, desktop = false) {
     idle: {
       label: "检查更新",
       status: "尚未检查",
-      action: "检查更新",
+      action: desktop ? "下载更新" : "检查更新",
     },
     checking: {
       label: "正在检查…",
       status: "正在检查更新",
       action: "正在检查…",
     },
-    available: {
-      label: "有新版",
-      status: "有新版可下载",
-      action: "下载更新",
-    },
     downloading: {
       label: "正在下载…",
       status: "正在下载新版",
       action: "正在下载…",
+    },
+    downloaded: {
+      label: "安装包已下载",
+      status: "安装包已下载，打开后即可安装",
+      action: "重新下载",
     },
     current: {
       label: "检查更新",
@@ -33,7 +33,7 @@ export function applicationStatus(state: UpdateState, desktop = false) {
     ready: {
       label: "新版就绪",
       status: "新版就绪",
-      action: desktop ? "重启安装" : "更新应用",
+      action: "更新应用",
     },
     reloading: {
       label: "正在更新…",

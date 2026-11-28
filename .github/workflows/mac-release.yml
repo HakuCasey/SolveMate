@@ -26,38 +26,17 @@ jobs:
       - run: |
           python -m pip install -r apps/server/requirements.lock -r apps/local/requirements.lock -r apps/desktop/requirements-build.lock
           python -m pip install --no-deps --no-build-isolation -e apps/local
-      - name: Build the signed macOS release
-        env:
-          CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+      - name: Build and verify the Mac installer
         run: |
-          : "${CSC_LINK:?Missing MAC_CSC_LINK}"
-          : "${CSC_KEY_PASSWORD:?Missing MAC_CSC_KEY_PASSWORD}"
-          : "${APPLE_ID:?Missing APPLE_ID}"
-          : "${APPLE_TEAM_ID:?Missing APPLE_TEAM_ID}"
-          : "${APPLE_APP_SPECIFIC_PASSWORD:?Missing APPLE_APP_SPECIFIC_PASSWORD}"
           version=$(node -p 'require("./apps/desktop/package.json").version')
           test "$GITHUB_REF_NAME" = "v$version"
-          npm run make --workspace @solvemate/desktop -- --config electron-builder.mac-release.yml --arm64 --publish never
-      - name: Verify and publish the Mac installer and update
+          npm run make --workspace @solvemate/desktop -- --arm64 --publish never
+          codesign --verify --deep --strict "apps/desktop/out/mac-arm64/SolveMate.app"
+          hdiutil verify "apps/desktop/out/SolveMate-${version}-arm64.dmg"
+      - name: Publish the Mac installer
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           version=$(node -p 'require("./apps/desktop/package.json").version')
-          output="apps/desktop/out"
-          application="$output/mac-arm64/SolveMate.app"
-          dmg="$output/SolveMate-${version}-arm64.dmg"
-          zip="$output/SolveMate-${version}-arm64.zip"
-          codesign --verify --deep --strict "$application"
-          codesign -dv --verbose=4 "$application" 2>&1 | grep '^Authority=Developer ID Application:'
-          xcrun stapler validate "$application"
-          hdiutil verify "$dmg"
-          unzip -tq "$zip"
-          test -s "$output/latest-mac.yml"
-          gh release create "$GITHUB_REF_NAME" "$dmg" "$zip" "$zip.blockmap" "$output/latest-mac.yml" \
-            --verify-tag --latest \
-            --title "SolveMate v${version}" \
-            --generate-notes
+          gh release create "$GITHUB_REF_NAME" "apps/desktop/out/SolveMate-${version}-arm64.dmg" \
+            --verify-tag --latest --title "SolveMate v${version}" --generate-notes
